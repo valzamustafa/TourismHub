@@ -1,0 +1,37 @@
+## .gitignore for .NET and Visual Studio
+
+# Visual Studio files
+.vs/
+*.vsidx
+*.vssdk
+*.vsp
+slnx.sqlite
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Bb]in/
+[Oo]bj/
+out/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# Output files
+*.exe
+*.dll
+*.pdb
+
+# Logs
+logs/
+*.log
+
+# Rider
+.idea/
+
+# macOS
+.DS_Store
+
+# Local history for Visual Studio
+.localhistory/
