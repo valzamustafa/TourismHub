@@ -1,4 +1,4 @@
-namespace TourismHub.Dtos.Activity
+namespace TourismHub.Application.Dtos.Activity
 {
     public class ActivityCreateDto
     {

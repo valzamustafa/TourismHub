@@ -1,6 +1,6 @@
 using System;
 
-namespace TourismHub.Entities
+namespace TourismHub.Domain.Entities
 {
     public class ActivityImage
     {

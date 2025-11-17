@@ -1,6 +1,5 @@
-using TourismHub.Enums;
-
-namespace TourismHub.Dtos.User
+using TourismHub.Domain.Enums;
+namespace TourismHub.Application.Dtos.User
 {
     public class UserViewDto
     {

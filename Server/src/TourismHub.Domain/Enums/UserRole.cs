@@ -1,4 +1,4 @@
-namespace TourismHub.Enums
+namespace TourismHub.Domain.Enums
 {
     public enum UserRole
     {

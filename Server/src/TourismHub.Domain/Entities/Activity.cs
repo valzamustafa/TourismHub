@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
-using TourismHub.Enums;
+using TourismHub.Domain.Enums;
+ 
 
-namespace TourismHub.Entities
+namespace TourismHub.Domain.Entities
 {
     public class Activity
     {
@@ -22,7 +23,8 @@ namespace TourismHub.Entities
      
         public User Provider { get; set; }=null!;
 
- public ICollection<Review> Reviews { get; set; }=new List<Review>();
-        public ICollection<ActivityImage> Images { get; set; }=new List<ActivityImage>();
+       public ICollection<Review> Reviews { get; set; }=new List<Review>();
+       public ICollection<Booking> Bookings { get; set; }=new List<Booking>();
+       public ICollection<ActivityImage> Images { get; set; }=new List<ActivityImage>();
     }
 }

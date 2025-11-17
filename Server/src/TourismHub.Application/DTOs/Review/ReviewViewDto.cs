@@ -1,4 +1,4 @@
-namespace TourismHub.Dtos.Review
+namespace TourismHub.Application.Dtos.Review
 {
     public class ReviewViewDto
     {
