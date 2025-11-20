@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TourismHub.Domain.Entities;
-
+using TourismHub.Application.DTOs.ActivityImage;
 [ApiController]
 [Route("api/[controller]")]
 public class ActivityImagesController : ControllerBase
@@ -40,7 +40,3 @@ public class ActivityImagesController : ControllerBase
     }
 }
 
-public record ActivityImageCreateDto(
-    Guid ActivityId,
-    string ImageUrl
-);

@@ -7,7 +7,7 @@ namespace TourismHub.Infrastructure.Repositories
 {
     public class UserRepository : IUserRepository
     {
-        private readonly TourismHubDb _context;
+        private readonly TourismHubDbContext _context;
 
         public UserRepository(TourismHubDbContext context)
         {
