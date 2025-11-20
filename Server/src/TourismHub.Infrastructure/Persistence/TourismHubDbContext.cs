@@ -1,4 +1,3 @@
-// Infrastructure/Persistence/TourismHubDbContext.cs
 using Microsoft.EntityFrameworkCore;
 using TourismHub.Domain.Entities;
 using TourismHub.Infrastructure.Persistence.Configurations;
@@ -21,6 +20,7 @@ namespace TourismHub.Infrastructure.Persistence
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.HasPostgresExtension("uuid-ossp");
             modelBuilder.ApplyConfiguration(new UserConfiguration());
             modelBuilder.ApplyConfiguration(new ActivityConfiguration());
             modelBuilder.ApplyConfiguration(new BookingConfiguration());

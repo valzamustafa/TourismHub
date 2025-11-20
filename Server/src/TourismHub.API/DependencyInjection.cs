@@ -10,10 +10,18 @@ namespace TourismHub.API
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
-            // Database
+          
             var connectionString = configuration.GetConnectionString("DefaultConnection");
+            
             services.AddDbContext<TourismHubDbContext>(options =>
-                options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+            {
+                options.UseNpgsql(connectionString);
+                
+                if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+                {
+                    options.EnableSensitiveDataLogging();
+                }
+            });
 
             // Repositories
             services.AddScoped<IUserRepository, UserRepository>();

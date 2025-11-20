@@ -2,14 +2,8 @@ using System.ComponentModel.DataAnnotations;
 
 namespace TourismHub.Application.Dtos.Booking
 {
-    public class BookingCreateDto
+    public class BookingUpdateDto
     {
-        [Required]
-        public Guid UserId { get; set; } 
-        
-        [Required]
-        public Guid ActivityId { get; set; }
-        
         [Required]
         public DateTime BookingDate { get; set; }
         
