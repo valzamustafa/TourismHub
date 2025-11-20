@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TourismHub.Domain.Entities;
 using TourismHub.Domain.Enums;
-
+using TourismHub.Application.DTOs.Activity;
 [ApiController]
 [Route("api/[controller]")]
 public class ActivitiesController : ControllerBase
@@ -61,14 +61,3 @@ public class ActivitiesController : ControllerBase
     }
 }
 
-public record ActivityCreateDto(
-    Guid ProviderId,
-    string Name,
-    string Description,
-    decimal Price,
-    int AvailableSlots,
-    string Location,
-    string Category
-);
-
-public record ActivityStatusUpdateDto(ActivityStatus Status);

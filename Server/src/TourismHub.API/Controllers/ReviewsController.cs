@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TourismHub.Domain.Entities;
-
+using TourismHub.Application.DTOs.Review;
 [ApiController]
 [Route("api/[controller]")]
 public class ReviewsController : ControllerBase
@@ -61,9 +61,3 @@ public class ReviewsController : ControllerBase
     }
 }
 
-public record ReviewCreateDto(
-    Guid ActivityId,
-    Guid UserId,
-    int Rating,
-    string Comment
-);

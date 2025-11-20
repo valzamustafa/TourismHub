@@ -1,6 +1,4 @@
-using TourismHub.Domain.Enums;
-
-namespace TourismHub.Application.Dtos.User
+namespace TourismHub.Application.DTOs.User
 {
     public class UserUpdateDto
     {

@@ -1,9 +1,9 @@
-namespace TourismHub.Application.Dtos.Review
+namespace TourismHub.Application.DTOs.Review
 {
-    public class ReviewCreateDto
-    {
-        public Guid ActivityId { get; set; }
-        public int Rating { get; set; } 
-        public required string Comment { get; set; }
-    }
+    public record ReviewCreateDto(
+        Guid ActivityId,
+        Guid UserId,
+        int Rating,
+        string Comment
+    );
 }
