@@ -17,10 +17,9 @@ namespace TourismHub.Infrastructure.Persistence.Configurations
                 .IsRequired()
                 .HasMaxLength(1000);
 
-          
-            builder.ToTable(t => t.HasCheckConstraint("CK_Review_Rating", "Rating BETWEEN 1 AND 5"));
+            builder.ToTable(t => t.HasCheckConstraint("CK_Review_Rating", "\"Rating\" BETWEEN 1 AND 5"));
 
-            
+            // Relationships
             builder.HasOne(r => r.User)
                 .WithMany(u => u.Reviews)
                 .HasForeignKey(r => r.UserId)
@@ -30,14 +29,6 @@ namespace TourismHub.Infrastructure.Persistence.Configurations
                 .WithMany(a => a.Reviews)
                 .HasForeignKey(r => r.ActivityId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            builder.Property(r => r.CreatedAt)
-                .IsRequired();
-
-       
-            builder.HasIndex(r => r.ActivityId);
-            builder.HasIndex(r => r.UserId);
-            builder.HasIndex(r => new { r.ActivityId, r.CreatedAt });
         }
     }
 }
