@@ -15,7 +15,7 @@ namespace TourismHub.Infrastructure.Persistence
         public DbSet<Review> Reviews => Set<Review>();
         public DbSet<ActivityImage> ActivityImages => Set<ActivityImage>();
         public DbSet<AdminLog> AdminLogs => Set<AdminLog>();
-
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
