@@ -100,49 +100,48 @@ namespace TourismHub.API.Controllers
         }
 
 
-        [HttpPost]
-        public async Task<IActionResult> CreateUser([FromBody] UserCreateDto createDto)
+[HttpPost]
+public async Task<IActionResult> CreateUser([FromBody] UserCreateDto createDto)
+{
+    try
+    {
+        if (!ModelState.IsValid)
         {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-          
-                var existingUser = await _userService.GetUserByEmailAsync(createDto.Email);
-                if (existingUser != null)
-                {
-                    return Conflict(new { message = "Email is already in use" });
-                }
-
-                var user = new User
-                {
-                    Id = Guid.NewGuid(),
-                    FullName = createDto.FullName,
-                    Email = createDto.Email,
-                    Password = BCrypt.Net.BCrypt.HashPassword(createDto.Password),
-                    Role = createDto.Role,
-                    ProfileImage = null, 
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                var createdUser = await _userService.CreateUserAsync(user);
-                
-                return CreatedAtAction(nameof(GetUserById), new { id = createdUser.Id }, createdUser);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Conflict(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "An error occurred while creating the user", error = ex.Message });
-            }
+            return BadRequest(ModelState);
         }
 
+  
+        var existingUser = await _userService.GetUserByEmailAsync(createDto.Email);
+        if (existingUser != null)
+        {
+            return Conflict(new { message = "Email is already in use" });
+        }
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            FullName = createDto.FullName,
+            Email = createDto.Email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(createDto.Password),
+            Role = createDto.Role,
+            ProfileImage = null, 
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await _userService.CreateUserAsync(user);
+        
+        return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Conflict(new { message = ex.Message });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { message = "An error occurred while creating the user", error = ex.Message });
+    }
+}
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UserUpdateDto updateDto)
@@ -182,31 +181,29 @@ namespace TourismHub.API.Controllers
         }
 
    
-        [HttpPatch("{id}/password")]
-        public async Task<IActionResult> UpdatePassword(Guid id, [FromBody] UpdatePasswordDto passwordDto)
+     [HttpPatch("{id}/password")]
+public async Task<IActionResult> UpdatePassword(Guid id, [FromBody] UpdatePasswordDto passwordDto)
+{
+    try
+    {
+        var existingUser = await _userService.GetUserByIdAsync(id);
+        if (existingUser == null)
         {
-            try
-            {
-                var existingUser = await _userService.GetUserByIdAsync(id);
-                if (existingUser == null)
-                {
-                    return NotFound(new { message = $"User with ID {id} not found" });
-                }
-
-                existingUser.Password = BCrypt.Net.BCrypt.HashPassword(passwordDto.NewPassword);
-                existingUser.UpdatedAt = DateTime.UtcNow;
-
-                await _userService.UpdateUserAsync(existingUser);
-
-                return Ok(new { message = "Password updated successfully" });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "An error occurred while updating the password", error = ex.Message });
-            }
+            return NotFound(new { message = $"User with ID {id} not found" });
         }
 
-     
+        existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(passwordDto.NewPassword); // Ndrysho këtu
+        existingUser.UpdatedAt = DateTime.UtcNow;
+
+        await _userService.UpdateUserAsync(existingUser);
+
+        return Ok(new { message = "Password updated successfully" });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { message = "An error occurred while updating the password", error = ex.Message });
+    }
+}
         [HttpPatch("{id}/role")]
         public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleDto roleDto)
         {

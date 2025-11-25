@@ -3,6 +3,10 @@ using TourismHub.Domain.Interfaces;
 using TourismHub.Infrastructure.Persistence;
 using TourismHub.Infrastructure.Repositories;
 using TourismHub.Application.Services;
+using TourismHub.Application.Interfaces.Services;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using TourismHub.Domain.Entities;
 
 namespace TourismHub.API
 {
@@ -10,6 +14,8 @@ namespace TourismHub.API
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
+         
+            services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
           
             var connectionString = configuration.GetConnectionString("DefaultConnection");
             
@@ -31,6 +37,7 @@ namespace TourismHub.API
             services.AddScoped<IReviewRepository, ReviewRepository>();
             services.AddScoped<IActivityImageRepository, ActivityImageRepository>();
             services.AddScoped<IAdminLogRepository, AdminLogRepository>();
+            services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>(); 
 
             // Services
             services.AddScoped<UserService>();
@@ -40,6 +47,11 @@ namespace TourismHub.API
             services.AddScoped<ReviewService>();
             services.AddScoped<ActivityImageService>();
             services.AddScoped<AdminLogService>();
+            
+        
+            services.AddScoped<ITokenService, TokenService>();
+            services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IPasswordHasher, PasswordHasher>();
 
             return services;
         }
