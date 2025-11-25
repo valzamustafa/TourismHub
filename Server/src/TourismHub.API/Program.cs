@@ -8,6 +8,8 @@ using TourismHub.Infrastructure;
 using TourismHub.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using TourismHub.Application.Services;
+using TourismHub.Infrastructure.Persistence.Seeders;
 
 try
 {
@@ -15,20 +17,21 @@ try
     
     var builder = WebApplication.CreateBuilder(args);
 
-
     builder.Logging.ClearProviders();
     builder.Logging.AddConsole();
     builder.Logging.AddDebug();
     builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
-  
     builder.WebHost.UseUrls("http://localhost:5224");
 
+    builder.Services.AddScoped<AuthService>();
+    builder.Services.AddScoped<TokenService>();
+    builder.Services.AddScoped<PasswordHasher>();
+    builder.Services.AddScoped<UserService>();
 
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
     
-  
     builder.Services.AddSwaggerGen(c =>
     {
         c.SwaggerDoc("v1", new OpenApiInfo 
@@ -38,7 +41,6 @@ try
             Description = "TourismHub API Documentation"
         });
         
-   
         c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
         {
             Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -118,21 +120,17 @@ try
     });
 
     Console.WriteLine("🔧 Adding Infrastructure...");
-
     builder.Services.AddInfrastructure(builder.Configuration);
 
     Console.WriteLine("📦 Adding Application Services...");
- 
     builder.Services.AddApplication();
 
     var app = builder.Build();
 
     Console.WriteLine("🔄 Configuring Middleware...");
     
-
     app.UseCors("AllowAll");
 
-   
     app.UseSwagger();
     app.UseSwaggerUI(c => 
     {
@@ -141,13 +139,9 @@ try
         c.DocumentTitle = "TourismHub API Documentation";
     });
 
-
     app.UseRouting();
-
-
     app.UseAuthentication();
     app.UseAuthorization();
-
 
     Console.WriteLine("🗄️ Applying database migrations...");
     using (var scope = app.Services.CreateScope())
@@ -157,6 +151,9 @@ try
             var context = scope.ServiceProvider.GetRequiredService<TourismHubDbContext>();
             await context.Database.MigrateAsync();
             Console.WriteLine("✅ Database migrations applied successfully!");
+
+            var adminSeedService = new AdminSeedService(context);
+            await adminSeedService.SeedAdminAsync();
         }
         catch (Exception ex)
         {
@@ -164,7 +161,6 @@ try
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
         }
     }
-
 
     app.Use(async (context, next) =>
     {
@@ -181,7 +177,6 @@ try
         }
     });
 
- 
     app.MapControllers();
 
     app.MapGet("/", () => "TourismHub API is running with PostgreSQL!");
