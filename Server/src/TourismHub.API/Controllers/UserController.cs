@@ -192,7 +192,8 @@ public async Task<IActionResult> UpdatePassword(Guid id, [FromBody] UpdatePasswo
             return NotFound(new { message = $"User with ID {id} not found" });
         }
 
-        existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(passwordDto.NewPassword); // Ndrysho këtu
+      
+        existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(passwordDto.NewPassword);
         existingUser.UpdatedAt = DateTime.UtcNow;
 
         await _userService.UpdateUserAsync(existingUser);

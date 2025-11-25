@@ -17,6 +17,34 @@ public class AuthController : ControllerBase
         _logger = logger;
     }
 
+    [HttpPost("register")]
+    public async Task<ActionResult<AuthResponseDto>> Register(RegisterRequestDto registerRequest)
+    {
+        try
+        {
+            _logger.LogInformation($"Registration attempt for email: {registerRequest.Email}");
+            
+            var ipAddress = GetIpAddress();
+            var result = await _authService.RegisterAsync(registerRequest, ipAddress);
+            
+            _logger.LogInformation($"Registration successful for: {registerRequest.Email}");
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning($"Registration failed - Conflict: {ex.Message}");
+            return Conflict(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error during registration for: {registerRequest.Email}");
+            return StatusCode(500, new { 
+                message = "Internal server error", 
+                error = ex.Message
+            });
+        }
+    }
+
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponseDto>> Login(LoginRequestDto loginRequest)
     {
