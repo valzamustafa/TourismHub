@@ -73,22 +73,26 @@ const LoginForm = () => {
 
       if (response.ok) {
         setMessage(`${isLogin ? 'Login' : 'Registration'} successful!`);
-        
-        if (responseData.accessToken) {
-          localStorage.setItem('token', responseData.accessToken);
-          localStorage.setItem('refreshToken', responseData.refreshToken);
-          localStorage.setItem('user', JSON.stringify({
-            id: responseData.userId,
-            name: responseData.fullName,
-            email: responseData.email,
-            role: responseData.role
-          }));
-          
-          setTimeout(() => {
-            window.location.href = '/dashboard';
-          }, 2000);
-        }
-      } else {
+
+if (responseData.accessToken) {
+  localStorage.setItem('token', responseData.accessToken);
+  localStorage.setItem('refreshToken', responseData.refreshToken);
+  localStorage.setItem('user', JSON.stringify({
+    id: responseData.userId,
+    name: responseData.fullName,
+    email: responseData.email,
+    role: responseData.role
+  }));
+  
+  setTimeout(() => {
+    if (responseData.role === 'Admin') {
+      window.location.href = '/admin';
+    } else {
+      window.location.href = '/dashboard';
+    }
+  }, 1000);
+}
+} else {
         setMessage(responseData.message || `HTTP Error: ${response.status}`);
       }
     } catch (error) {
