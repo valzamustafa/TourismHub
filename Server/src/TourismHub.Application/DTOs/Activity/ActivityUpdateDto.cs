@@ -1,4 +1,4 @@
-namespace TourismHub.Application.Dtos.Activity
+namespace TourismHub.Application.DTOs.Activity
 {
     public class ActivityUpdateDto
     {

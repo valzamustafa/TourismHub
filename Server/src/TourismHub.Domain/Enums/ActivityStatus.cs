@@ -2,8 +2,10 @@ namespace TourismHub.Domain.Enums
 {
     public enum ActivityStatus
     {
-        Pending,
-        Approved,
-        Rejected
+        Pending,    
+        Active,    
+        Inactive,  
+        Rejected,  
+        Completed  
     }
 }

@@ -1,63 +1,144 @@
 using Microsoft.AspNetCore.Mvc;
+using TourismHub.Application.Services;
 using TourismHub.Domain.Entities;
-using TourismHub.Domain.Enums;
 using TourismHub.Application.DTOs.Activity;
+using TourismHub.Domain.Enums; 
+
 [ApiController]
 [Route("api/[controller]")]
 public class ActivitiesController : ControllerBase
 {
-    private static readonly List<Activity> _activities = new();
+    private readonly ActivityService _activityService;
 
-    [HttpGet]
-    public IActionResult GetActivities([FromQuery] ActivityStatus? status = null)
+    public ActivitiesController(ActivityService activityService)
     {
-        var activities = _activities;
-        if (status.HasValue)
-            activities = activities.Where(a => a.Status == status.Value).ToList();
-        
-        return Ok(activities);
+        _activityService = activityService;
     }
 
-    [HttpGet("{id}")]
-    public IActionResult GetActivity(Guid id)
+    [HttpGet("provider/{providerId}")]
+    public async Task<IActionResult> GetActivitiesByProvider(Guid providerId)
     {
-        var activity = _activities.FirstOrDefault(a => a.Id == id);
-        if (activity == null) return NotFound();
-        return Ok(activity);
+        try
+        {
+            var activities = await _activityService.GetActivitiesByProviderAsync(providerId);
+            return Ok(activities);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred while retrieving activities", error = ex.Message });
+        }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAllActivities()
+    {
+        try
+        {
+            var activities = await _activityService.GetAllActivitiesAsync();
+            return Ok(activities);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred while retrieving activities", error = ex.Message });
+        }
+    }
+
+ 
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetActivityById(Guid id)
+    {
+        try
+        {
+            var activity = await _activityService.GetActivityByIdAsync(id);
+            if (activity == null)
+                return NotFound(new { message = "Activity not found" });
+
+            return Ok(activity);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred while retrieving the activity", error = ex.Message });
+        }
     }
 
     [HttpPost]
-    public IActionResult CreateActivity([FromBody] ActivityCreateDto dto)
+    public async Task<IActionResult> CreateActivity([FromBody] ActivityCreateDto createDto)
     {
-        var activity = new Activity
+        try
         {
-            Id = Guid.NewGuid(),
-            ProviderId = dto.ProviderId,
-            Name = dto.Name,
-            Description = dto.Description,
-            Price = dto.Price,
-            AvailableSlots = dto.AvailableSlots,
-            Location = dto.Location,
-            Category = dto.Category,
-            Status = ActivityStatus.Pending,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        
-        _activities.Add(activity);
-        return CreatedAtAction(nameof(GetActivity), new { id = activity.Id }, activity);
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var activity = new Activity
+            {
+                Id = Guid.NewGuid(),
+                ProviderId = createDto.ProviderId,
+                Name = createDto.Name,
+                Description = createDto.Description,
+                Price = createDto.Price,
+                AvailableSlots = createDto.AvailableSlots,
+                Location = createDto.Location,
+                Category = createDto.Category,
+                Status = ActivityStatus.Active, 
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var createdActivity = await _activityService.CreateActivityAsync(activity);
+            return CreatedAtAction(nameof(GetActivityById), new { id = createdActivity.Id }, createdActivity);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred while creating the activity", error = ex.Message });
+        }
     }
 
-    [HttpPut("{id}/status")]
-    public IActionResult UpdateActivityStatus(Guid id, [FromBody] ActivityStatusUpdateDto dto)
+  
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateActivity(Guid id, [FromBody] ActivityUpdateDto updateDto)
     {
-        var activity = _activities.FirstOrDefault(a => a.Id == id);
-        if (activity == null) return NotFound();
-        
-        activity.Status = dto.Status;
-        activity.UpdatedAt = DateTime.UtcNow;
-        
-        return Ok(activity);
+        try
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var existingActivity = await _activityService.GetActivityByIdAsync(id);
+            if (existingActivity == null)
+                return NotFound(new { message = "Activity not found" });
+
+            existingActivity.Name = updateDto.Name;
+            existingActivity.Description = updateDto.Description;
+            existingActivity.Price = updateDto.Price;
+            existingActivity.AvailableSlots = updateDto.AvailableSlots;
+            existingActivity.Location = updateDto.Location;
+            existingActivity.Category = updateDto.Category;
+            existingActivity.UpdatedAt = DateTime.UtcNow;
+
+            await _activityService.UpdateActivityAsync(existingActivity);
+            return Ok(existingActivity);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred while updating the activity", error = ex.Message });
+        }
+    }
+
+ 
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteActivity(Guid id)
+    {
+        try
+        {
+            var existingActivity = await _activityService.GetActivityByIdAsync(id);
+            if (existingActivity == null)
+                return NotFound(new { message = "Activity not found" });
+
+            await _activityService.DeleteActivityAsync(id);
+            return Ok(new { message = "Activity deleted successfully" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred while deleting the activity", error = ex.Message });
+        }
     }
 }
-
