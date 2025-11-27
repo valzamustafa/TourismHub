@@ -1,20 +1,10 @@
-using System.ComponentModel.DataAnnotations;
-
-namespace TourismHub.Application.Dtos.Booking
+namespace TourismHub.Application.DTOs.Booking
 {
     public class BookingCreateDto
     {
-        [Required]
-        public Guid UserId { get; set; } 
-        
-        [Required]
+        public Guid UserId { get; set; }
         public Guid ActivityId { get; set; }
-        
-        [Required]
         public DateTime BookingDate { get; set; }
-        
-        [Required]
-        [Range(1, 50, ErrorMessage = "Number of people must be between 1 and 50")]
         public int NumberOfPeople { get; set; }
     }
 }
