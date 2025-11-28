@@ -1,20 +1,21 @@
 using Microsoft.AspNetCore.Mvc;
-using TourismHub.Application.Services;
+using TourismHub.Application.Services; // Add this
 using TourismHub.Domain.Entities;
 using TourismHub.Application.DTOs.Activity;
 using TourismHub.Domain.Enums; 
 
-[ApiController]
-[Route("api/[controller]")]
-public class ActivitiesController : ControllerBase
+namespace TourismHub.API.Controllers // Add namespace
 {
-    private readonly ActivityService _activityService;
-
-    public ActivitiesController(ActivityService activityService)
+    [ApiController]
+    [Route("api/[controller]")]
+    public class ActivitiesController : ControllerBase
     {
-        _activityService = activityService;
-    }
+        private readonly ActivityService _activityService;
 
+        public ActivitiesController(ActivityService activityService)
+        {
+            _activityService = activityService;
+        }
     [HttpGet("provider/{providerId}")]
     public async Task<IActionResult> GetActivitiesByProvider(Guid providerId)
     {
@@ -78,7 +79,7 @@ public class ActivitiesController : ControllerBase
                 Price = createDto.Price,
                 AvailableSlots = createDto.AvailableSlots,
                 Location = createDto.Location,
-                Category = createDto.Category,
+                CategoryId = createDto.CategoryId,
                 Status = ActivityStatus.Active, 
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -111,7 +112,7 @@ public class ActivitiesController : ControllerBase
             existingActivity.Price = updateDto.Price;
             existingActivity.AvailableSlots = updateDto.AvailableSlots;
             existingActivity.Location = updateDto.Location;
-            existingActivity.Category = updateDto.Category;
+            existingActivity.CategoryId = updateDto.CategoryId;
             existingActivity.UpdatedAt = DateTime.UtcNow;
 
             await _activityService.UpdateActivityAsync(existingActivity);
@@ -122,7 +123,19 @@ public class ActivitiesController : ControllerBase
             return StatusCode(500, new { message = "An error occurred while updating the activity", error = ex.Message });
         }
     }
-
+[HttpGet("category/{categoryId}")]
+public async Task<IActionResult> GetActivitiesByCategory(Guid categoryId)
+{
+    try
+    {
+        var activities = await _activityService.GetActivitiesByCategoryAsync(categoryId);
+        return Ok(activities);
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { message = "An error occurred while retrieving activities", error = ex.Message });
+    }
+}
  
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteActivity(Guid id)
@@ -141,4 +154,5 @@ public class ActivitiesController : ControllerBase
             return StatusCode(500, new { message = "An error occurred while deleting the activity", error = ex.Message });
         }
     }
+}
 }

@@ -1,6 +1,6 @@
 using TourismHub.Domain.Entities;
-using TourismHub.Domain.Enums;
 using TourismHub.Domain.Interfaces;
+using TourismHub.Domain.Enums;
 
 namespace TourismHub.Application.Services
 {
@@ -13,9 +13,9 @@ namespace TourismHub.Application.Services
             _activityRepository = activityRepository;
         }
 
-        public async Task<Activity?> GetActivityByIdAsync(Guid id)
+        public async Task<List<Activity>> GetActivitiesByProviderAsync(Guid providerId)
         {
-            return await _activityRepository.GetByIdAsync(id);
+            return await _activityRepository.GetByProviderIdAsync(providerId);
         }
 
         public async Task<List<Activity>> GetAllActivitiesAsync()
@@ -23,19 +23,14 @@ namespace TourismHub.Application.Services
             return await _activityRepository.GetAllAsync();
         }
 
-        public async Task<List<Activity>> GetActivitiesByStatusAsync(ActivityStatus status)
+        public async Task<Activity?> GetActivityByIdAsync(Guid id)
         {
-            return await _activityRepository.GetByStatusAsync(status);
+            return await _activityRepository.GetByIdAsync(id);
         }
 
-        public async Task<List<Activity>> GetActivitiesByProviderAsync(Guid providerId)
+        public async Task<List<Activity>> GetActivitiesByCategoryAsync(Guid categoryId)
         {
-            return await _activityRepository.GetByProviderIdAsync(providerId);
-        }
-
-        public async Task<List<Activity>> GetActivitiesByCategoryAsync(string category)
-        {
-            return await _activityRepository.GetByCategoryAsync(category);
+            return await _activityRepository.GetByCategoryAsync(categoryId);
         }
 
         public async Task<Activity> CreateActivityAsync(Activity activity)
@@ -57,17 +52,6 @@ namespace TourismHub.Application.Services
             if (activity != null)
             {
                 _activityRepository.Delete(activity);
-                await _activityRepository.SaveChangesAsync();
-            }
-        }
-
-        public async Task UpdateActivityStatusAsync(Guid id, ActivityStatus status)
-        {
-            var activity = await _activityRepository.GetByIdAsync(id);
-            if (activity != null)
-            {
-                activity.Status = status;
-                _activityRepository.Update(activity);
                 await _activityRepository.SaveChangesAsync();
             }
         }

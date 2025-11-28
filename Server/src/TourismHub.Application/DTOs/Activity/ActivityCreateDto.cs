@@ -8,6 +8,6 @@ namespace TourismHub.Application.DTOs.Activity
         public decimal Price { get; set; }
         public int AvailableSlots { get; set; }
         public required string Location { get; set; }
-        public required string Category { get; set; }
+         public Guid CategoryId { get; set; } 
     }
 }

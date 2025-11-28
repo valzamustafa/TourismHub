@@ -14,7 +14,8 @@ namespace TourismHub.Domain.Entities
         public decimal Price { get; set; }
         public int AvailableSlots { get; set; }
         public required string Location { get; set; }
-        public required string Category { get; set; }
+         public Guid CategoryId { get; set; }
+        public Category Category { get; set; } = null!;
         public ActivityStatus Status { get; set; } = ActivityStatus.Pending;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

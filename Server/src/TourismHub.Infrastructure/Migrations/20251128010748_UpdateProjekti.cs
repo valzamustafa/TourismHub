@@ -5,7 +5,7 @@
 namespace TourismHub.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class SeedAdminPostgreSQL : Migration
+    public partial class UpdateProjekti : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

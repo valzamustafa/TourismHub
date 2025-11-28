@@ -1,12 +1,12 @@
-// app/layout.tsx
-import './globals.css';
+// app/booking/layout.tsx
+import '../globals.css';
 
 export const metadata = {
-  title: 'TourismHub',
-  description: 'Tourism Hub Application',
+  title: 'TourismHub - Booking',
+  description: 'Book your activity',
 };
 
-export default function RootLayout({
+export default function BookingLayout({
   children,
 }: {
   children: React.ReactNode;

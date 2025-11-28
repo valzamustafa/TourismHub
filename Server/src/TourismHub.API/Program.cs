@@ -24,6 +24,9 @@ try
 
     builder.WebHost.UseUrls("http://localhost:5224");
 
+
+    builder.Services.AddScoped<CategoryService>();
+    
     builder.Services.AddScoped<AuthService>();
     builder.Services.AddScoped<TokenService>();
     builder.Services.AddScoped<PasswordHasher>();

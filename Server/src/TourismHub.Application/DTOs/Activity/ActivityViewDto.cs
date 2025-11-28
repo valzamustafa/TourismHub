@@ -1,4 +1,4 @@
-namespace TourismHub.Application.Dtos.Activity
+namespace TourismHub.Application.DTOs.Activity
 {
     public class ActivityViewDto
     {
@@ -8,7 +8,7 @@ namespace TourismHub.Application.Dtos.Activity
         public decimal Price { get; set; }
         public int AvailableSlots { get; set; }
         public required string Location { get; set; }
-        public required string Category { get; set; }
+         public Guid CategoryId { get; set; } 
         public required string ProviderName { get; set; }
     }
 }
