@@ -47,15 +47,15 @@ namespace TourismHub.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<Activity>> GetByCategoryAsync(string category)
-        {
-            return await _context.Activities
-                .Where(a => a.Category == category)
-                .Include(a => a.Provider)
-                .Include(a => a.Images)
-                .ToListAsync();
-        }
-
+       public async Task<List<Activity>> GetByCategoryAsync(Guid categoryId)
+{
+    return await _context.Activities
+        .Where(a => a.CategoryId == categoryId)
+        .Include(a => a.Provider)
+        .Include(a => a.Images)
+        .Include(a => a.Category) 
+        .ToListAsync();
+}
         public async Task AddAsync(Activity activity)
         {
             await _context.Activities.AddAsync(activity);

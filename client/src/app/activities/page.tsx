@@ -1,241 +1,280 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
-interface Activity {
+interface Category {
   id: string;
   name: string;
   description: string;
-  price: number;
-  availableSlots: number;
-  location: string;
-  category: string;
-  providerName: string;
-  images: string[];
-  duration: string;
-  included: string[];
-  rating: number;
-  reviews: number;
+  imageUrl: string;
   featured: boolean;
 }
 
-const mockActivities: Activity[] = [
-  {
-    id: '1',
-    name: 'Switzerland Alps Adventure',
-    description: 'Experience breathtaking lakes and snowy peaks with a real Swiss guide.',
-    price: 299,
-    availableSlots: 6,
-    location: 'Saint Antonien, Switzerland',
-    category: 'Mountain Adventure',
-    providerName: 'Alpine Explorers',
-    images: ['/images/swiss-alps.jpg'],
-    duration: '2 days',
-    included: ['Guide', 'Hotel', 'Food', 'Transport'],
-    rating: 4.9,
-    reviews: 234,
-    featured: true
-  },
-  {
-    id: '2',
-    name: 'Sahara Desert Expedition',
-    description: 'Camel trekking, Berber culture, and magical night skies.',
-    price: 189,
-    availableSlots: 8,
-    location: 'Merzouga, Morocco',
-    category: 'Desert Safari',
-    providerName: 'Desert Dreams',
-    images: ['/images/sahara-desert.jpg'],
-    duration: '3 days',
-    included: ['Camel trek', 'Camp', 'Meals', 'Guide'],
-    rating: 4.8,
-    reviews: 167,
-    featured: true
-  },
-  {
-    id: '3',
-    name: 'National Park Hiking',
-    description: 'Explore untouched nature with expert guides.',
-    price: 89,
-    availableSlots: 12,
-    location: 'National Park',
-    category: 'Nature Walk',
-    providerName: 'Nature Guides',
-    images: ['/images/italian-mountains.jpg'],
-    duration: '6 hours',
-    included: ['Guide', 'Lunch', 'Fees'],
-    rating: 4.7,
-    reviews: 89,
-    featured: true
-  }
-];
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
 
 export default function ActivitiesPage() {
-  const [activities] = useState<Activity[]>(mockActivities);
-  const featuredActivities = useMemo(
-    () => activities.filter(a => a.featured),
-    [activities]
-  );
-
-  const [current, setCurrent] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [currentBackground, setCurrentBackground] = useState<string>('/images/landscape-hero.jpg');
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+  const sliderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (paused) return;
-    const id = setInterval(() => {
-      setCurrent(prev => (prev + 1) % featuredActivities.length);
-    }, 4500);
-    return () => clearInterval(id);
-  }, [featuredActivities.length, paused]);
+    fetchCategories();
+  }, []);
 
-  const prev = () =>
-    setCurrent(prev => (prev - 1 + featuredActivities.length) % featuredActivities.length);
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/categories`);
+      if (!response.ok) throw new Error('Failed to fetch categories');
+      const data = await response.json();
+      setCategories(data);
+      if (data.length > 0) {
+        setSelectedCategory(data[0]);
+ 
+        setCurrentBackground(data[0].imageUrl || '/images/landscape-hero.jpg');
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const next = () =>
-    setCurrent(prev => (prev + 1) % featuredActivities.length);
+  const checkScrollButtons = () => {
+    if (sliderRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = sliderRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  const scrollLeft = () => {
+    if (sliderRef.current) {
+      sliderRef.current.scrollBy({ left: -400, behavior: 'smooth' });
+    }
+  };
+
+  const scrollRight = () => {
+    if (sliderRef.current) {
+      sliderRef.current.scrollBy({ left: 400, behavior: 'smooth' });
+    }
+  };
+
+  const handleCategoryClick = (category: Category) => {
+    setSelectedCategory(category);
+    
+    setCurrentBackground(category.imageUrl || '/images/default-category.jpg');
+  };
+
+ 
+  useEffect(() => {
+    const slider = sliderRef.current;
+    if (slider) {
+      slider.addEventListener('scroll', checkScrollButtons);
+      checkScrollButtons();
+    }
+    return () => {
+      if (slider) {
+        slider.removeEventListener('scroll', checkScrollButtons);
+      }
+    };
+  }, [categories]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
-    
       <section className="relative w-full h-screen overflow-hidden">
+       
         <img
-          src="/images/landscape-hero.jpg"
-          className="absolute inset-0 w-full h-full object-cover"
+          src={currentBackground}
+          className="absolute inset-0 w-full h-full object-cover transition-all duration-1000 ease-in-out"
+          alt="Category background"
         />
-
-        <div className="absolute inset-0 bg-black/40"></div>
+        <div className="absolute inset-0 bg-black/40 transition-all duration-700"></div>
 
         <div className="relative z-20 h-full max-w-7xl mx-auto px-6 flex items-center gap-12">
-
-   
+          {/* Left Content */}
           <div className="w-full md:w-1/2 text-white animate-fadeIn">
-            <p className="uppercase tracking-widest text-sm text-white/70 mb-4">
-              Landscape
-            </p>
             <h2 className="text-6xl font-bold leading-tight mb-6">
-              ITALIAN <br /> MOUNTAINS
+              EXPLORE <br /> CATEGORIES
             </h2>
+            
+            
+            {selectedCategory && (
+              <div className="mb-8">
+                <h3 className="text-6xl font-black mb-6 text-transparent bg-clip-text bg-gradient-to-r from-white via-yellow-200 to-white drop-shadow-2xl [text-shadow:_0_4px_8px_rgba(0,0,0,0.8)] animate-pulse-slow">
+                  {selectedCategory.name}
+                </h3>
+                {selectedCategory.featured && (
+                  <span className="inline-flex items-center bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-8 py-4 rounded-full text-xl font-bold shadow-2xl mt-6 border-2 border-yellow-300">
+                    ⭐ Featured Category
+                  </span>
+                )}
+              </div>
+            )}
 
-            <p className="text-lg text-white/90 mb-8 max-w-xl">
-              Explore breathtaking mountain landscapes with real professional guides.
-            </p>
-
-            <div className="flex items-center gap-4">
-              <button className="bg-white text-black px-8 py-3 rounded-full font-medium hover:bg-gray-200 transition">
-                Explore Full Gallery
-              </button>
-
-              <button
-                className="border border-white/50 px-6 py-3 rounded-full hover:bg-white/10"
-                onClick={() => setPaused(p => !p)}
-              >
-                {paused ? 'Play' : 'Pause'}
-              </button>
-            </div>
-
-    
-            <div className="mt-10 w-64 h-1 bg-white/20 rounded-full overflow-hidden">
-              <div
-                className="h-1 bg-white transition-all duration-500"
-                style={{
-                  width: `${((current + 1) / featuredActivities.length) * 100}%`
-                }}
-              />
+            <div className="flex items-center gap-4 text-white/80 mt-16">
+              <span className="text-2xl font-semibold [text-shadow:_0_2px_4px_rgba(0,0,0,0.7)] bg-gradient-to-r from-white to-yellow-200 bg-clip-text text-transparent">
+                ✨ {categories.length} amazing categories available
+              </span>
             </div>
           </div>
 
-
-          <div
-            className="hidden md:flex md:w-1/2 h-[450px] relative items-center overflow-hidden rounded-3xl"
-            onMouseEnter={() => setPaused(true)}
-            onMouseLeave={() => setPaused(false)}
-          >
+         
+          <div className="w-full md:w-1/2 h-[500px] relative">
      
-            <div
-              className="flex transition-transform duration-700 ease-in-out"
-              style={{
-                transform: `translateX(-${current * 100}%)`,
-                width: `${featuredActivities.length * 100}%`
-              }}
+            <button
+              onClick={scrollLeft}
+              disabled={!canScrollLeft}
+              className={`absolute left-4 top-1/2 -translate-y-1/2 z-20 p-4 rounded-full shadow-2xl transition-all duration-300 ${
+                canScrollLeft 
+                  ? 'bg-white/90 hover:bg-white text-gray-800 hover:scale-110 cursor-pointer' 
+                  : 'bg-white/50 text-gray-400 cursor-not-allowed'
+              }`}
             >
-              {featuredActivities.map(a => (
-                <div
-                  key={a.id}
-                  className="w-full px-3 flex-shrink-0"
-                >
-                  <div className="bg-white rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-1">
-                    <div className="relative group">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            {/* Slider Container */}
+            <div className="relative h-full flex items-center">
+            
+              <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-black/50 to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-black/50 to-transparent z-10 pointer-events-none" />
+
+              {/* Slider */}
+              <div
+                ref={sliderRef}
+                className="flex gap-8 overflow-x-auto scrollbar-hide py-8 px-12 snap-x snap-mandatory"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {categories.map((category, index) => (
+                  <div
+                    key={category.id}
+                    onClick={() => handleCategoryClick(category)}
+                    className={`flex-shrink-0 w-80 cursor-pointer rounded-3xl overflow-hidden transition-all duration-500 transform snap-center ${
+                      selectedCategory?.id === category.id
+                        ? 'scale-105 shadow-2xl ring-4 ring-yellow-400'
+                        : 'scale-95 shadow-xl hover:scale-100'
+                    }`}
+                  >
+                    <div className="relative h-48 group">
                       <img
-                        src={a.images[0]}
-                        className="w-full h-72 object-cover transition-transform duration-700 group-hover:scale-110"
+                        src={category.imageUrl || '/images/default-category.jpg'}
+                        alt={category.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                       />
-
-                      <span className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded-full text-xs">
-                        ★ {a.rating} ({a.reviews})
-                      </span>
+                      
+                 
+                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-all duration-300" />
+                      
+                  
+                      {category.featured && (
+                        <span className="absolute top-4 right-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-3 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm">
+                          ⭐ Featured
+                        </span>
+                      )}
+                      
+                      <div className="absolute top-4 left-4 bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold backdrop-blur-sm">
+                        {index + 1}
+                      </div>
                     </div>
-
-                    <div className="p-6">
-                      <h3 className="text-xl font-bold">{a.name}</h3>
-                      <p className="text-gray-600 text-sm mt-1 line-clamp-2">
-                        {a.description}
+                    
+                    <div className="p-6 bg-white">
+                      <h3 className={`text-xl font-bold mb-2 ${
+                        selectedCategory?.id === category.id ? 'text-yellow-600' : 'text-gray-800'
+                      }`}>
+                        {category.name}
+                      </h3>
+                      <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">
+                        {category.description}
                       </p>
-
-                
-                      <div className="mt-4 flex items-center justify-between text-sm text-gray-700">
-                        <span>📍 {a.location}</span>
-                        <span>⏳ {a.duration}</span>
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {a.included.slice(0, 3).map((inc, i) => (
-                          <span
-                            key={i}
-                            className="bg-gray-100 px-3 py-1 rounded-full text-xs"
-                          >
-                            {inc}
-                          </span>
-                        ))}
-                      </div>
-
-                      <button className="w-full mt-5 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold transition">
-                        Book Now • ${a.price}
-                      </button>
+                      
+             
+                      {selectedCategory?.id === category.id && (
+                        <div className="mt-3 flex items-center justify-center">
+                          <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
+                          <span className="ml-2 text-xs text-yellow-600 font-semibold">Selected</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-         
+            {/* Arrow Right */}
             <button
-              onClick={prev}
-              className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow"
+              onClick={scrollRight}
+              disabled={!canScrollRight}
+              className={`absolute right-4 top-1/2 -translate-y-1/2 z-20 p-4 rounded-full shadow-2xl transition-all duration-300 ${
+                canScrollRight 
+                  ? 'bg-white/90 hover:bg-white text-gray-800 hover:scale-110 cursor-pointer' 
+                  : 'bg-white/50 text-gray-400 cursor-not-allowed'
+              }`}
             >
-              ◀
-            </button>
-            <button
-              onClick={next}
-              className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow"
-            >
-              ▶
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </button>
 
-     
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-              {featuredActivities.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrent(i)}
-                  className={`w-3 h-3 rounded-full transition ${
-                    i === current ? 'bg-white' : 'bg-white/40'
+            {/* Scroll Indicators */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+              {categories.map((_, index) => (
+                <div
+                  key={index}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    selectedCategory?.id === categories[index]?.id 
+                      ? 'bg-yellow-400 w-6' 
+                      : 'bg-white/50'
                   }`}
                 />
               ))}
             </div>
           </div>
         </div>
+
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 mix-blend-overlay" />
       </section>
+
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.9; }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 1s ease-out;
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 3s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }

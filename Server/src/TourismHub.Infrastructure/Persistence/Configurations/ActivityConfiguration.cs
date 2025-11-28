@@ -27,15 +27,17 @@ namespace TourismHub.Infrastructure.Persistence.Configurations
                 .IsRequired()
                 .HasMaxLength(255);
 
-            builder.Property(a => a.Category)
-                .IsRequired()
-                .HasMaxLength(100);
 
             builder.Property(a => a.Status)
                 .IsRequired()
                 .HasConversion<string>();
 
-      
+       
+            builder.HasOne(a => a.Category)
+                .WithMany(c => c.Activities)
+                .HasForeignKey(a => a.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             builder.HasOne(a => a.Provider)
                 .WithMany(u => u.Activities)
                 .HasForeignKey(a => a.ProviderId)
