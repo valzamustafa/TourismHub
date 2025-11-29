@@ -15,6 +15,11 @@ namespace TourismHub.Application.Services
             _activityRepository = activityRepository;
         }
 
+        public async Task<List<Booking>> GetAllBookingsWithDetailsAsync()
+        {
+            return await _bookingRepository.GetAllWithDetailsAsync();
+        }
+
         public async Task<Booking?> GetBookingByIdAsync(Guid id)
         {
             return await _bookingRepository.GetByIdAsync(id);

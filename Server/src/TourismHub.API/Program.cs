@@ -10,7 +10,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using TourismHub.Application.Services;
 using TourismHub.Infrastructure.Persistence.Seeders;
-
+using TourismHub.Domain.Interfaces;
+using TourismHub.Infrastructure.Repositories;
+using Microsoft.AspNetCore.Http.Features; 
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 try
 {
     Console.WriteLine("🚀 Starting TourismHub API...");
@@ -24,17 +27,42 @@ try
 
     builder.WebHost.UseUrls("http://localhost:5224");
 
-
-    builder.Services.AddScoped<CategoryService>();
+    builder.Services.AddScoped<IActivityRepository, ActivityRepository>();
+    builder.Services.AddScoped<IActivityImageRepository, ActivityImageRepository>(); 
     
+
+    builder.Services.AddScoped<ActivityImageService>();
+    builder.Services.AddScoped<ImageUploadService>();
+    
+    builder.Services.AddScoped<CategoryService>();
+    builder.Services.AddScoped<ActivityService>();
     builder.Services.AddScoped<AuthService>();
     builder.Services.AddScoped<TokenService>();
     builder.Services.AddScoped<PasswordHasher>();
     builder.Services.AddScoped<UserService>();
 
-    builder.Services.AddControllers();
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        });
+    
     builder.Services.AddEndpointsApiExplorer();
     
+    builder.Services.Configure<IISServerOptions>(options =>
+    {
+        options.MaxRequestBodySize = 50 * 1024 * 1024; 
+    });
+
+    builder.Services.Configure<FormOptions>(options =>
+    {
+        options.MultipartBodyLengthLimit = 50 * 1024 * 1024; 
+        options.ValueLengthLimit = int.MaxValue;
+        options.MultipartBoundaryLengthLimit = int.MaxValue;
+        options.MultipartHeadersCountLimit = int.MaxValue;
+        options.MultipartHeadersLengthLimit = int.MaxValue;
+    });
+
     builder.Services.AddSwaggerGen(c =>
     {
         c.SwaggerDoc("v1", new OpenApiInfo 
@@ -134,6 +162,8 @@ try
     
     app.UseCors("AllowAll");
 
+    app.UseStaticFiles();
+
     app.UseSwagger();
     app.UseSwaggerUI(c => 
     {
@@ -165,6 +195,20 @@ try
         }
     }
 
+    var webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+    if (!Directory.Exists(webRootPath))
+    {
+        Directory.CreateDirectory(webRootPath);
+        Console.WriteLine($"✅ Created wwwroot directory: {webRootPath}");
+    }
+
+    var uploadsPath = Path.Combine(webRootPath, "uploads", "activity-images");
+    if (!Directory.Exists(uploadsPath))
+    {
+        Directory.CreateDirectory(uploadsPath);
+        Console.WriteLine($"✅ Created uploads directory: {uploadsPath}");
+    }
+
     app.Use(async (context, next) =>
     {
         try
@@ -191,6 +235,7 @@ try
 
     Console.WriteLine("🎉 TourismHub API is running on http://localhost:5224");
     Console.WriteLine("📚 Swagger available at http://localhost:5224/swagger");
+    Console.WriteLine("📁 File uploads enabled at /uploads/");
     Console.WriteLine("🛑 Press Ctrl+C to stop the application");
 
     app.Run();

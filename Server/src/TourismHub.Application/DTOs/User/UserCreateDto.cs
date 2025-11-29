@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using TourismHub.Domain.Enums;
 
 namespace TourismHub.Application.DTOs.User
@@ -7,6 +8,8 @@ namespace TourismHub.Application.DTOs.User
         public required string FullName { get; set; }
         public required string Email { get; set; }
         public required string Password { get; set; }
-        public UserRole Role { get; set; }
+        
+        // Përdor string në vend të UserRole enum
+        public required string Role { get; set; }
     }
 }

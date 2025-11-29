@@ -26,6 +26,11 @@ namespace TourismHub.Infrastructure.Repositories
 
         public async Task<List<Booking>> GetAllAsync()
         {
+            return await _context.Bookings.ToListAsync();
+        }
+
+        public async Task<List<Booking>> GetAllWithDetailsAsync()
+        {
             return await _context.Bookings
                 .Include(b => b.User)
                 .Include(b => b.Activity)

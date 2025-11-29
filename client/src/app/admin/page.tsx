@@ -18,7 +18,6 @@ export default function AdminPage() {
   const router = useRouter();
 
   useEffect(() => {
- 
     const userData = localStorage.getItem('user');
     const token = localStorage.getItem('token');
 

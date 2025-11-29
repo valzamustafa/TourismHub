@@ -1,6 +1,8 @@
+// Controllers/AuthController.cs
 using Microsoft.AspNetCore.Mvc;
 using TourismHub.Application.DTOs.Auth;
 using TourismHub.Application.Interfaces.Services;
+using Microsoft.Extensions.Logging;
 
 namespace TourismHub.API.Controllers;
 
