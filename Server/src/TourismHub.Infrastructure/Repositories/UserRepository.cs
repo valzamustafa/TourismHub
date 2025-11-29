@@ -20,16 +20,18 @@ public class UserRepository : IUserRepository
     }
 
     public async Task<User?> GetByEmailAsync(string email)
-    {
-        return await _context.Users
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
-    }
+{
+    return await _context.Users
+        .Include(u => u.RefreshTokens) 
+        .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+}
 
-    public async Task<IEnumerable<User>> GetAllAsync()
-    {
-        return await _context.Users.ToListAsync();
-    }
-
+public async Task<IEnumerable<User>> GetAllAsync()
+{
+    return await _context.Users
+        .Include(u => u.RefreshTokens) 
+        .ToListAsync();
+}
     public async Task AddAsync(User user)
     {
         await _context.Users.AddAsync(user);

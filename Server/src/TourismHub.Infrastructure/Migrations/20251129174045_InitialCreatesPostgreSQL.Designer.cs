@@ -12,8 +12,8 @@ using TourismHub.Infrastructure.Persistence;
 namespace TourismHub.Infrastructure.Migrations
 {
     [DbContext(typeof(TourismHubDbContext))]
-    [Migration("20251128010227_Update")]
-    partial class Update
+    [Migration("20251129174045_InitialCreatesPostgreSQL")]
+    partial class InitialCreatesPostgreSQL
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

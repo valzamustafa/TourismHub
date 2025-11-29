@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace TourismHub.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class FixCategoryRelationship : Migration
+    public partial class InitialCreatesPostgreSQL : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -64,10 +64,10 @@ namespace TourismHub.Infrastructure.Migrations
                     Price = table.Column<decimal>(type: "numeric(10,2)", precision: 10, scale: 2, nullable: false),
                     AvailableSlots = table.Column<int>(type: "integer", nullable: false),
                     Location = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    CategoryId = table.Column<Guid>(type: "uuid", nullable: false),
                     Status = table.Column<string>(type: "text", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    CategoryId = table.Column<Guid>(type: "uuid", nullable: false)
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -76,8 +76,7 @@ namespace TourismHub.Infrastructure.Migrations
                         name: "FK_Activities_Categories_CategoryId",
                         column: x => x.CategoryId,
                         principalTable: "Categories",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_Activities_Users_ProviderId",
                         column: x => x.ProviderId,

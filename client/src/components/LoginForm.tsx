@@ -22,8 +22,7 @@ const LoginForm = () => {
       [e.target.name]: e.target.value
     });
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+ const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
@@ -74,25 +73,27 @@ const LoginForm = () => {
       if (response.ok) {
         setMessage(`${isLogin ? 'Login' : 'Registration'} successful!`);
 
-if (responseData.accessToken) {
-  localStorage.setItem('token', responseData.accessToken);
-  localStorage.setItem('refreshToken', responseData.refreshToken);
-  localStorage.setItem('user', JSON.stringify({
-    id: responseData.userId,
-    name: responseData.fullName,
-    email: responseData.email,
-    role: responseData.role
-  }));
-  
-  setTimeout(() => {
-    if (responseData.role === 'Admin') {
-      window.location.href = '/admin';
-    } else {
-      window.location.href = '/dashboard';
-    }
-  }, 1000);
-}
-} else {
+        if (responseData.accessToken) {
+          localStorage.setItem('token', responseData.accessToken);
+          localStorage.setItem('refreshToken', responseData.refreshToken);
+          localStorage.setItem('user', JSON.stringify({
+            id: responseData.userId,
+            name: responseData.fullName,
+            email: responseData.email,
+            role: responseData.role
+          }));
+          
+     setTimeout(() => {
+  if (responseData.role === 'Admin') {
+    window.location.href = '/admin';
+  } else if (responseData.role === 'Provider') {
+    window.location.href = '/provider/dashboard';
+  } else {
+    window.location.href = '/tourist/activities';
+  }
+}, 1000);
+        }
+      } else {
         setMessage(responseData.message || `HTTP Error: ${response.status}`);
       }
     } catch (error) {
@@ -101,7 +102,6 @@ if (responseData.accessToken) {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#c8d5c0] p-4 sm:p-8">
       <div className="w-full max-w-7xl relative rounded-2xl overflow-hidden shadow-2xl">

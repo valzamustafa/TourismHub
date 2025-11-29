@@ -22,13 +22,15 @@ public class BookingsController : ControllerBase
     {
         try
         {
-         
+       
             var providerActivities = await _activityService.GetActivitiesByProviderAsync(providerId);
             var activityIds = providerActivities.Select(a => a.Id).ToList();
 
-          
-            var allBookings = await _bookingService.GetAllBookingsAsync();
-            var providerBookings = allBookings.Where(b => activityIds.Contains(b.ActivityId)).ToList();
+            var allBookings = await _bookingService.GetAllBookingsWithDetailsAsync();
+        
+            var providerBookings = allBookings
+                .Where(b => activityIds.Contains(b.ActivityId))
+                .ToList();
 
             var response = providerBookings.Select(booking => new
             {
@@ -38,7 +40,8 @@ public class BookingsController : ControllerBase
                 BookingDate = booking.BookingDate,
                 NumberOfPeople = booking.NumberOfPeople,
                 TotalAmount = (booking.Activity?.Price ?? 0) * booking.NumberOfPeople,
-                Status = booking.Status.ToString()
+                Status = booking.Status.ToString(),
+                PaymentStatus = booking.PaymentStatus.ToString()
             });
 
             return Ok(response);
@@ -49,13 +52,12 @@ public class BookingsController : ControllerBase
         }
     }
 
-
     [HttpGet]
     public async Task<IActionResult> GetAllBookings()
     {
         try
         {
-            var bookings = await _bookingService.GetAllBookingsAsync();
+            var bookings = await _bookingService.GetAllBookingsWithDetailsAsync();
             var response = bookings.Select(booking => new
             {
                 Id = booking.Id,
@@ -75,7 +77,6 @@ public class BookingsController : ControllerBase
         }
     }
 
- 
     [HttpPost]
     public async Task<IActionResult> CreateBooking([FromBody] BookingCreateDto createDto)
     {

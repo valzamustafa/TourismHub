@@ -1,7 +1,5 @@
-namespace TourismHub.Application.DTOs.ActivityImage
-{
-    public record ActivityImageCreateDto(
-        Guid ActivityId,
-        string ImageUrl
-    );
-}
+ public class ActivityImageCreateDto
+    {
+        public Guid ActivityId { get; set; }
+        public required string ImageUrl { get; set; }
+    }

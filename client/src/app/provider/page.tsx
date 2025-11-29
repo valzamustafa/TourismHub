@@ -2,8 +2,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-
-
+import { useRouter } from 'next/navigation';
 import StatsCards from "@/components/provider/StatsCards";
 import TabsNavigation from "@/components/provider/TabsNavigation";
 import ActivitiesTable from "@/components/provider/ActivitiesTable";
@@ -40,6 +39,7 @@ const ProviderDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const router = useRouter();
   
   const [stats, setStats] = useState({
     totalActivities: 0,
@@ -57,29 +57,35 @@ const ProviderDashboard = () => {
     category: ''
   });
 
-
   useEffect(() => {
     const userData = localStorage.getItem('user');
-    if (userData) {
-      const parsedUser = JSON.parse(userData);
-      setUser(parsedUser);
+    const token = localStorage.getItem('token');
+
+    if (!userData || !token) {
+      router.push('/');
+      return;
     }
-  }, []);
 
-  useEffect(() => {
-    if (user) {
-      fetchProviderData();
+    const parsedUser = JSON.parse(userData);
+    
+    if (parsedUser.role !== 'Provider') {
+      if (parsedUser.role === 'Admin') {
+        router.push('/admin');
+      } else {
+        router.push('/tourist/dashboard');
+      }
+      return;
     }
-  }, [user]);
 
-  const fetchProviderData = async () => {
-    if (!user) return;
+    setUser(parsedUser);
+    fetchProviderData(parsedUser);
+  }, [router]);
 
+  const fetchProviderData = async (userData: any) => {
     try {
       const token = localStorage.getItem('token');
       
-
-      const activitiesResponse = await fetch(`http://localhost:5224/api/activities/provider/${user.id}`, {
+      const activitiesResponse = await fetch(`http://localhost:5224/api/activities/provider/${userData.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -90,12 +96,9 @@ const ProviderDashboard = () => {
         const activitiesData = await activitiesResponse.json();
         setActivities(activitiesData);
         setStats(prev => ({ ...prev, totalActivities: activitiesData.length }));
-      } else {
-        console.error('Failed to fetch activities:', activitiesResponse.status);
       }
 
-   
-      const bookingsResponse = await fetch(`http://localhost:5224/api/bookings/provider/${user.id}`, {
+      const bookingsResponse = await fetch(`http://localhost:5224/api/bookings/provider/${userData.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -116,11 +119,9 @@ const ProviderDashboard = () => {
           totalRevenue,
           pendingBookings
         }));
-      } else {
-        console.error('Failed to fetch bookings:', bookingsResponse.status);
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching provider data:', error);
     } finally {
       setLoading(false);
     }
@@ -146,7 +147,7 @@ const ProviderDashboard = () => {
           availableSlots: Number(newActivity.availableSlots),
           location: newActivity.location,
           category: newActivity.category,
-          providerId: user.id  
+          providerId: user.id
         })
       });
 
@@ -160,7 +161,7 @@ const ProviderDashboard = () => {
           location: '',
           category: ''
         });
-        fetchProviderData();
+        fetchProviderData(user);
       } else {
         const errorData = await response.json();
         console.error('Failed to create activity:', errorData);
@@ -183,7 +184,7 @@ const ProviderDashboard = () => {
       });
 
       if (response.ok) {
-        fetchProviderData();
+        fetchProviderData(user);
       } else {
         console.error('Failed to delete activity');
       }
@@ -199,7 +200,6 @@ const ProviderDashboard = () => {
     }));
   };
 
-  
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -210,10 +210,12 @@ const ProviderDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header onAddActivity={() => setShowAddActivity(true)} />
+      <Header 
+        onAddActivity={() => setShowAddActivity(true)} 
+        userName={user.name}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">
             Welcome back, {user.name}!
@@ -229,7 +231,7 @@ const ProviderDashboard = () => {
           <div className="p-6">
             {activeTab === 'overview' && (
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-6">Recent Activities</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-6">Your Activities</h2>
                 {activities.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-gray-500">No activities found. Create your first activity!</p>

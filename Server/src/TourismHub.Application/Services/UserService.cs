@@ -24,18 +24,17 @@ public class UserService
         return await _userRepository.GetByEmailAsync(email);
     }
 
-    public async Task<List<User>> GetAllUsersAsync()
-    {
-        var users = await _userRepository.GetAllAsync();
-        return users.ToList();
-    }
+       public async Task<List<User>> GetAllUsersAsync()
+        {
+            var users = await _userRepository.GetAllAsync();
+            return users.ToList(); 
+        }
 
-    public async Task<List<User>> GetUsersByRoleAsync(UserRole role)
-    {
-        var allUsers = await _userRepository.GetAllAsync();
-        return allUsers.Where(u => u.Role == role).ToList();
-    }
-
+        public async Task<List<User>> GetUsersByRoleAsync(UserRole role)
+        {
+            var allUsers = await _userRepository.GetAllAsync();
+            return allUsers.Where(u => u.Role == role).ToList();
+        }
     public async Task CreateUserAsync(User user)
     {
 

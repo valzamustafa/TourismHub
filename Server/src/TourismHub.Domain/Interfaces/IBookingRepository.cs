@@ -7,6 +7,7 @@ namespace TourismHub.Domain.Interfaces
     {
         Task<Booking?> GetByIdAsync(Guid id);
         Task<List<Booking>> GetAllAsync();
+        Task<List<Booking>> GetAllWithDetailsAsync();
         Task<List<Booking>> GetByUserIdAsync(Guid userId);
         Task<List<Booking>> GetByActivityIdAsync(Guid activityId); 
         Task<List<Booking>> GetByStatusAsync(BookingStatus status);

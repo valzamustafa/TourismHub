@@ -1,9 +1,7 @@
-// app/activities/layout.tsx
-import '../globals.css';
-
+// app/tourist/activities/layout.tsx
 export const metadata = {
   title: 'TourismHub - Activities',
-  description: 'Explore activities',
+  description: 'Explore amazing activities and categories',
 };
 
 export default function ActivitiesLayout({
@@ -12,8 +10,8 @@ export default function ActivitiesLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
+    <div className="min-h-screen bg-white">
+      {children}
+    </div>
   );
 }

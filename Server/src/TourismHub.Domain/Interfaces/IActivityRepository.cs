@@ -1,4 +1,3 @@
-// Domain/Interfaces/IActivityRepository.cs
 using TourismHub.Domain.Entities;
 using TourismHub.Domain.Enums;
 
@@ -13,6 +12,7 @@ namespace TourismHub.Domain.Interfaces
         Task<List<Activity>> GetByCategoryAsync(Guid categoryId);
         Task AddAsync(Activity activity);
         void Update(Activity activity);
+        Task UpdateAsync(Activity activity);
         void Delete(Activity activity);
         Task SaveChangesAsync();
     }
