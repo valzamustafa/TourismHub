@@ -28,28 +28,27 @@ namespace TourismHub.Infrastructure.Repositories
         }
 
         public async Task<List<Activity>> GetAllAsync()
-        {
-            try
-            {
-                _logger.LogInformation("=== REPOSITORY: Getting all activities from database ===");
-                
-                var activities = await _context.Activities
-                    .Include(a => a.Provider)
-                    .Include(a => a.Images)
-                    .Include(a => a.Category)
-                    .AsNoTracking()
-                    .ToListAsync();
+{
+    try
+    {
+        _logger.LogInformation("=== REPOSITORY: Getting all activities from database ===");
+        
+        var activities = await _context.Activities
+            .Include(a => a.Provider)
+            .Include(a => a.Images)
+            .Include(a => a.Category)
+            .AsNoTracking()
+            .ToListAsync();
 
-                _logger.LogInformation($"=== REPOSITORY: Successfully retrieved {activities.Count} activities ===");
-                return activities;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "=== REPOSITORY ERROR ===");
-                throw;
-            }
-        }
-
+        _logger.LogInformation($"=== REPOSITORY: Successfully retrieved {activities.Count} activities ===");
+        return activities;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "=== REPOSITORY ERROR ===");
+        throw;
+    }
+}
         public async Task<List<Activity>> GetByStatusAsync(ActivityStatus status)
         {
             return await _context.Activities
