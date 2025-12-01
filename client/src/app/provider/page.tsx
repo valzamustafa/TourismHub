@@ -36,6 +36,11 @@ interface Activity {
   status: string;
   createdAt: string;
   images: string[];
+  startDate: string;
+  endDate: string;
+  isActive?: boolean;
+  isExpired?: boolean;
+  isUpcoming?: boolean;
 }
 
 interface Booking {
@@ -79,7 +84,9 @@ const ProviderDashboard = () => {
     duration: '',
     included: '',
     requirements: '',
-    quickFacts: ''
+    quickFacts: '',
+    startDate: '',
+    endDate: ''
   });
 
   const [editActivityData, setEditActivityData] = useState({
@@ -92,7 +99,9 @@ const ProviderDashboard = () => {
     duration: '',
     included: '',
     requirements: '',
-    quickFacts: ''
+    quickFacts: '',
+    startDate: '',
+    endDate: ''
   });
 
   useEffect(() => {
@@ -154,23 +163,35 @@ const ProviderDashboard = () => {
       
       if (activitiesResponse.ok) {
         const activitiesData = await activitiesResponse.json();
-        setActivities(activitiesData);
         
-    
+        const processedActivities = activitiesData.map((activity: any) => ({
+          ...activity,
+          startDate: activity.startDate || activity.createdAt,
+          endDate: activity.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          status: activity.status || 'Pending',
+          included: Array.isArray(activity.included) ? activity.included : [],
+          requirements: Array.isArray(activity.requirements) ? activity.requirements : [],
+          quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts : []
+        }));
+        
+        setActivities(processedActivities);
+        
         const locationCounts: { [key: string]: number } = {};
-        activitiesData.forEach((activity: Activity) => {
+        processedActivities.forEach((activity: Activity) => {
           locationCounts[activity.location] = (locationCounts[activity.location] || 0) + 1;
         });
         
         const popularLocation = Object.keys(locationCounts).reduce((a, b) => 
-          locationCounts[a] > locationCounts[b] ? a : b, "No locations"
+          locationCounts[a] > locationCounts[b] ? a : "No locations", "No locations"
         );
 
         setStats(prev => ({ 
           ...prev, 
-          totalActivities: activitiesData.length,
+          totalActivities: processedActivities.length,
           popularLocation 
         }));
+      } else {
+        console.error('Failed to fetch activities');
       }
 
       const bookingsResponse = await fetch(`http://localhost:5224/api/bookings/provider/${userData.id}`, {
@@ -200,6 +221,8 @@ const ProviderDashboard = () => {
           pendingBookings,
           activeAdventurers
         }));
+      } else {
+        console.error('Failed to fetch bookings');
       }
     } catch (error) {
       console.error('Error fetching provider data:', error);
@@ -207,6 +230,64 @@ const ProviderDashboard = () => {
       setLoading(false);
     }
   };
+const handleUpdateStatus = async (activityId: string, status: string) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    const statusMap: Record<string, number> = {
+      'Pending': 0,
+      'Active': 1, 
+      'Inactive': 2,
+      'Rejected': 3,
+      'Completed': 4,
+      'Expired': 5,
+      'Cancelled': 6
+    };
+    
+    const statusValue = statusMap[status];
+    
+    if (statusValue === undefined) {
+      alert(`Invalid status: ${status}`);
+      return;
+    }
+    
+    const payload = {
+      Status: statusValue
+    };
+    
+    console.log('Sending status update:', payload);
+    
+    const response = await fetch(`http://localhost:5224/api/activities/${activityId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    const responseText = await response.text();
+    console.log('Response:', response.status, responseText);
+    
+    if (response.ok) {
+      setActivities(prevActivities => 
+        prevActivities.map(activity => 
+          activity.id === activityId 
+            ? { ...activity, status: status }
+            : activity
+        )
+      );
+      
+      alert('Status updated successfully!');
+    } else {
+      alert(`Failed: ${responseText}`);
+    }
+    
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error updating status');
+  }
+};
 
   const handleAddActivity = async (e: React.FormEvent, images: File[]) => {
     e.preventDefault();
@@ -227,6 +308,8 @@ const ProviderDashboard = () => {
       formData.append('included', newActivity.included);
       formData.append('requirements', newActivity.requirements);
       formData.append('quickFacts', newActivity.quickFacts);
+      formData.append('startDate', new Date(newActivity.startDate).toISOString());
+      formData.append('endDate', new Date(newActivity.endDate).toISOString());
       
       images.forEach(image => {
         formData.append('images', image);
@@ -252,13 +335,16 @@ const ProviderDashboard = () => {
           duration: '',
           included: '',
           requirements: '',
-          quickFacts: ''
+          quickFacts: '',
+          startDate: '',
+          endDate: ''
         });
         fetchProviderData(user);
+        alert('Activity created successfully!');
       } else {
-        const errorData = await activityResponse.json();
-        console.error('Failed to create activity:', errorData);
-        alert('Failed to create activity: ' + (errorData.message || 'Unknown error'));
+        const errorText = await activityResponse.text();
+        console.error('Failed to create activity:', errorText);
+        alert('Failed to create activity: ' + errorText);
       }
     } catch (error) {
       console.error('Error adding activity:', error);
@@ -276,9 +362,11 @@ const ProviderDashboard = () => {
       location: activity.location,
       categoryId: activity.categoryId,
       duration: activity.duration || '',
-      included: Array.isArray(activity.included) ? activity.included.join(', ') : activity.included,
-      requirements: Array.isArray(activity.requirements) ? activity.requirements.join(', ') : activity.requirements,
-      quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts.join(', ') : activity.quickFacts
+      included: Array.isArray(activity.included) ? activity.included.join(', ') : '',
+      requirements: Array.isArray(activity.requirements) ? activity.requirements.join(', ') : '',
+      quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts.join(', ') : '',
+      startDate: activity.startDate ? new Date(activity.startDate).toISOString().slice(0, 16) : '',
+      endDate: activity.endDate ? new Date(activity.endDate).toISOString().slice(0, 16) : ''
     });
     setShowEditActivity(true);
   };
@@ -306,7 +394,9 @@ const ProviderDashboard = () => {
           duration: editActivityData.duration,
           included: editActivityData.included,
           requirements: editActivityData.requirements,
-          quickFacts: editActivityData.quickFacts
+          quickFacts: editActivityData.quickFacts,
+          startDate: new Date(editActivityData.startDate),
+          endDate: new Date(editActivityData.endDate)
         })
       });
 
@@ -317,7 +407,7 @@ const ProviderDashboard = () => {
             formData.append('images', image);
           });
 
-          await fetch(`http://localhost:5224/api/activityimages/upload-multiple/${editingActivity.id}`, {
+          await fetch(`http://localhost:5224/api/activityimages/upload/${editingActivity.id}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -329,6 +419,7 @@ const ProviderDashboard = () => {
         setShowEditActivity(false);
         setEditingActivity(null);
         fetchProviderData(user);
+        alert('Activity updated successfully!');
       } else {
         const errorData = await response.json();
         console.error('Failed to update activity:', errorData);
@@ -354,15 +445,19 @@ const ProviderDashboard = () => {
 
       if (response.ok) {
         fetchProviderData(user);
+        alert('Activity deleted successfully!');
       } else {
-        console.error('Failed to delete activity');
-        alert('Failed to delete activity');
+        const errorText = await response.text();
+        console.error('Failed to delete activity:', errorText);
+        alert('Failed to delete activity: ' + errorText);
       }
     } catch (error) {
       console.error('Error deleting activity:', error);
       alert('Error deleting activity. Please try again.');
     }
   };
+
+ 
 
   const handleDataChange = (field: string, value: string | number) => {
     setNewActivity(prev => ({
@@ -417,45 +512,80 @@ const ProviderDashboard = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {activities.slice(0, 6).map((activity) => (
-                      <div key={activity.id} className="bg-gray-700/50 rounded-xl p-4 border border-gray-600 hover:border-amber-500/30 transition-all duration-300">
-                        <h3 className="font-semibold text-white mb-2">{activity.name}</h3>
-                        <p className="text-sm text-gray-400 mb-2">{activity.location}</p>
-                        <p className="text-lg font-bold text-amber-400">${activity.price}</p>
-                        <div className="flex justify-between items-center mt-3">
-                          <span className="text-sm text-gray-500">{activity.availableSlots} slots</span>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            activity.status === 'Active' 
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                              : activity.status === 'Pending'
-                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                              : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          }`}>
-                            {activity.status}
-                          </span>
+                    {activities.slice(0, 6).map((activity) => {
+                      const now = new Date();
+                      const startDate = new Date(activity.startDate);
+                      const endDate = new Date(activity.endDate);
+                      
+                      let statusColor = 'bg-gray-500/20';
+                      let statusText = activity.status;
+                      let statusBorder = 'border-gray-500/30';
+                      let statusTextColor = 'text-gray-400';
+                      
+                      if (endDate < now) {
+                        statusColor = 'bg-red-500/20';
+                        statusText = 'Expired';
+                        statusBorder = 'border-red-500/30';
+                        statusTextColor = 'text-red-400';
+                      } else if (startDate <= now && endDate >= now) {
+                        statusColor = 'bg-emerald-500/20';
+                        statusText = 'Active';
+                        statusBorder = 'border-emerald-500/30';
+                        statusTextColor = 'text-emerald-400';
+                      } else if (startDate > now) {
+                        statusColor = 'bg-amber-500/20';
+                        statusText = 'Upcoming';
+                        statusBorder = 'border-amber-500/30';
+                        statusTextColor = 'text-amber-400';
+                      }
+                      
+                      return (
+                        <div key={activity.id} className="bg-gray-700/50 rounded-xl p-4 border border-gray-600 hover:border-amber-500/30 transition-all duration-300">
+                          <h3 className="font-semibold text-white mb-2">{activity.name}</h3>
+                          <p className="text-sm text-gray-400 mb-2">{activity.location}</p>
+                          
+                          <div className="text-xs text-gray-500 mb-2 space-y-1">
+                            <div className="flex items-center">
+                              <span className="mr-1">📅</span>
+                              <span>Start: {new Date(activity.startDate).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex items-center">
+                              <span className="mr-1">➡️</span>
+                              <span>End: {new Date(activity.endDate).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          
+                          <p className="text-lg font-bold text-amber-400">${activity.price}</p>
+                          <div className="flex justify-between items-center mt-3">
+                            <span className="text-sm text-gray-500">{activity.availableSlots} slots</span>
+                            <span className={`px-2 py-1 rounded-full text-xs ${statusColor} ${statusBorder} ${statusTextColor}`}>
+                              {statusText}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
             )}
 
-            {activeTab === 'activities' && (
-              <div>
-                {activities.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-400">No activities found. Create your first activity!</p>
-                  </div>
-                ) : (
-                  <ActivitiesTable 
-                    activities={activities} 
-                    onDeleteActivity={handleDeleteActivity}
-                    onEditActivity={handleEditActivity}
-                  />
-                )}
-              </div>
-            )}
+          {activeTab === 'activities' && (
+  <div>
+    {activities.length === 0 ? (
+      <div className="text-center py-8">
+        <p className="text-gray-400">No activities found. Create your first activity!</p>
+      </div>
+    ) : (
+      <ActivitiesTable 
+        activities={activities} 
+        onDeleteActivity={handleDeleteActivity}
+        onEditActivity={handleEditActivity}
+        onStatusChange={handleUpdateStatus} 
+      />
+    )}
+  </div>
+)}
 
             {activeTab === 'bookings' && (
               <div>

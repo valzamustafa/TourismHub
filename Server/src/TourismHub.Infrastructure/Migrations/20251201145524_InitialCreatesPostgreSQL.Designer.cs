@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TourismHub.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using TourismHub.Infrastructure.Persistence;
 namespace TourismHub.Infrastructure.Migrations
 {
     [DbContext(typeof(TourismHubDbContext))]
-    partial class TourismHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251201145524_InitialCreatesPostgreSQL")]
+    partial class InitialCreatesPostgreSQL
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -67,12 +70,8 @@ namespace TourismHub.Infrastructure.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)");
 
-                    b.Property<Guid?>("ProviderId")
+                    b.Property<Guid>("ProviderId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("ProviderName")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<string>("QuickFacts")
                         .IsRequired()
@@ -417,7 +416,8 @@ namespace TourismHub.Infrastructure.Migrations
                     b.HasOne("TourismHub.Domain.Entities.User", "Provider")
                         .WithMany("Activities")
                         .HasForeignKey("ProviderId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Category");
 

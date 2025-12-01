@@ -34,6 +34,17 @@ interface Activity {
   duration: string;
   images: string[];
   status: string;
+  rating?: number;
+  reviews?: number;
+  included?: string[];
+  requirements?: string[];
+  quickFacts?: string[];
+  // ✅ Shtoni këto:
+  startDate: string;
+  endDate: string;
+  isActive?: boolean;
+  isExpired?: boolean;
+  isUpcoming?: boolean;
 }
 
 export default function ActivitiesPage() {
@@ -136,15 +147,32 @@ const fetchActivitiesWithImages = async () => {
           }
           
           console.log('✅ Final images for', activity.name, ':', imageUrls);
+         
           return {
             ...activity,
-            images: imageUrls
+            images: imageUrls,
+            startDate: activity.startDate || activity.createdAt || new Date().toISOString(),
+            endDate: activity.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            status: activity.status || 'Pending',
+            included: Array.isArray(activity.included) ? activity.included : [],
+            requirements: Array.isArray(activity.requirements) ? activity.requirements : [],
+            quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts : [],
+            rating: activity.rating || 4.8,
+            reviews: activity.reviews || 124
           };
         } catch (error) {
           console.error(`💥 Error for ${activity.name}:`, error);
           return {
             ...activity,
-            images: DEFAULT_IMAGES
+            images: DEFAULT_IMAGES,
+            startDate: new Date().toISOString(),
+            endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'Pending',
+            included: [],
+            requirements: [],
+            quickFacts: [],
+            rating: 4.8,
+            reviews: 124
           };
         }
       })
@@ -521,75 +549,102 @@ const fetchActivitiesWithImages = async () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredActivities.map((activity) => {
-            const mainImage = getFullImageUrl(activity.images?.[0]) || DEFAULT_IMAGES[0];
-            
-            return (
-              <div key={activity.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="relative h-48">
-                  <img
-                    src={mainImage}
-                    alt={activity.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      console.log('❌ Image failed to load:', e.currentTarget.src);
-                      const randomImage = DEFAULT_IMAGES[Math.floor(Math.random() * DEFAULT_IMAGES.length)];
-                      e.currentTarget.src = randomImage;
-                    }}
-                  />
-                  <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                    ${activity.price}
-                  </div>
-                  <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
-                    {activity.availableSlots} slots left
-                  </div>
-                  {activity.status && (
-                    <div className={`absolute top-4 left-4 px-2 py-1 rounded-full text-xs font-bold ${
-                      activity.status === 'Active' 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-yellow-500 text-black'
-                    }`}>
-                      {activity.status}
-                    </div>
-                  )}
-                </div>
-                
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{activity.name}</h3>
-                  
-           
-                  <div className="flex items-center text-gray-600 mb-4">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <span className="text-sm">{activity.location}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="text-lg font-bold text-green-600">
-                      ${activity.price}
-                    </div>
-                   <button
-  onClick={(e) => {
-    e.stopPropagation(); 
-    if (!activity.id) {
-      console.error('❌ Activity ID is missing:', activity);
-      alert('Activity ID is missing');
-      return;
-    }
-    console.log('🚀 Navigating to activity:', activity.id);
-    router.push(`/tourist/activities/${activity.id}`);
-  }}
-  className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-blue-500/25"
->
-  See More
-</button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        {filteredActivities.map((activity) => {
+  const mainImage = getFullImageUrl(activity.images?.[0]) || DEFAULT_IMAGES[0];
+
+  const now = new Date();
+  const startDate = new Date(activity.startDate);
+  const endDate = new Date(activity.endDate);
+  const isActive = startDate <= now && endDate >= now;
+  const isUpcoming = startDate > now;
+  const isExpired = endDate < now;
+  
+  return (
+    <div key={activity.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105">
+      <div className="relative h-48">
+        <img
+          src={mainImage}
+          alt={activity.name}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            console.log('❌ Image failed to load:', e.currentTarget.src);
+            const randomImage = DEFAULT_IMAGES[Math.floor(Math.random() * DEFAULT_IMAGES.length)];
+            e.currentTarget.src = randomImage;
+          }}
+        />
+        <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+          ${activity.price}
+        </div>
+        <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
+          {activity.availableSlots} slots left
+        </div>
+   
+        <div className="absolute top-4 left-4">
+          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+            isExpired ? 'bg-red-500 text-white' :
+            isActive ? 'bg-green-500 text-white' :
+            isUpcoming ? 'bg-yellow-500 text-black' :
+            'bg-gray-500 text-white'
+          }`}>
+            {isExpired ? 'Expired' : isActive ? 'Active' : isUpcoming ? 'Upcoming' : activity.status}
+          </span>
+        </div>
+      
+        <div className="absolute bottom-4 right-4 bg-black/70 text-white px-2 py-1 rounded-full text-xs">
+          {new Date(activity.startDate).toLocaleDateString()}
+        </div>
+      </div>
+      
+      <div className="p-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-2">{activity.name}</h3>
+ 
+        <div className="mb-3 text-sm text-gray-600 space-y-1">
+          <div className="flex items-center">
+            <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>Start: {new Date(activity.startDate).toLocaleDateString()}</span>
+          </div>
+          <div className="flex items-center">
+            <svg className="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>End: {new Date(activity.endDate).toLocaleDateString()}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center text-gray-600 mb-4">
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span className="text-sm">{activity.location}</span>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <div className="text-lg font-bold text-green-600">
+            ${activity.price}
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); 
+              if (!activity.id) {
+                console.error('❌ Activity ID is missing:', activity);
+                alert('Activity ID is missing');
+                return;
+              }
+              console.log('🚀 Navigating to activity:', activity.id);
+              router.push(`/tourist/activities/${activity.id}`);
+            }}
+            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-blue-500/25"
+          >
+            See More
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+})}
         </div>
       )}
 

@@ -1,9 +1,14 @@
+// TourismHub.Infrastructure.Repositories.ActivityRepository.cs
 using Microsoft.EntityFrameworkCore;
 using TourismHub.Domain.Entities;
 using TourismHub.Domain.Enums;
 using TourismHub.Domain.Interfaces;
 using TourismHub.Infrastructure.Persistence;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace TourismHub.Infrastructure.Repositories
 {
@@ -28,27 +33,28 @@ namespace TourismHub.Infrastructure.Repositories
         }
 
         public async Task<List<Activity>> GetAllAsync()
-{
-    try
-    {
-        _logger.LogInformation("=== REPOSITORY: Getting all activities from database ===");
-        
-        var activities = await _context.Activities
-            .Include(a => a.Provider)
-            .Include(a => a.Images)
-            .Include(a => a.Category)
-            .AsNoTracking()
-            .ToListAsync();
+        {
+            try
+            {
+                _logger.LogInformation("Getting all activities from database");
+                
+                var activities = await _context.Activities
+                    .Include(a => a.Provider)
+                    .Include(a => a.Images)
+                    .Include(a => a.Category)
+                    .AsNoTracking()
+                    .ToListAsync();
 
-        _logger.LogInformation($"=== REPOSITORY: Successfully retrieved {activities.Count} activities ===");
-        return activities;
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "=== REPOSITORY ERROR ===");
-        throw;
-    }
-}
+                _logger.LogInformation($"Successfully retrieved {activities.Count} activities");
+                return activities;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving activities");
+                throw;
+            }
+        }
+
         public async Task<List<Activity>> GetByStatusAsync(ActivityStatus status)
         {
             return await _context.Activities
@@ -72,6 +78,38 @@ namespace TourismHub.Infrastructure.Repositories
         {
             return await _context.Activities
                 .Where(a => a.CategoryId == categoryId)
+                .Include(a => a.Provider)
+                .Include(a => a.Images)
+                .Include(a => a.Category)
+                .ToListAsync();
+        }
+
+        public async Task<List<Activity>> GetActiveActivitiesAsync(DateTime currentDate)
+        {
+            return await _context.Activities
+                .Where(a => a.StartDate <= currentDate && 
+                           a.EndDate >= currentDate && 
+                           a.Status == ActivityStatus.Active)
+                .Include(a => a.Provider)
+                .Include(a => a.Images)
+                .Include(a => a.Category)
+                .ToListAsync();
+        }
+
+        public async Task<List<Activity>> GetExpiredActivitiesAsync(DateTime currentDate)
+        {
+            return await _context.Activities
+                .Where(a => a.EndDate < currentDate)
+                .Include(a => a.Provider)
+                .Include(a => a.Images)
+                .Include(a => a.Category)
+                .ToListAsync();
+        }
+
+        public async Task<List<Activity>> GetUpcomingActivitiesAsync(DateTime currentDate)
+        {
+            return await _context.Activities
+                .Where(a => a.StartDate > currentDate)
                 .Include(a => a.Provider)
                 .Include(a => a.Images)
                 .Include(a => a.Category)

@@ -1,3 +1,4 @@
+// TourismHub.Application.Services.ActivityImageService.cs
 using TourismHub.Domain.Entities;
 using TourismHub.Domain.Interfaces;
 
