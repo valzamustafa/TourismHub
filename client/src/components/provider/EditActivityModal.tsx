@@ -10,7 +10,7 @@ interface Category {
   activityCount: number;
 }
 
-interface AddActivityModalProps {
+interface EditActivityModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (e: React.FormEvent, images: File[]) => void;
@@ -27,17 +27,19 @@ interface AddActivityModalProps {
     quickFacts: string;
   };
   onDataChange: (field: string, value: string | number) => void;
+  existingImages?: string[];
   categories: Category[];
 }
 
-const AddActivityModal = ({
+const EditActivityModal = ({
   isOpen,
   onClose,
   onSubmit,
   activityData,
   onDataChange,
+  existingImages = [],
   categories
-}: AddActivityModalProps) => {
+}: EditActivityModalProps) => {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,6 +78,10 @@ const AddActivityModal = ({
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleRemoveExistingImage = (index: number) => {
+    console.log('Remove existing image at index:', index);
+  };
+
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const files = Array.from(event.dataTransfer.files);
@@ -110,7 +116,7 @@ const AddActivityModal = ({
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 z-50">
       <div className="bg-gray-900 rounded-2xl max-w-4xl w-full max-h-[95vh] shadow-2xl border border-gray-700 relative overflow-hidden flex flex-col">
-        {/* Header */}
+
         <div className="flex-shrink-0 p-6 pb-4 border-b border-gray-700">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
@@ -118,8 +124,8 @@ const AddActivityModal = ({
                 <Mountain className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">Create New Adventure</h2>
-                <p className="text-gray-400 text-sm">Add a new mountain trail experience</p>
+                <h2 className="text-2xl font-bold text-white">Edit Adventure Trail</h2>
+                <p className="text-gray-400 text-sm">Update your mountain experience</p>
               </div>
             </div>
             <button 
@@ -132,7 +138,34 @@ const AddActivityModal = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Image Upload Section */}
+
+          {existingImages.length > 0 && (
+            <div className="mb-6">
+              <label className="block text-gray-300 font-semibold mb-3">
+                Existing Images
+              </label>
+              <div className="grid grid-cols-3 gap-4">
+                {existingImages.map((imageUrl, index) => (
+                  <div key={index} className="relative">
+                    <img 
+                      src={imageUrl} 
+                      alt={`Existing ${index + 1}`}
+                      className="w-full h-32 object-cover rounded-xl border border-gray-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveExistingImage(index)}
+                      className="absolute top-2 right-2 p-1 bg-red-600/80 hover:bg-red-700 rounded-full text-white transition-all duration-300"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+
           <div className="mb-6">
             <input
               type="file"
@@ -173,7 +206,7 @@ const AddActivityModal = ({
                     ))}
                   </div>
                   <p className="text-amber-400 font-semibold">
-                    {selectedImages.length} images selected
+                    {selectedImages.length} new images selected
                   </p>
                   <p className="text-gray-400 text-sm">
                     Click or drag to add more images
@@ -185,7 +218,7 @@ const AddActivityModal = ({
                     <Upload className="w-8 h-8 text-gray-400 group-hover:text-amber-400" />
                   </div>
                   <p className="text-gray-300 font-semibold mb-2">
-                    Upload trail photos
+                    Add more trail photos
                   </p>
                   <p className="text-gray-500 text-sm">
                     Drag & drop or click to browse multiple images
@@ -199,7 +232,7 @@ const AddActivityModal = ({
           </div>
 
           <form onSubmit={handleFormSubmit} className="space-y-6">
-            {/* Basic Information */}
+          
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-gray-300 font-semibold mb-2">
@@ -235,7 +268,7 @@ const AddActivityModal = ({
               </div>
             </div>
 
-            {/* Description */}
+        
             <div>
               <label className="block text-gray-300 font-semibold mb-2">
                 Trail Description *
@@ -250,7 +283,6 @@ const AddActivityModal = ({
               />
             </div>
 
-            {/* Details Grid */}
             <div className="grid grid-cols-4 gap-4">
               <div>
                 <label className="block text-gray-300 font-semibold mb-2">
@@ -314,7 +346,7 @@ const AddActivityModal = ({
               </div>
             </div>
 
-           
+        
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-gray-300 font-semibold mb-2">
@@ -351,7 +383,7 @@ const AddActivityModal = ({
               </div>
             </div>
 
-      
+          
             <div>
               <label className="block text-gray-300 font-semibold mb-2">
                 <Info className="w-4 h-4 inline mr-2 text-cyan-400" />
@@ -369,7 +401,7 @@ const AddActivityModal = ({
               </p>
             </div>
 
-      
+            {/* Action Buttons */}
             <div className="flex justify-end space-x-4 pt-6 border-t border-gray-700">
               <button
                 type="button"
@@ -386,12 +418,12 @@ const AddActivityModal = ({
                 {uploading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Creating...</span>
+                    <span>Updating...</span>
                   </>
                 ) : (
                   <>
                     <Mountain className="w-5 h-5" />
-                    <span>Create Trail</span>
+                    <span>Update Trail</span>
                   </>
                 )}
               </button>
@@ -403,4 +435,4 @@ const AddActivityModal = ({
   );
 };
 
-export default AddActivityModal;
+export default EditActivityModal;

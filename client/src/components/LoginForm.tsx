@@ -87,7 +87,7 @@ const LoginForm = () => {
   if (responseData.role === 'Admin') {
     window.location.href = '/admin';
   } else if (responseData.role === 'Provider') {
-    window.location.href = '/provider/dashboard';
+    window.location.href = '/provider';
   } else {
     window.location.href = '/tourist/activities';
   }
