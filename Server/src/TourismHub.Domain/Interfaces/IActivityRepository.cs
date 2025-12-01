@@ -1,5 +1,9 @@
+// TourismHub.Domain.Interfaces.IActivityRepository.cs
 using TourismHub.Domain.Entities;
 using TourismHub.Domain.Enums;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace TourismHub.Domain.Interfaces
 {
@@ -10,6 +14,9 @@ namespace TourismHub.Domain.Interfaces
         Task<List<Activity>> GetByStatusAsync(ActivityStatus status);
         Task<List<Activity>> GetByProviderIdAsync(Guid providerId);
         Task<List<Activity>> GetByCategoryAsync(Guid categoryId);
+        Task<List<Activity>> GetActiveActivitiesAsync(DateTime currentDate);
+        Task<List<Activity>> GetExpiredActivitiesAsync(DateTime currentDate);
+        Task<List<Activity>> GetUpcomingActivitiesAsync(DateTime currentDate);
         Task AddAsync(Activity activity);
         void Update(Activity activity);
         Task UpdateAsync(Activity activity);

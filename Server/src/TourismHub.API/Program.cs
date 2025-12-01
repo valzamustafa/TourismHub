@@ -9,6 +9,7 @@ using TourismHub.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using TourismHub.Application.Services;
+using TourismHub.Application.Services.BackgroundServices;
 using TourismHub.Infrastructure.Persistence.Seeders;
 using TourismHub.Domain.Interfaces;
 using TourismHub.Infrastructure.Repositories;
@@ -29,7 +30,7 @@ try
 
     builder.Services.AddScoped<IActivityRepository, ActivityRepository>();
     builder.Services.AddScoped<IActivityImageRepository, ActivityImageRepository>(); 
-    
+     builder.Services.AddHostedService<ActivityStatusUpdaterService>();
 
     builder.Services.AddScoped<ActivityImageService>();
     builder.Services.AddScoped<ImageUploadService>();

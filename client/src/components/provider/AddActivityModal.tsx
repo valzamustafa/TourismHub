@@ -1,4 +1,5 @@
-import { X, Upload, Mountain, Clock, CheckCircle, AlertCircle, Info, MapPin, Users, DollarSign } from "lucide-react";
+// components/provider/AddActivityModal.tsx
+import { X, Upload, Mountain, Clock, CheckCircle, AlertCircle, Info, MapPin, Users, DollarSign, Calendar } from "lucide-react";
 import { useState, useRef } from "react";
 
 interface Category {
@@ -25,6 +26,8 @@ interface AddActivityModalProps {
     included: string;
     requirements: string;
     quickFacts: string;
+    startDate: string;
+    endDate: string;
   };
   onDataChange: (field: string, value: string | number) => void;
   categories: Category[];
@@ -100,9 +103,38 @@ const AddActivityModal = ({
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!activityData.startDate || !activityData.endDate) {
+      alert('Please select both start and end dates');
+      return;
+    }
+    
+    if (new Date(activityData.endDate) <= new Date(activityData.startDate)) {
+      alert('End date must be after start date');
+      return;
+    }
+    
     setUploading(true);
     onSubmit(e, selectedImages);
     setTimeout(() => setUploading(false), 2000);
+  };
+
+  const calculateDuration = () => {
+    if (!activityData.startDate || !activityData.endDate) return '';
+    
+    const start = new Date(activityData.startDate);
+    const end = new Date(activityData.endDate);
+    const diffMs = end.getTime() - start.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    let duration = '';
+    if (diffDays > 0) duration += `${diffDays} day${diffDays > 1 ? 's' : ''} `;
+    if (diffHours > 0) duration += `${diffHours} hour${diffHours > 1 ? 's' : ''} `;
+    if (diffMins > 0 && diffDays === 0) duration += `${diffMins} minute${diffMins > 1 ? 's' : ''}`;
+    
+    return duration.trim() || '0 minutes';
   };
 
   if (!isOpen) return null;
@@ -250,12 +282,60 @@ const AddActivityModal = ({
               />
             </div>
 
+            {/* Date & Time Section */}
+            <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
+              <div className="flex items-center mb-4">
+                <Calendar className="w-5 h-5 text-amber-400 mr-2" />
+                <h3 className="text-lg font-semibold text-white">Schedule & Timing</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-300 font-semibold mb-2">
+                    Start Date & Time *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={activityData.startDate}
+                    onChange={(e) => onDataChange('startDate', e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white transition-all"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-300 font-semibold mb-2">
+                    End Date & Time *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={activityData.endDate}
+                    onChange={(e) => onDataChange('endDate', e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white transition-all"
+                    required
+                  />
+                </div>
+              </div>
+              
+              {/* Auto-calculated Duration */}
+              {activityData.startDate && activityData.endDate && (
+                <div className="mt-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Activity Duration:</span>
+                    <span className="text-amber-400 font-bold">
+                      {calculateDuration()}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Details Grid */}
             <div className="grid grid-cols-4 gap-4">
               <div>
                 <label className="block text-gray-300 font-semibold mb-2">
                   <Clock className="w-4 h-4 inline mr-2 text-amber-400" />
-                  Duration *
+                  Duration Text *
                 </label>
                 <input
                   type="text"
@@ -314,7 +394,7 @@ const AddActivityModal = ({
               </div>
             </div>
 
-           
+            {/* Included & Requirements */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-gray-300 font-semibold mb-2">
@@ -351,7 +431,7 @@ const AddActivityModal = ({
               </div>
             </div>
 
-      
+            {/* Quick Facts */}
             <div>
               <label className="block text-gray-300 font-semibold mb-2">
                 <Info className="w-4 h-4 inline mr-2 text-cyan-400" />
@@ -369,7 +449,7 @@ const AddActivityModal = ({
               </p>
             </div>
 
-      
+            {/* Action Buttons */}
             <div className="flex justify-end space-x-4 pt-6 border-t border-gray-700">
               <button
                 type="button"

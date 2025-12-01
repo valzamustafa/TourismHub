@@ -32,10 +32,14 @@ interface Activity {
   providerId: string;
   duration: string;
   status: string;
-   images: ActivityImage[];
+  images: ActivityImage[];
   createdAt: string;
+  startDate: string;
+  endDate: string;
 }
-
+interface ActivityStatusUpdateDto {
+  Status: number;  // Numeric status value
+}
 interface RecentActivity {
   id: number;
   user: string;
@@ -43,11 +47,12 @@ interface RecentActivity {
   target: string;
   time: string;
 }
+
 interface ActivityImage {
   id: string;
   imageUrl: string;
-
 }
+
 interface User {
   id: string;
   name: string;
@@ -95,7 +100,13 @@ interface NewActivity {
   categoryId: string;
   duration: string;
   providerId: string;
+  providerName: string;
   images: string[];
+  startDate: string;
+  endDate: string;
+  included?: string;
+  requirements?: string;
+  quickFacts?: string;
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
@@ -128,7 +139,6 @@ const CategoryModal: React.FC<{ onClose: () => void; onSave: (data: any) => void
       
       const data = await response.json();
       
-     
       setFormData(prev => ({ 
         ...prev, 
         imageUrl: data.url 
@@ -146,11 +156,8 @@ const CategoryModal: React.FC<{ onClose: () => void; onSave: (data: any) => void
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-     
       const objectUrl = URL.createObjectURL(file);
       setPreviewUrl(objectUrl);
-      
-
       handleImageUpload(file);
     }
   };
@@ -176,6 +183,7 @@ const CategoryModal: React.FC<{ onClose: () => void; onSave: (data: any) => void
       handleImageUpload(file);
     }
   };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -338,13 +346,13 @@ const CategoryModal: React.FC<{ onClose: () => void; onSave: (data: any) => void
               </div>
             )}
             <input
-               ref={fileInputRef}
+              ref={fileInputRef}
               type="file"
               accept="image/*"
               onChange={handleFileChange}
               style={{ display: 'none' }}
             />
-             {uploading && (
+            {uploading && (
               <div style={{ color: '#4CAF50', fontSize: '12px', marginTop: '8px' }}>
                 ⏳ Uploading image...
               </div>
@@ -385,12 +393,12 @@ const CategoryModal: React.FC<{ onClose: () => void; onSave: (data: any) => void
                 border: 'none',
                 color: 'white',
                 borderRadius: '8px',
-              cursor: uploading || !formData.imageUrl ? 'not-allowed' : 'pointer',
+                cursor: uploading || !formData.imageUrl ? 'not-allowed' : 'pointer',
                 fontWeight: 'bold',
                 opacity: uploading || !formData.imageUrl ? 0.6 : 1
               }}
             >
-           {uploading ? 'Uploading...' : (category ? 'Update' : 'Create') + ' Category'}
+              {uploading ? 'Uploading...' : (category ? 'Update' : 'Create') + ' Category'}
             </button>
           </div>
         </form>
@@ -403,8 +411,7 @@ const ActivityModal: React.FC<{
   onClose: () => void; 
   onSave: (data: any) => void; 
   categories: Category[];
-  providers: Provider[];
-}> = ({ onClose, onSave, categories, providers }) => {
+}> = ({ onClose, onSave, categories }) => {
   const [formData, setFormData] = useState<NewActivity>({
     name: '',
     description: '',
@@ -414,22 +421,63 @@ const ActivityModal: React.FC<{
     categoryId: '',
     duration: '2 hours',
     providerId: '',
-    images: ['https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500']
+    providerName: '',
+    startDate: new Date().toISOString().slice(0, 16),
+    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+    images: [],
+    included: '',
+    requirements: '',
+    quickFacts: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.categoryId) {
-      alert('Please select a category');
-      return;
+    console.log('Form data before submitting:', formData);
+    
+    const errors: string[] = [];
+    
+    if (!formData.name || formData.name.trim() === '') {
+      errors.push('Please enter activity name');
     }
-
-    if (!formData.providerId) {
-      alert('Please select a provider');
+    
+    if (!formData.description || formData.description.trim() === '') {
+      errors.push('Please enter activity description');
+    }
+    
+    if (!formData.location || formData.location.trim() === '') {
+      errors.push('Please enter activity location');
+    }
+    
+    if (!formData.categoryId) {
+      errors.push('Please select a category');
+    }
+    
+    if (!formData.providerName || formData.providerName.trim() === '') {
+      errors.push('Please enter provider name');
+    }
+    
+    const startDate = new Date(formData.startDate);
+    const endDate = new Date(formData.endDate);
+    
+    if (isNaN(startDate.getTime())) {
+      errors.push('Invalid start date');
+    }
+    
+    if (isNaN(endDate.getTime())) {
+      errors.push('Invalid end date');
+    }
+    
+    if (endDate <= startDate) {
+      errors.push('End date must be after start date');
+    }
+    
+    if (errors.length > 0) {
+      alert('Please fix the following errors:\n\n' + errors.join('\n'));
       return;
     }
     
+    console.log('Form data is valid, submitting...');
     onSave(formData);
   };
 
@@ -450,7 +498,7 @@ const ActivityModal: React.FC<{
         backgroundColor: '#1e1e1e',
         padding: '24px',
         borderRadius: '12px',
-        width: '600px',
+        width: '700px',
         maxHeight: '90vh',
         overflowY: 'auto',
         border: '1px solid #333333'
@@ -461,7 +509,7 @@ const ActivityModal: React.FC<{
         
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Activity Name</label>
+            <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Activity Name *</label>
             <input
               type="text"
               value={formData.name}
@@ -475,11 +523,58 @@ const ActivityModal: React.FC<{
                 color: '#ffffff'
               }}
               required
+              placeholder="Enter activity name"
             />
           </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div>
+              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>
+                Provider ID (Optional)
+              </label>
+              <input
+                type="text"
+                value={formData.providerId}
+                onChange={(e) => setFormData({...formData, providerId: e.target.value})}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#2a2a2a',
+                  border: '1px solid #333333',
+                  borderRadius: '8px',
+                  color: '#ffffff'
+                }}
+                placeholder="Leave empty if provider not in system"
+              />
+            </div>
 
+            <div>
+              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>
+                Provider Name *
+              </label>
+              <input
+                type="text"
+                value={formData.providerName}
+                onChange={(e) => setFormData({...formData, providerName: e.target.value})}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#2a2a2a',
+                  border: '1px solid #333333',
+                  borderRadius: '8px',
+                  color: '#ffffff'
+                }}
+                required
+                placeholder="Enter provider name"
+              />
+              <div style={{ color: '#666666', fontSize: '12px', marginTop: '4px' }}>
+                Required if provider ID is not provided
+              </div>
+            </div>
+          </div>
+          
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Description</label>
+            <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Description *</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
@@ -493,12 +588,77 @@ const ActivityModal: React.FC<{
                 minHeight: '80px'
               }}
               required
+              placeholder="Enter activity description"
             />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
             <div>
-              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Price ($)</label>
+              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Start Date & Time *</label>
+              <input
+                type="datetime-local"
+                value={formData.startDate}
+                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#2a2a2a',
+                  border: '1px solid #333333',
+                  borderRadius: '8px',
+                  color: '#ffffff'
+                }}
+                required
+              />
+            </div>
+
+            <div>
+              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>End Date & Time *</label>
+              <input
+                type="datetime-local"
+                value={formData.endDate}
+                onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#2a2a2a',
+                  border: '1px solid #333333',
+                  borderRadius: '8px',
+                  color: '#ffffff'
+                }}
+                required
+              />
+            </div>
+          </div>
+
+          <div style={{ 
+            marginBottom: '16px', 
+            padding: '12px', 
+            backgroundColor: '#2a2a2a', 
+            borderRadius: '8px',
+            border: '1px solid #333333'
+          }}>
+            <div style={{ color: '#b0b0b0', fontSize: '12px', marginBottom: '4px' }}>Activity Duration:</div>
+            <div style={{ color: '#ffffff', fontSize: '14px', fontWeight: 'bold' }}>
+              {(() => {
+                const start = new Date(formData.startDate);
+                const end = new Date(formData.endDate);
+                const diffMs = end.getTime() - start.getTime();
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                
+                let duration = '';
+                if (diffDays > 0) duration += `${diffDays} day${diffDays > 1 ? 's' : ''} `;
+                if (diffHours > 0) duration += `${diffHours} hour${diffHours > 1 ? 's' : ''} `;
+                if (diffMins > 0 && diffDays === 0) duration += `${diffMins} minute${diffMins > 1 ? 's' : ''}`;
+                return duration.trim() || '0 minutes';
+              })()}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div>
+              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Price ($) *</label>
               <input
                 type="number"
                 value={formData.price}
@@ -518,7 +678,7 @@ const ActivityModal: React.FC<{
             </div>
 
             <div>
-              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Available Slots</label>
+              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Available Slots *</label>
               <input
                 type="number"
                 value={formData.availableSlots}
@@ -539,7 +699,7 @@ const ActivityModal: React.FC<{
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
             <div>
-              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Location</label>
+              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Location *</label>
               <input
                 type="text"
                 value={formData.location}
@@ -553,11 +713,12 @@ const ActivityModal: React.FC<{
                   color: '#ffffff'
                 }}
                 required
+                placeholder="Enter activity location"
               />
             </div>
 
             <div>
-              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Duration</label>
+              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Duration *</label>
               <select
                 value={formData.duration}
                 onChange={(e) => setFormData({...formData, duration: e.target.value})}
@@ -582,7 +743,7 @@ const ActivityModal: React.FC<{
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
             <div>
-              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Category</label>
+              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Category *</label>
               <select
                 value={formData.categoryId}
                 onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
@@ -602,28 +763,60 @@ const ActivityModal: React.FC<{
                 ))}
               </select>
             </div>
+          </div>
 
-            <div>
-              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Provider</label>
-              <select
-                value={formData.providerId}
-                onChange={(e) => setFormData({...formData, providerId: e.target.value})}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  backgroundColor: '#2a2a2a',
-                  border: '1px solid #333333',
-                  borderRadius: '8px',
-                  color: '#ffffff'
-                }}
-                required
-              >
-                <option value="">Select Provider</option>
-                {providers.map(provider => (
-                  <option key={provider.id} value={provider.id}>{provider.name}</option>
-                ))}
-              </select>
-            </div>
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Included (Optional)</label>
+            <textarea
+              value={formData.included || ''}
+              onChange={(e) => setFormData({...formData, included: e.target.value})}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#2a2a2a',
+                border: '1px solid #333333',
+                borderRadius: '8px',
+                color: '#ffffff',
+                minHeight: '60px'
+              }}
+              placeholder="What's included in this activity (separate with commas)"
+            />
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Requirements (Optional)</label>
+            <textarea
+              value={formData.requirements || ''}
+              onChange={(e) => setFormData({...formData, requirements: e.target.value})}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#2a2a2a',
+                border: '1px solid #333333',
+                borderRadius: '8px',
+                color: '#ffffff',
+                minHeight: '60px'
+              }}
+              placeholder="Requirements for participants (e.g., age, fitness level)"
+            />
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Quick Facts (Optional)</label>
+            <textarea
+              value={formData.quickFacts || ''}
+              onChange={(e) => setFormData({...formData, quickFacts: e.target.value})}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#2a2a2a',
+                border: '1px solid #333333',
+                borderRadius: '8px',
+                color: '#ffffff',
+                minHeight: '60px'
+              }}
+              placeholder="Interesting facts about the activity"
+            />
           </div>
 
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
@@ -661,13 +854,13 @@ const ActivityModal: React.FC<{
     </div>
   );
 };
+
 const ActivityEditModal: React.FC<{ 
   activity: Activity;
   onClose: () => void; 
   onSave: (data: any) => void; 
   categories: Category[];
-  providers: Provider[];
-}> = ({ activity, onClose, onSave, categories, providers }) => {
+}> = ({ activity, onClose, onSave, categories }) => {
   const [formData, setFormData] = useState({
     name: activity.name,
     description: activity.description,
@@ -677,6 +870,8 @@ const ActivityEditModal: React.FC<{
     categoryId: activity.categoryId,
     duration: activity.duration,
     providerId: activity.providerId,
+    startDate: activity.startDate,
+    endDate: activity.endDate,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -688,7 +883,7 @@ const ActivityEditModal: React.FC<{
     }
 
     if (!formData.providerId) {
-      alert('Please select a provider');
+      alert('Please enter provider ID');
       return;
     }
     
@@ -866,8 +1061,9 @@ const ActivityEditModal: React.FC<{
             </div>
 
             <div>
-              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Provider</label>
-              <select
+              <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Provider ID</label>
+              <input
+                type="text"
                 value={formData.providerId}
                 onChange={(e) => setFormData({...formData, providerId: e.target.value})}
                 style={{
@@ -879,12 +1075,7 @@ const ActivityEditModal: React.FC<{
                   color: '#ffffff'
                 }}
                 required
-              >
-                <option value="">Select Provider</option>
-                {providers.map(provider => (
-                  <option key={provider.id} value={provider.id}>{provider.name}</option>
-                ))}
-              </select>
+              />
             </div>
           </div>
 
@@ -923,6 +1114,7 @@ const ActivityEditModal: React.FC<{
     </div>
   );
 };
+
 const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color, progress }) => (
   <div style={{ 
     height: '100%', 
@@ -1886,93 +2078,372 @@ const CategoriesManagement: React.FC = () => {
     </div>
   );
 };
+
+const ImageCarousel: React.FC<{ activity: Activity }> = ({ activity }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const hasImages = activity.images && activity.images.length > 0;
+  const multipleImages = hasImages && activity.images.length > 1;
+
+  const nextImage = () => {
+    if (hasImages && multipleImages) {
+      setCurrentIndex((prev) => (prev + 1) % activity.images.length);
+    }
+  };
+
+  const prevImage = () => {
+    if (hasImages && multipleImages) {
+      setCurrentIndex((prev) => (prev === 0 ? activity.images.length - 1 : prev - 1));
+    }
+  };
+
+  const getFullImageUrl = (imagePath: string): string => {
+    if (!imagePath) {
+      return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500';
+    }
+    
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    if (imagePath.startsWith('/')) {
+      return `http://localhost:5224${imagePath}`;
+    }
+    
+    return `http://localhost:5224/uploads/activity-images/${imagePath}`;
+  };
+
+  const handleDeleteImage = async (imageId: string) => {
+    if (imageId === 'default') {
+      alert('Cannot delete default image');
+      return;
+    }
+
+    if (confirm('Are you sure you want to delete this image?')) {
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (!imageId || imageId.length < 10) {
+          throw new Error('Invalid image ID');
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/activityimages/${imageId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          alert('Image deleted successfully!');
+          window.location.reload();
+        } else {
+          const errorText = await response.text();
+          console.error('Delete response error:', errorText);
+          throw new Error('Failed to delete image');
+        }
+      } catch (error) {
+        console.error('Error deleting image:', error);
+        alert(`Failed to delete image. ${error instanceof Error ? error.message : 'Please try again.'}`);
+      }
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      
+      Array.from(files).forEach(file => {
+        formData.append('image', file);
+      });
+
+      const response = await fetch(`${API_BASE_URL}/activityimages/upload/${activity.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        alert('Images uploaded successfully!');
+        window.location.reload();
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload images. Please try again.');
+    }
+  };
+
+  return (
+    <div style={{ position: 'relative', marginBottom: '16px' }}>
+      {hasImages ? (
+        <>
+          <img
+            src={getFullImageUrl(activity.images[currentIndex]?.imageUrl)}
+            alt={activity.name}
+            style={{
+              width: '100%',
+              height: '200px',
+              objectFit: 'cover',
+              borderRadius: '8px',
+              border: '2px solid #333333'
+            }}
+          />
+          {multipleImages && (
+            <>
+              <button
+                onClick={prevImage}
+                style={{
+                  position: 'absolute',
+                  left: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  backgroundColor: 'rgba(0,0,0,0.5)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ‹
+              </button>
+              <button
+                onClick={nextImage}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  backgroundColor: 'rgba(0,0,0,0.5)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ›
+              </button>
+              <div style={{
+                position: 'absolute',
+                bottom: '8px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                gap: '4px'
+              }}>
+                {activity.images.map((_, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: index === currentIndex ? '#4CAF50' : '#ffffff80'
+                    }}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+          <button
+            onClick={() => handleDeleteImage(activity.images[currentIndex]?.id)}
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              backgroundColor: '#f44336',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '4px 8px',
+              fontSize: '12px',
+              cursor: 'pointer'
+            }}
+          >
+            Delete Image
+          </button>
+        </>
+      ) : (
+        <div style={{
+          width: '100%',
+          height: '200px',
+          backgroundColor: '#2a2a2a',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#b0b0b0',
+          border: '2px dashed #333333'
+        }}>
+          No Image Available
+        </div>
+      )}
+      
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        marginTop: '10px',
+        gap: '10px' 
+      }}>
+        <label style={{
+          backgroundColor: '#4CAF50',
+          color: 'white',
+          padding: '8px 16px',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '14px'
+        }}>
+          📤 Upload Image
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImageUpload}
+            style={{ display: 'none' }}
+          />
+        </label>
+      </div>
+    </div>
+  );
+};
+
 const ActivitiesManagement: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [providers, setProviders] = useState<Provider[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
-  const [uploadingImages, setUploadingImages] = useState<{ [key: string]: boolean }>({});
-  const [currentImageIndexes, setCurrentImageIndexes] = useState<{ [key: string]: number }>({});
-const DEFAULT_IMAGES = [
-  'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500',
-  'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=500',
-  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500'
-];
 
-const getFullImageUrl = (imagePath: string): string => {
-  if (!imagePath) return DEFAULT_IMAGES[0];
-  
-  if (imagePath.startsWith('http')) return imagePath;
-  
-  if (imagePath.startsWith('/')) {
-    return `http://localhost:5224${imagePath}`;
-  }
-  
-  return DEFAULT_IMAGES[0];
-};
+  const checkActivityStatus = (activity: Activity): string => {
+
+    if (activity.status && activity.status.trim() !== '' && activity.status !== 'Pending') {
+      return activity.status;
+    }
+    const now = new Date();
+    const endDate = activity.endDate ? new Date(activity.endDate) : null;
+    const startDate = activity.startDate ? new Date(activity.startDate) : new Date(activity.createdAt);
+    
+    if (!endDate) {
+      return activity.status || 'Pending';
+    }
+    
+    if (endDate < now) {
+      return 'Expired';
+    }
+    
+    if (startDate > now) {
+      return 'Upcoming';
+    }
+    
+    if (startDate <= now && endDate >= now) {
+      return 'Active';
+    }
+    
+    return activity.status || 'Pending';
+  };
+
+  const isActivityBookable = (activity: Activity): boolean => {
+    const status = checkActivityStatus(activity);
+    return status === 'Active' || status === 'Upcoming';
+  };
+
   useEffect(() => {
     fetchActivities();
     fetchCategories();
-    fetchProviders();
   }, []);
-const fetchActivities = async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/activities`);
-    if (!response.ok) throw new Error('Failed to fetch activities');
-    const data = await response.json();
-    
-    const activitiesWithImages = await Promise.all(
-      data.map(async (activity: any) => {
-        try {
-          const imagesResponse = await fetch(
-            `${API_BASE_URL}/activityimages/activity/${activity.id}`
-          );
-          
-          let images: ActivityImage[] = [];
-          if (imagesResponse.ok) {
-            const imagesData = await imagesResponse.json();
-            images = (imagesData.data || []).map((img: any) => ({
-              id: img.id || `img-${Math.random()}`,
-              imageUrl: img.imageUrl || img
-            }));
-          }
-          
-          return {
-            ...activity,
-            images: images.length > 0 ? images : [{
-              id: 'default',
-              imageUrl: '/images/default-activity.jpg'
-            }]
-          };
-        } catch (error) {
-          console.error(`Error fetching images for activity ${activity.id}:`, error);
-          return {
-            ...activity,
-            images: [{
-              id: 'default',
-              imageUrl: '/images/default-activity.jpg'
-            }]
-          };
-        }
-      })
-    );
 
-    setActivities(activitiesWithImages);
-    
-    const indexes: { [key: string]: number } = {};
-    activitiesWithImages.forEach((activity: Activity) => {
-      indexes[activity.id] = 0;
-    });
-    setCurrentImageIndexes(indexes);
-  } catch (error) {
-    console.error('Error fetching activities:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchActivities = async () => {
+    try {
+      console.log('Fetching activities...');
+      const response = await fetch(`${API_BASE_URL}/activities?t=${Date.now()}`, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch activities');
+      const data = await response.json();
+      
+      console.log('Fetched activities data:', data);
+      
+      const activitiesWithImages = await Promise.all(
+        data.map(async (activity: any) => {
+          try {
+            const imagesResponse = await fetch(
+              `${API_BASE_URL}/activityimages/activity/${activity.id}?t=${Date.now()}`,
+              {
+                headers: {
+                  'Cache-Control': 'no-cache, no-store, must-revalidate'
+                }
+              }
+            );
+            
+            let images: ActivityImage[] = [];
+            if (imagesResponse.ok) {
+              const imagesData = await imagesResponse.json();
+              images = (imagesData.data || []).map((img: any) => ({
+                id: img.id || `img-${Math.random()}`,
+                imageUrl: img.imageUrl || img
+              }));
+            }
+            
+            console.log(`Activity ${activity.id} - Name: ${activity.name}, Status: ${activity.status}`);
+            
+            return {
+              ...activity,
+              images: images.length > 0 ? images : [{
+                id: 'default',
+                imageUrl: 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500'
+              }],
+              startDate: activity.startDate || activity.createdAt,
+              endDate: activity.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              status: activity.status || 'Pending'
+            };
+          } catch (error) {
+            console.error(`Error fetching images for activity ${activity.id}:`, error);
+            return {
+              ...activity,
+              images: [{
+                id: 'default',
+                imageUrl: 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500'
+              }],
+              startDate: activity.startDate || activity.createdAt,
+              endDate: activity.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              status: activity.status || 'Pending' 
+            };
+          }
+        })
+      );
+
+      console.log('Final activities list with statuses:', 
+        activitiesWithImages.map(a => ({ id: a.id, name: a.name, status: a.status }))
+      );
+      setActivities(activitiesWithImages);
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -1985,28 +2456,115 @@ const fetchActivities = async () => {
     }
   };
 
-  const fetchProviders = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/users?role=Provider`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch providers');
-      const data = await response.json();
-      setProviders(data);
-    } catch (error) {
-      console.error('Error fetching providers:', error);
-    }
-  };
-
   const handleAddActivity = async (activityData: NewActivity) => {
     try {
       const token = localStorage.getItem('token');
+      
+      if (!token) {
+        alert('You need to login first!');
+        return;
+      }
+      
+      const formData = new FormData();
+      
+      formData.append('Name', activityData.name.trim());
+      formData.append('Description', activityData.description.trim());
+      formData.append('Price', activityData.price.toString());
+      formData.append('AvailableSlots', activityData.availableSlots.toString());
+      formData.append('Location', activityData.location.trim());
+      formData.append('CategoryId', activityData.categoryId);
+      formData.append('Duration', activityData.duration);
+      formData.append('ProviderName', activityData.providerName?.trim() || 'Unknown Provider');
+      
+      if (activityData.providerId && activityData.providerId.trim()) {
+        formData.append('ProviderId', activityData.providerId.trim());
+      }
+      
+      formData.append('StartDate', new Date(activityData.startDate).toISOString());
+      formData.append('EndDate', new Date(activityData.endDate).toISOString());
+      
+      if (activityData.included && activityData.included.trim()) {
+        formData.append('Included', activityData.included.trim());
+      } else {
+        formData.append('Included', '');
+      }
+      
+      if (activityData.requirements && activityData.requirements.trim()) {
+        formData.append('Requirements', activityData.requirements.trim());
+      } else {
+        formData.append('Requirements', '');
+      }
+      
+      if (activityData.quickFacts && activityData.quickFacts.trim()) {
+        formData.append('QuickFacts', activityData.quickFacts.trim());
+      } else {
+        formData.append('QuickFacts', '');
+      }
+      
+      console.log('=== FORM DATA ===');
+      const formDataObj: Record<string, string> = {};
+      for (const [key, value] of formData.entries()) {
+        formDataObj[key] = value.toString();
+      }
+      console.table(formDataObj);
+      
       const response = await fetch(`${API_BASE_URL}/activities`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+      
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: Failed to create activity`;
+        try {
+          const errorData = JSON.parse(responseText);
+          console.error('Error details:', errorData);
+          
+          if (errorData.errors) {
+            const validationErrors = Object.entries(errorData.errors)
+              .flatMap(([key, errors]: [string, any]) => 
+                Array.isArray(errors) 
+                  ? errors.map(err => `• ${key}: ${err}`)
+                  : `• ${key}: ${errors}`
+              );
+            errorMessage = `Validation failed:\n${validationErrors.join('\n')}`;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch {
+          if (responseText.includes('Validation failed')) {
+            errorMessage = responseText;
+          }
+        }
+        throw new Error(errorMessage);
+      }
+      
+      const result = JSON.parse(responseText);
+      console.log('✅ Success:', result);
+      
+      await fetchActivities();
+      setShowAddModal(false);
+      alert('✅ Activity created successfully!');
+      
+    } catch (error) {
+      console.error('❌ Full error:', error);
+      alert(`❌ Failed to create activity:\n\n${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleEditActivity = async (activityData: any) => {
+    if (!editingActivity) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/activities/${editingActivity.id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -2016,44 +2574,18 @@ const fetchActivities = async () => {
       
       if (response.ok) {
         fetchActivities();
-        setShowAddModal(false);
-        alert('Activity created successfully!');
+        setShowEditModal(false);
+        setEditingActivity(null);
+        alert('Activity updated successfully!');
       } else {
-        throw new Error('Failed to create activity');
+        throw new Error('Failed to update activity');
       }
     } catch (error) {
-      console.error('Error adding activity:', error);
-      alert('Failed to create activity. Please try again.');
+      console.error('Error updating activity:', error);
+      alert('Failed to update activity. Please try again.');
     }
   };
 
- const handleEditActivity = async (activityData: any) => {
-  if (!editingActivity) return;
-  
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`${API_BASE_URL}/activities/${editingActivity.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(activityData)
-    });
-    
-    if (response.ok) {
-      fetchActivities();
-      setShowEditModal(false);
-      setEditingActivity(null);
-      alert('Activity updated successfully!');
-    } else {
-      throw new Error('Failed to update activity');
-    }
-  } catch (error) {
-    console.error('Error updating activity:', error);
-    alert('Failed to update activity. Please try again.');
-  }
-};
   const handleDeleteActivity = async (activityId: string) => {
     if (confirm('Are you sure you want to delete this activity?')) {
       try {
@@ -2078,351 +2610,66 @@ const fetchActivities = async () => {
     }
   };
 
-  const handleUpdateActivityStatus = async (activityId: string, status: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/activities/${activityId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ status })
-      });
-      
-      if (response.ok) {
-        fetchActivities();
-        alert('Activity status updated successfully!');
-      } else {
-        throw new Error('Failed to update activity status');
-      }
-    } catch (error) {
-      console.error('Error updating activity status:', error);
-      alert('Failed to update activity status. Please try again.');
-    }
-  };
-
-  const handleImageUpload = async (activityId: string, imageFiles: FileList) => {
-    setUploadingImages(prev => ({ ...prev, [activityId]: true }));
+const handleUpdateActivityStatus = async (activityId: string, status: string) => {
+  try {
+    const token = localStorage.getItem('token');
     
-    try {
-      const uploadPromises = Array.from(imageFiles).map(async (file) => {
-        const formData = new FormData();
-        formData.append('image', file);
-
-        const response = await fetch(`${API_BASE_URL}/activityimages/upload/${activityId}`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Upload failed');
-        }
-
-        return response.json();
-      });
-
-      await Promise.all(uploadPromises);
-      alert('Images uploaded successfully!');
-      fetchActivities();
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Upload failed. Please try again.');
-    } finally {
-      setUploadingImages(prev => ({ ...prev, [activityId]: false }));
+    const requestBody = {
+      Status: status  
+    };
+    
+    console.log('Sending status update:', requestBody);
+    
+    const response = await fetch(`${API_BASE_URL}/activities/${activityId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error response:', errorText);
+      throw new Error(`Failed to update activity status: ${response.status}`);
     }
-  };
-
-  const handleDeleteImage = async (imageId: string, activityId: string) => {
-    if (confirm('Are you sure you want to delete this image?')) {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_BASE_URL}/activityimages/${imageId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          alert('Image deleted successfully!');
-          fetchActivities();
-        
-          const currentIndex = currentImageIndexes[activityId];
-          const activity = activities.find(a => a.id === activityId);
-          if (activity && activity.images && currentIndex >= activity.images.length - 1) {
-            setCurrentImageIndexes(prev => ({
-              ...prev,
-              [activityId]: Math.max(0, activity.images.length - 2)
-            }));
-          }
-        } else {
-          throw new Error('Failed to delete image');
-        }
-      } catch (error) {
-        console.error('Error deleting image:', error);
-        alert('Failed to delete image. Please try again.');
-      }
-    }
-  };
-
-  const nextImage = (activityId: string) => {
-    const activity = activities.find(a => a.id === activityId);
-    if (!activity || !activity.images) return;
-
-    setCurrentImageIndexes(prev => ({
-      ...prev,
-      [activityId]: (prev[activityId] + 1) % activity.images.length
-    }));
-  };
-
-  const prevImage = (activityId: string) => {
-    const activity = activities.find(a => a.id === activityId);
-    if (!activity || !activity.images) return;
-
-    setCurrentImageIndexes(prev => ({
-      ...prev,
-      [activityId]: prev[activityId] === 0 ? activity.images.length - 1 : prev[activityId] - 1
-    }));
-  };
+    
+    const result = await response.json();
+    console.log('Update successful:', result);
+    
+    setActivities(prev => prev.map(activity => 
+      activity.id === activityId 
+        ? { ...activity, status: status }
+        : activity
+    ));
+    
+    alert(`Activity status updated to ${status}!`);
+    
+  } catch (error) {
+    console.error('Error updating activity status:', error);
+    alert(`Failed to update activity status. ${error instanceof Error ? error.message : 'Please try again.'}`);
+  }
+};
 
   const startEditActivity = (activity: Activity) => {
     setEditingActivity(activity);
     setShowEditModal(true);
   };
 
-const ImageCarousel: React.FC<{ activity: Activity }> = ({ activity }) => {
-  const currentIndex = currentImageIndexes[activity.id] || 0;
-  const hasImages = activity.images && activity.images.length > 0;
-  const multipleImages = hasImages && activity.images.length > 1;
-
-  const handleDeleteImage = async (imageId: string) => {
-    if (confirm('Are you sure you want to delete this image?')) {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_BASE_URL}/activityimages/${imageId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          alert('Image deleted successfully!');
-          fetchActivities();
-          
-          const currentIndex = currentImageIndexes[activity.id];
-          if (currentIndex >= activity.images.length - 1) {
-            setCurrentImageIndexes(prev => ({
-              ...prev,
-              [activity.id]: Math.max(0, activity.images.length - 2)
-            }));
-          }
-        } else {
-          throw new Error('Failed to delete image');
-        }
-      } catch (error) {
-        console.error('Error deleting image:', error);
-        alert('Failed to delete image. Please try again.');
-      }
-    }
-  };
-
-  return (
-    <div style={{ position: 'relative', marginBottom: '16px' }}>
-      {hasImages ? (
-        <>
-          <div style={{ position: 'relative' }}>
-            <img
-              src={getFullImageUrl(activity.images[currentIndex]?.imageUrl)}
-              alt={`${activity.name} - Image ${currentIndex + 1}`}
-              style={{
-                width: '100%',
-                height: '250px',
-                objectFit: 'cover',
-                borderRadius: '12px',
-                border: '1px solid #333333'
-              }}
-            />
-            
-            {multipleImages && (
-              <>
-                <button
-                  onClick={() => prevImage(activity.id)}
-                  style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    backgroundColor: 'rgba(0,0,0,0.7)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '36px',
-                    height: '36px',
-                    cursor: 'pointer',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  ‹
-                </button>
-                <button
-                  onClick={() => nextImage(activity.id)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    backgroundColor: 'rgba(0,0,0,0.7)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '36px',
-                    height: '36px',
-                    cursor: 'pointer',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  ›
-                </button>
-                
-                <div style={{
-                  position: 'absolute',
-                  bottom: '12px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  display: 'flex',
-                  gap: '6px',
-                  alignItems: 'center'
-                }}>
-                  {activity.images.map((_: ActivityImage, index: number) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndexes(prev => ({
-                        ...prev,
-                        [activity.id]: index
-                      }))}
-                      style={{
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        border: 'none',
-                        backgroundColor: index === currentIndex ? '#2196F3' : 'rgba(255,255,255,0.5)',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s ease'
-                      }}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
-          {multipleImages && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(60px, 1fr))',
-              gap: '8px',
-              marginTop: '12px'
-            }}>
-              {activity.images.map((image: ActivityImage, index: number) => (
-                <div key={image.id} style={{ position: 'relative' }}>
-                  <img
-                    src={getFullImageUrl(image.imageUrl)}
-                    alt={`Thumbnail ${index + 1}`}
-                    style={{
-                      width: '100%',
-                      height: '60px',
-                      objectFit: 'cover',
-                      borderRadius: '6px',
-                      border: index === currentIndex ? '2px solid #2196F3' : '1px solid #333333',
-                      cursor: 'pointer',
-                      opacity: index === currentIndex ? 1 : 0.7
-                    }}
-                    onClick={() => setCurrentImageIndexes(prev => ({
-                      ...prev,
-                      [activity.id]: index
-                    }))}
-                  />
-                  <button
-                    onClick={() => handleDeleteImage(image.id)}
-                    style={{
-                      position: 'absolute',
-                      top: '2px',
-                      right: '2px',
-                      backgroundColor: '#f44336',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '50%',
-                      width: '16px',
-                      height: '16px',
-                      fontSize: '10px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <div style={{
-          width: '100%',
-          height: '250px',
-          backgroundColor: '#2a2a2a',
-          borderRadius: '12px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#b0b0b0',
-          border: '2px dashed #333333'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '12px' }}>🏔️</div>
-          <div style={{ fontSize: '14px', textAlign: 'center' }}>
-            No images available
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        padding: '60px',
-        flexDirection: 'column',
-        gap: '16px'
-      }}>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
         <div style={{ 
           animation: 'spin 1s linear infinite',
-          border: '3px solid #333333',
-          borderTop: '3px solid #2196F3',
+          border: '2px solid #f3f3f3',
+          borderTop: '2px solid #3498db',
           borderRadius: '50%',
-          width: '50px',
-          height: '50px'
+          width: '40px',
+          height: '40px'
         }}></div>
-        <div style={{ color: '#b0b0b0', fontSize: '16px' }}>
-          Loading activities...
-        </div>
       </div>
     );
   }
@@ -2461,15 +2708,12 @@ const ImageCarousel: React.FC<{ activity: Activity }> = ({ activity }) => {
             gap: '8px',
             transition: 'all 0.3s ease'
           }}
-          onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#45a049'}
-          onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4CAF50'}
         >
           <span>+</span>
           Add New Activity
         </button>
       </div>
 
-      {/* Statistics */}
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -2483,10 +2727,10 @@ const ImageCarousel: React.FC<{ activity: Activity }> = ({ activity }) => {
           border: '1px solid #333333',
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#2196F3', marginBottom: '8px' }}>
-            {activities.length}
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#4CAF50', marginBottom: '8px' }}>
+            {activities.filter(a => a.status === 'Active' || checkActivityStatus(a) === 'Active').length}
           </div>
-          <div style={{ color: '#b0b0b0', fontSize: '14px' }}>Total Activities</div>
+          <div style={{ color: '#b0b0b0', fontSize: '14px' }}>Active Activities</div>
         </div>
         <div style={{
           backgroundColor: '#2a2a2a',
@@ -2495,10 +2739,22 @@ const ImageCarousel: React.FC<{ activity: Activity }> = ({ activity }) => {
           border: '1px solid #333333',
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#4CAF50', marginBottom: '8px' }}>
-            {activities.filter(a => a.status === 'Active').length}
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#2196F3', marginBottom: '8px' }}>
+            {activities.filter(a => checkActivityStatus(a) === 'Upcoming').length}
           </div>
-          <div style={{ color: '#b0b0b0', fontSize: '14px' }}>Active Activities</div>
+          <div style={{ color: '#b0b0b0', fontSize: '14px' }}>Upcoming Activities</div>
+        </div>
+        <div style={{
+          backgroundColor: '#2a2a2a',
+          padding: '20px',
+          borderRadius: '12px',
+          border: '1px solid #333333',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#f44336', marginBottom: '8px' }}>
+            {activities.filter(a => checkActivityStatus(a) === 'Expired').length}
+          </div>
+          <div style={{ color: '#b0b0b0', fontSize: '14px' }}>Expired Activities</div>
         </div>
         <div style={{
           backgroundColor: '#2a2a2a',
@@ -2514,213 +2770,294 @@ const ImageCarousel: React.FC<{ activity: Activity }> = ({ activity }) => {
         </div>
       </div>
 
-      {/* Activities Grid */}
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', 
         gap: '28px' 
       }}>
-        {activities.map((activity) => (
-          <div key={activity.id} style={{
-            backgroundColor: '#2a2a2a',
-            borderRadius: '16px',
-            padding: '20px',
-            border: '1px solid #333333',
-            transition: 'all 0.3s ease',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.transform = 'translateY(-4px)';
-            e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.2)';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
-          }}
-          >
-            {/* Image Carousel */}
-            <ImageCarousel activity={activity} />
-            
-            {/* Activity Details */}
-            <div style={{ marginBottom: '16px' }}>
-              <h3 style={{ 
-                color: '#ffffff', 
-                fontSize: '20px', 
-                fontWeight: 'bold', 
-                marginBottom: '8px',
-                lineHeight: '1.3'
-              }}>
-                {activity.name}
-              </h3>
+        {activities.map((activity) => {
+  
+          const activityStatus = activity.status || checkActivityStatus(activity);
+          const isBookable = isActivityBookable(activity);
+          
+          return (
+            <div key={activity.id} style={{
+              backgroundColor: '#2a2a2a',
+              borderRadius: '16px',
+              padding: '20px',
+              border: `1px solid ${
+                activityStatus === 'Active' ? '#4CAF5040' : 
+                activityStatus === 'Upcoming' ? '#2196F340' :
+                activityStatus === 'Expired' ? '#f4433640' : '#FF980040'
+              }`,
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+              opacity: activityStatus === 'Expired' ? 0.8 : 1
+            }}>
+              <ImageCarousel activity={activity} />
               
-              <p style={{ 
-                color: '#b0b0b0', 
-                fontSize: '14px', 
-                marginBottom: '12px',
-                lineHeight: '1.5',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden'
-              }}>
-                {activity.description}
-              </p>
-            </div>
-
-            {/* Price and Status */}
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              marginBottom: '16px' 
-            }}>
-              <span style={{ 
-                color: '#2196F3', 
-                fontSize: '24px', 
-                fontWeight: 'bold' 
-              }}>
-                ${activity.price}
-              </span>
-              <span style={{
-                padding: '6px 12px',
-                borderRadius: '20px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                backgroundColor: 
-                  activity.status === 'Active' ? '#4CAF5030' : 
-                  activity.status === 'Pending' ? '#FF980030' : '#f4433630',
-                color: 
-                  activity.status === 'Active' ? '#4CAF50' : 
-                  activity.status === 'Pending' ? '#FF9800' : '#f44336',
-                border: `1px solid ${
-                  activity.status === 'Active' ? '#4CAF50' : 
-                  activity.status === 'Pending' ? '#FF9800' : '#f44336'
-                }30`
-              }}>
-                {activity.status}
-              </span>
-            </div>
-
-            {/* Activity Metadata */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '1fr 1fr', 
-              gap: '12px',
-              marginBottom: '20px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#b0b0b0', fontSize: '14px' }}>📍</span>
-                <span style={{ color: '#ffffff', fontSize: '14px' }}>{activity.location}</span>
+              <div style={{ marginBottom: '16px' }}>
+                <h3 style={{ 
+                  color: '#ffffff', 
+                  fontSize: '20px', 
+                  fontWeight: 'bold', 
+                  marginBottom: '8px',
+                  lineHeight: '1.3'
+                }}>
+                  {activity.name}
+                </h3>
+                
+                <p style={{ 
+                  color: '#b0b0b0', 
+                  fontSize: '14px', 
+                  marginBottom: '12px',
+                  lineHeight: '1.5',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden'
+                }}>
+                  {activity.description}
+                </p>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#b0b0b0', fontSize: '14px' }}>⏰</span>
-                <span style={{ color: '#ffffff', fontSize: '14px' }}>{activity.duration}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#b0b0b0', fontSize: '14px' }}>🏷️</span>
-                <span style={{ color: '#ffffff', fontSize: '14px' }}>{activity.category}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#b0b0b0', fontSize: '14px' }}>👤</span>
-                <span style={{ color: '#ffffff', fontSize: '14px' }}>{activity.providerName}</span>
-              </div>
-            </div>
 
-            {/* Available Slots */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between',
-              marginBottom: '20px',
-              padding: '12px',
-              backgroundColor: '#333333',
-              borderRadius: '8px'
-            }}>
-              <span style={{ color: '#b0b0b0', fontSize: '14px' }}>Available Slots:</span>
-              <span style={{ 
-                fontSize: '16px', 
-                fontWeight: 'bold',
-                color: activity.availableSlots > 5 ? '#4CAF50' : activity.availableSlots > 0 ? '#FF9800' : '#f44336'
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr', 
+                gap: '12px',
+                marginBottom: '16px',
+                padding: '12px',
+                backgroundColor: '#333333',
+                borderRadius: '8px'
               }}>
-                {activity.availableSlots} {activity.availableSlots === 1 ? 'slot' : 'slots'} left
-              </span>
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '1fr 1fr 1fr', 
-              gap: '10px' 
-            }}>
-              <select
-                value={activity.status}
-                onChange={(e) => handleUpdateActivityStatus(activity.id, e.target.value)}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  backgroundColor: '#2a2a2a',
-                  color: '#ffffff',
-                  border: '1px solid #444444',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500'
-                }}
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Pending">Pending</option>
-              </select>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ color: '#b0b0b0', fontSize: '12px', marginBottom: '4px' }}>Start Date</div>
+                  <div style={{ 
+                    color: '#ffffff', 
+                    fontSize: '14px', 
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}>
+                    <span>📅</span>
+                    {new Date(activity.startDate).toLocaleDateString()}
+                  </div>
+                  <div style={{ color: '#b0b0b0', fontSize: '11px' }}>
+                    {new Date(activity.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
               
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#b0b0b0', fontSize: '14px' }}>👤</span>
+                  <span style={{ color: '#ffffff', fontSize: '14px' }}>
+                    {activity.providerName || activity.providerName || "Unknown Provider"}
+                  </span>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ color: '#b0b0b0', fontSize: '12px', marginBottom: '4px' }}>End Date</div>
+                  <div style={{ 
+                    color: activityStatus === 'Expired' ? '#f44336' : '#ffffff', 
+                    fontSize: '14px', 
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}>
+                    <span>📅</span>
+                    {new Date(activity.endDate).toLocaleDateString()}
+                  </div>
+                  <div style={{ color: '#b0b0b0', fontSize: '11px' }}>
+                    {new Date(activity.endDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '16px' 
+              }}>
+                <span style={{ 
+                  color: '#2196F3', 
+                  fontSize: '24px', 
+                  fontWeight: 'bold' 
+                }}>
+                  ${activity.price}
+                </span>
+                <span style={{
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  backgroundColor: 
+                    activityStatus === 'Active' ? '#4CAF5030' : 
+                    activityStatus === 'Upcoming' ? '#2196F330' :
+                    activityStatus === 'Expired' ? '#f4433630' : '#FF980030',
+                  color: 
+                    activityStatus === 'Active' ? '#4CAF50' : 
+                    activityStatus === 'Upcoming' ? '#2196F3' :
+                    activityStatus === 'Expired' ? '#f44336' : '#FF9800',
+                  border: `1px solid ${
+                    activityStatus === 'Active' ? '#4CAF50' : 
+                    activityStatus === 'Upcoming' ? '#2196F3' :
+                    activityStatus === 'Expired' ? '#f44336' : '#FF9800'
+                  }30`
+                }}>
+                  {activityStatus}
+                </span>
+              </div>
+
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr', 
+                gap: '12px',
+                marginBottom: '20px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#b0b0b0', fontSize: '14px' }}>📍</span>
+                  <span style={{ color: '#ffffff', fontSize: '14px' }}>{activity.location}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#b0b0b0', fontSize: '14px' }}>⏰</span>
+                  <span style={{ color: '#ffffff', fontSize: '14px' }}>{activity.duration}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#b0b0b0', fontSize: '14px' }}>🏷️</span>
+                  <span style={{ color: '#ffffff', fontSize: '14px' }}>{activity.category}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#b0b0b0', fontSize: '14px' }}>👤</span>
+                  <span style={{ color: '#ffffff', fontSize: '14px' }}>{activity.providerName}</span>
+                </div>
+              </div>
+
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                marginBottom: '20px',
+                padding: '12px',
+                backgroundColor: '#333333',
+                borderRadius: '8px'
+              }}>
+                <span style={{ color: '#b0b0b0', fontSize: '14px' }}>Available Slots:</span>
+                <span style={{ 
+                  fontSize: '16px', 
+                  fontWeight: 'bold',
+                  color: activity.availableSlots > 5 ? '#4CAF50' : activity.availableSlots > 0 ? '#FF9800' : '#f44336'
+                }}>
+                  {activity.availableSlots} {activity.availableSlots === 1 ? 'slot' : 'slots'} left
+                </span>
+              </div>
+
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr 1fr', 
+                gap: '10px' 
+              }}>
+              
+                <select
+                  value={activity.status || checkActivityStatus(activity)}
+                  onChange={(e) => handleUpdateActivityStatus(activity.id, e.target.value)}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: '#2a2a2a',
+                    color: '#ffffff',
+                    border: '1px solid #444444',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '500'
+                  }}
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                  <option value="Rejected">Rejected</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Expired">Expired</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+                
+                <button
+                  onClick={() => startEditActivity(activity)}
+                  style={{
+                    padding: '10px 12px',
+                    backgroundColor: '#FF9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    transition: 'all 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>✏️</span>
+                  Edit
+                </button>
+                
+                <button
+                  onClick={() => handleDeleteActivity(activity.id)}
+                  style={{
+                    padding: '10px 12px',
+                    backgroundColor: '#f44336',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    transition: 'all 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>🗑️</span>
+                  Delete
+                </button>
+              </div>
+
               <button
-                onClick={() => startEditActivity(activity)}
+                onClick={() => {
+                  if (isBookable) {
+                  }
+                }}
+                disabled={!isBookable}
                 style={{
-                  padding: '10px 12px',
-                  backgroundColor: '#FF9800',
+                  width: '100%',
+                  marginTop: '16px',
+                  padding: '12px',
+                  backgroundColor: isBookable ? '#4CAF50' : '#666666',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500',
+                  cursor: isBookable ? 'pointer' : 'not-allowed',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
                   transition: 'all 0.3s ease',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px'
+                  gap: '8px'
                 }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f57c00'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#FF9800'}
               >
-                <span>✏️</span>
-                Edit
-              </button>
-              
-              <button
-                onClick={() => handleDeleteActivity(activity.id)}
-                style={{
-                  padding: '10px 12px',
-                  backgroundColor: '#f44336',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  transition: 'all 0.3s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#d32f2f'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f44336'}
-              >
-                <span>🗑️</span>
-                Delete
+                {isBookable ? 'Book Now' : 'Not Available'}
+                {!isBookable && <span>⛔</span>}
               </button>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {activities.length === 0 && (
@@ -2762,21 +3099,11 @@ const ImageCarousel: React.FC<{ activity: Activity }> = ({ activity }) => {
         </div>
       )}
 
-      <style>
-        {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
-      </style>
-
       {showAddModal && (
         <ActivityModal
           onClose={() => setShowAddModal(false)}
           onSave={handleAddActivity}
           categories={categories}
-          providers={providers}
         />
       )}
 
@@ -2789,12 +3116,12 @@ const ImageCarousel: React.FC<{ activity: Activity }> = ({ activity }) => {
           }}
           onSave={handleEditActivity}
           categories={categories}
-          providers={providers}
         />
       )}
     </div>
   );
 };
+
 const BookingsManagement: React.FC<{ 
   bookings: Booking[];
   filteredBookings: Booking[];
@@ -2952,6 +3279,7 @@ const BookingsManagement: React.FC<{
     </div>
   );
 };
+
 const AdminDashboard: React.FC = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -2971,90 +3299,8 @@ const AdminDashboard: React.FC = () => {
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [pendingActivities, setPendingActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
-const sampleUsers: User[] = [
-    { id: '1', name: 'John Doe', email: 'john@example.com', role: 'Tourist', joinDate: '2024-01-15', status: 'Active', isActive: true },
-    { id: '2', name: 'Sarah Wilson', email: 'sarah@example.com', role: 'Provider', joinDate: '2024-01-14', status: 'Active', isActive: true },
-    { id: '3', name: 'Mike Johnson', email: 'mike@example.com', role: 'Tourist', joinDate: '2024-01-13', status: 'Active', isActive: true },
-    { id: '4', name: 'Emma Davis', email: 'emma@example.com', role: 'Admin', joinDate: '2024-01-12', status: 'Active', isActive: true }
-  ];
-
-const sampleActivities: Activity[] = [
-  { 
-    id: '1', 
-    name: 'Mountain Hiking Adventure', 
-    description: 'Beautiful hike through scenic mountain trails', 
-    price: 99, 
-    availableSlots: 15, 
-    location: 'Alps, Switzerland', 
-    category: 'Adventure',
-    categoryId: '1',
-    providerName: 'Adventure Co',
-    providerId: '2',
-    duration: '4 hours',
-    status: 'Active',
-    images: [{ 
-      id: 'img-1', 
-      imageUrl: 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500'
-    }],
-    createdAt: '2024-01-10'
-  },
-  { 
-    id: '2', 
-    name: 'City Cultural Tour', 
-    description: 'Explore the rich culture and history of the city', 
-    price: 65, 
-    availableSlots: 20, 
-    location: 'Paris, France', 
-    category: 'Cultural',
-    categoryId: '2',
-    providerName: 'Urban Explorers',
-    providerId: '2',
-    duration: '3 hours',
-    status: 'Active',
-    images: [{ 
-      id: 'img-2', 
-      imageUrl: 'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=500'
-    }],
-    createdAt: '2024-01-11'
-  },
-  { 
-    id: '3', 
-    name: 'Beach Relaxation Package', 
-    description: 'Perfect beach getaway with luxury amenities', 
-    price: 150, 
-    availableSlots: 10, 
-    location: 'Maldives', 
-    category: 'Relaxation',
-    categoryId: '3',
-    providerName: 'Tropical Getaways',
-    providerId: '2',
-    duration: '2 days',
-    status: 'Pending',
-    images: [{ 
-      id: 'img-3', 
-      imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500'
-    }],
-    createdAt: '2024-01-12'
-  }
-];
-  const sampleCategories: Category[] = [
-    { id: '1', name: 'Adventure', description: 'Thrilling outdoor activities', imageUrl: 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500', featured: true, activityCount: 5 },
-    { id: '2', name: 'Cultural', description: 'Cultural and historical experiences', imageUrl: 'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=500', featured: true, activityCount: 3 },
-    { id: '3', name: 'Relaxation', description: 'Peaceful and relaxing getaways', imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500', featured: false, activityCount: 2 }
-  ];
-
-  const sampleBookings: Booking[] = [
-    { id: '1', activityName: 'Mountain Hiking Adventure', userName: 'John Doe', userId: '1', activityId: '1', bookingDate: '2024-01-20', numberOfPeople: 2, totalAmount: 198, status: 'Confirmed', paymentStatus: 'Paid' },
-    { id: '2', activityName: 'City Cultural Tour', userName: 'Sarah Wilson', userId: '2', activityId: '2', bookingDate: '2024-01-21', numberOfPeople: 4, totalAmount: 260, status: 'Pending', paymentStatus: 'Pending' },
-    { id: '3', activityName: 'Beach Relaxation Package', userName: 'Mike Johnson', userId: '3', activityId: '3', bookingDate: '2024-01-22', numberOfPeople: 2, totalAmount: 300, status: 'Confirmed', paymentStatus: 'Paid' }
-  ];
-
-  const sampleProviders: Provider[] = [
-    { id: '2', name: 'Adventure Co', email: 'adventure@example.com' },
-    { id: '3', name: 'Urban Explorers', email: 'urban@example.com' },
-    { id: '4', name: 'Tropical Getaways', email: 'tropical@example.com' }
-  ];
-
+  const [user, setUser] = useState<User | null>(null);
+  
   const menuItems = [
     { text: 'Dashboard', icon: '📊', section: 'dashboard' },
     { text: 'Users', icon: '👥', section: 'users' },
@@ -3094,146 +3340,92 @@ const sampleActivities: Activity[] = [
       action: () => setActiveSection('bookings')
     }
   ];
-useEffect(() => {
 
-    setUsers(sampleUsers);
-    setActivities(sampleActivities);
-    setCategories(sampleCategories);
-    setBookings(sampleBookings);
-    setFilteredBookings(sampleBookings);
-    setProviders(sampleProviders);
-
-    const totalUsers = sampleUsers.length;
-    const totalActivities = sampleActivities.length;
-    const totalBookings = sampleBookings.length;
-    const totalRevenue = sampleBookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
-    const pendingApprovals = sampleActivities.filter(activity => activity.status === 'Pending').length;
-
-    setStats({
-      totalUsers,
-      totalActivities,
-      totalBookings,
-      totalRevenue,
-      pendingApprovals
-    });
-
-    setRecentActivities([
-      { id: 1, user: 'John Doe', action: 'booked', target: 'Mountain Hiking', time: '30 min ago' },
-      { id: 2, user: 'Sarah Wilson', action: 'created', target: 'New City Tour', time: '1 hour ago' },
-      { id: 3, user: 'Mike Johnson', action: 'reviewed', target: 'Beach Package', time: '2 hours ago' },
-    ]);
-
-    setPendingActivities(sampleActivities.filter(activity => activity.status === 'Pending'));
-
-    setLoading(false);
-  }, []);
   useEffect(() => {
-    fetchDashboardData();
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+    
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+       
+        const usersResponse = await fetch(`${API_BASE_URL}/users`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          setUsers(usersData);
+        }
+
+        const activitiesResponse = await fetch(`${API_BASE_URL}/activities`);
+        if (activitiesResponse.ok) {
+          const activitiesData = await activitiesResponse.json();
+          setActivities(activitiesData);
+        }
+
+        const categoriesResponse = await fetch(`${API_BASE_URL}/categories`);
+        if (categoriesResponse.ok) {
+          const categoriesData = await categoriesResponse.json();
+          setCategories(categoriesData);
+        }
+
+        const bookingsResponse = await fetch(`${API_BASE_URL}/bookings`);
+        if (bookingsResponse.ok) {
+          const bookingsData = await bookingsResponse.json();
+          setBookings(bookingsData);
+          setFilteredBookings(bookingsData);
+        }
+
+        const providersResponse = await fetch(`${API_BASE_URL}/users?role=Provider`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (providersResponse.ok) {
+          const providersData = await providersResponse.json();
+          setProviders(providersData);
+        }
+
+        const totalUsers = users.length;
+        const totalActivities = activities.length;
+        const totalBookings = bookings.length;
+        const totalRevenue = bookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
+        const pendingApprovals = activities.filter(activity => activity.status === 'Pending').length;
+
+        setStats({
+          totalUsers,
+          totalActivities,
+          totalBookings,
+          totalRevenue,
+          pendingApprovals
+        });
+
+        setPendingActivities(activities.filter(activity => activity.status === 'Pending'));
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-   
-      const usersResponse = await fetch('http://localhost:5224/api/users', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
-        setUsers(usersData);
-      }
-      const activitiesResponse = await fetch(`${API_BASE_URL}/activities`);
-      if (activitiesResponse.ok) {
-        const activitiesData = await activitiesResponse.json();
-        setActivities(activitiesData);
-      }
-
-      const categoriesResponse = await fetch(`${API_BASE_URL}/categories`);
-      if (categoriesResponse.ok) {
-        const categoriesData = await categoriesResponse.json();
-        setCategories(categoriesData);
-      }
-
-      const bookingsResponse = await fetch('http://localhost:5224/api/bookings', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (bookingsResponse.ok) {
-        const bookingsData = await bookingsResponse.json();
-        setBookings(bookingsData);
-        setFilteredBookings(bookingsData);
-      }
-
-      const providersResponse = await fetch('http://localhost:5224/api/users?role=Provider', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (providersResponse.ok) {
-        const providersData = await providersResponse.json();
-        setProviders(providersData);
-      }
-
-      const totalUsers = users.length;
-      const totalActivities = activities.length;
-      const totalBookings = bookings.length;
-      const totalRevenue = bookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
-      const pendingApprovals = activities.filter(activity => activity.status === 'Pending').length;
-
-      setStats({
-        totalUsers,
-        totalActivities,
-        totalBookings,
-        totalRevenue,
-        pendingApprovals
-      });
-
-      setRecentActivities([
-        { id: 1, user: 'John Doe', action: 'booked', target: 'Mountain Hiking', time: '30 min ago' },
-        { id: 2, user: 'Sarah Wilson', action: 'created', target: 'New City Tour', time: '1 hour ago' },
-        { id: 3, user: 'Mike Johnson', action: 'reviewed', target: 'Beach Package', time: '2 hours ago' },
-      ]);
-
-
-      setPendingActivities(activities.filter(activity => activity.status === 'Pending'));
-
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    }
-  };
-
-  const fetchProviderBookings = async (providerId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5224/api/bookings/provider/${providerId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setFilteredBookings(data);
-      }
-    } catch (error) {
-      console.error('Error fetching provider bookings:', error);
-    }
-  };
 
   useEffect(() => {
     if (selectedProvider === 'all') {
       setFilteredBookings(bookings);
     } else {
-      fetchProviderBookings(selectedProvider);
+      const filtered = bookings.filter(booking => {
+        const activity = activities.find(a => a.id === booking.activityId);
+        return activity?.providerId === selectedProvider;
+      });
+      setFilteredBookings(filtered);
     }
-  }, [selectedProvider, bookings]);
+  }, [selectedProvider, bookings, activities]);
 
   const revenueData = [
     { month: 'Jan', revenue: 4000 },

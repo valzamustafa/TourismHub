@@ -21,7 +21,9 @@ interface Activity {
   reviews?: number;
   included?: string[]; 
   requirements?: string[]; 
-  quickFacts?: string[]; 
+  quickFacts?: string[];
+  startDate?: string;
+  endDate?: string;
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
@@ -78,19 +80,13 @@ export default function ActivityDetailPage() {
       setError(null);
       setLoading(true);
 
-      const activitiesResponse = await fetch(`${API_BASE_URL}/activities`);
+      const activityResponse = await fetch(`${API_BASE_URL}/activities/${params.id}`);
       
-      if (!activitiesResponse.ok) {
-        throw new Error(`Failed to fetch activities: ${activitiesResponse.status}`);
+      if (!activityResponse.ok) {
+        throw new Error(`Failed to fetch activity: ${activityResponse.status}`);
       }
       
-      const activitiesData = await activitiesResponse.json();
-      const foundActivity = activitiesData.find((a: any) => a.id === params.id);
-
-      if (!foundActivity) {
-        throw new Error('Activity not found');
-      }
-
+      const activityData = await activityResponse.json();
       const imagesResponse = await fetch(
         `${API_BASE_URL}/activityimages/activity/${params.id}`
       );
@@ -102,13 +98,15 @@ export default function ActivityDetailPage() {
       }
 
       const enhancedActivity: Activity = {
-        ...foundActivity,
+        ...activityData,
         images: images.length > 0 ? images : DEFAULT_IMAGES,
-        rating: 4.8,
-        reviews: 124,
-        included: Array.isArray(foundActivity.included) ? foundActivity.included : [],
-        requirements: Array.isArray(foundActivity.requirements) ? foundActivity.requirements : [],
-        quickFacts: Array.isArray(foundActivity.quickFacts) ? foundActivity.quickFacts : [] 
+        rating: activityData.rating || 4.8,
+        reviews: activityData.reviews || 124,
+        included: Array.isArray(activityData.included) ? activityData.included : [],
+        requirements: Array.isArray(activityData.requirements) ? activityData.requirements : [],
+        quickFacts: Array.isArray(activityData.quickFacts) ? activityData.quickFacts : [],
+        startDate: activityData.startDate || new Date().toISOString(),
+        endDate: activityData.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       };
 
       setActivity(enhancedActivity);
@@ -159,6 +157,24 @@ export default function ActivityDetailPage() {
 
   const isSoldOut = activity.availableSlots === 0;
   const isLowAvailability = activity.availableSlots < 5;
+  
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Not specified';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch {
+      return 'Invalid date';
+    }
+  };
+
+  const formatTime = (dateString?: string) => {
+    if (!dateString) return '';
+    try {
+      return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
@@ -218,7 +234,6 @@ export default function ActivityDetailPage() {
                 </div>
               </div>
 
-     
               {activity.images.length > 1 && (
                 <div className="p-4 bg-green-50">
                   <div className="flex space-x-2 overflow-x-auto">
@@ -244,11 +259,10 @@ export default function ActivityDetailPage() {
               )}
             </div>
 
-
             <div className="bg-white rounded-2xl shadow-lg border border-green-200">
               <div className="border-b border-green-200">
                 <nav className="flex space-x-8 px-6">
-                  {['overview', 'included', 'requirements', 'quickfacts', 'reviews'].map((tab) => ( // ✅ Shtuar 'quickfacts'
+                  {['overview', 'included', 'requirements', 'quickfacts', 'reviews'].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -264,7 +278,6 @@ export default function ActivityDetailPage() {
                 </nav>
               </div>
 
-     
               <div className="p-6">
                 {activeTab === 'overview' && (
                   <div className="space-y-6">
@@ -342,7 +355,6 @@ export default function ActivityDetailPage() {
                   </div>
                 )}
 
-        
                 {activeTab === 'quickfacts' && (
                   <div className="space-y-4">
                     <h2 className="text-2xl font-bold text-green-800">Quick Facts</h2>
@@ -378,7 +390,6 @@ export default function ActivityDetailPage() {
                       </div>
                     </div>
                     
-                
                     <div className="space-y-4">
                       <div className="p-4 bg-white border border-green-200 rounded-lg">
                         <div className="flex items-center space-x-2 mb-2">
@@ -394,7 +405,6 @@ export default function ActivityDetailPage() {
               </div>
             </div>
 
-       
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-green-200">
               <h2 className="text-2xl font-bold text-green-800 mb-4">About the Provider</h2>
               <div className="flex items-center space-x-4">
@@ -416,7 +426,6 @@ export default function ActivityDetailPage() {
             </div>
           </div>
 
-   
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-24 border border-green-200">
               <div className="text-center mb-6">
@@ -442,8 +451,51 @@ export default function ActivityDetailPage() {
                   <span className="font-semibold text-green-800">{activity.duration || '4 hours'}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
+                  <span className="text-green-700">Start Date:</span>
+                  <span className="font-semibold text-green-800">
+                    {formatDate(activity.startDate)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
+                  <span className="text-green-700">End Date:</span>
+                  <span className="font-semibold text-green-800">
+                    {formatDate(activity.endDate)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
                   <span className="text-green-700">Confirmation:</span>
                   <span className="font-semibold text-green-700">Instant</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="p-4 bg-green-50 rounded-xl border border-green-200">
+                  <div className="flex items-center mb-2">
+                    <svg className="w-5 h-5 text-green-700 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="font-semibold text-green-800">Start Date</span>
+                  </div>
+                  <div className="text-lg font-bold text-green-900">
+                    {formatDate(activity.startDate)}
+                  </div>
+                  <div className="text-sm text-green-700">
+                    {formatTime(activity.startDate)}
+                  </div>
+                </div>
+                <div className="p-4 bg-red-50 rounded-xl border border-red-200">
+                  <div className="flex items-center mb-2">
+                    <svg className="w-5 h-5 text-red-700 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="font-semibold text-red-800">End Date</span>
+                  </div>
+                  <div className="text-lg font-bold text-red-900">
+                    {formatDate(activity.endDate)}
+                  </div>
+                  <div className="text-sm text-red-700">
+                    {formatTime(activity.endDate)}
+                  </div>
                 </div>
               </div>
 
@@ -463,19 +515,17 @@ export default function ActivityDetailPage() {
                 Free cancellation up to 24 hours before
               </div>
 
-         
               <div className="mt-6 pt-6 border-t border-green-200">
                 <h3 className="font-semibold text-green-800 mb-3">Quick Facts:</h3>
                 <ul className="space-y-2 text-sm text-green-700">
                   {activity.quickFacts && activity.quickFacts.length > 0 ? (
-                    activity.quickFacts.slice(0, 4).map((fact, index) => ( 
+                    activity.quickFacts.slice(0, 4).map((fact, index) => (
                       <li key={index} className="flex items-center">
                         <span className="text-green-600 mr-2">✓</span>
                         {fact}
                       </li>
                     ))
                   ) : (
-               
                     <>
                       <li className="flex items-center">
                         <span className="text-green-600 mr-2">✓</span>
