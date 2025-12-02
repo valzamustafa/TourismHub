@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace TourismHub.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreatesPostgreSQL : Migration
+    public partial class InitialCreatePostgreSQLL : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -58,7 +58,7 @@ namespace TourismHub.Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    ProviderId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ProviderId = table.Column<Guid>(type: "uuid", nullable: true),
                     Name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     Description = table.Column<string>(type: "text", nullable: false),
                     Price = table.Column<decimal>(type: "numeric(10,2)", precision: 10, scale: 2, nullable: false),
@@ -66,6 +66,7 @@ namespace TourismHub.Infrastructure.Migrations
                     Location = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     CategoryId = table.Column<Guid>(type: "uuid", nullable: false),
                     Status = table.Column<string>(type: "text", nullable: false),
+                    ProviderName = table.Column<string>(type: "text", nullable: false),
                     Duration = table.Column<string>(type: "text", nullable: false),
                     Included = table.Column<string>(type: "text", nullable: false),
                     Requirements = table.Column<string>(type: "text", nullable: false),
@@ -220,6 +221,32 @@ namespace TourismHub.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "SavedActivities",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "uuid_generate_v4()"),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ActivityId = table.Column<Guid>(type: "uuid", nullable: false),
+                    SavedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "NOW()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SavedActivities", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SavedActivities_Activities_ActivityId",
+                        column: x => x.ActivityId,
+                        principalTable: "Activities",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_SavedActivities_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Payments",
                 columns: table => new
                 {
@@ -305,6 +332,22 @@ namespace TourismHub.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_SavedActivities_ActivityId",
+                table: "SavedActivities",
+                column: "ActivityId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SavedActivities_User_Activity",
+                table: "SavedActivities",
+                columns: new[] { "UserId", "ActivityId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SavedActivities_UserId",
+                table: "SavedActivities",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Users_Email",
                 table: "Users",
                 column: "Email",
@@ -328,6 +371,9 @@ namespace TourismHub.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "Reviews");
+
+            migrationBuilder.DropTable(
+                name: "SavedActivities");
 
             migrationBuilder.DropTable(
                 name: "Bookings");

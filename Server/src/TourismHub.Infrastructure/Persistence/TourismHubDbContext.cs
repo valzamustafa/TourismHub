@@ -15,13 +15,17 @@ namespace TourismHub.Infrastructure.Persistence
         public DbSet<Review> Reviews => Set<Review>();
         public DbSet<ActivityImage> ActivityImages => Set<ActivityImage>();
         public DbSet<Category> Categories => Set<Category>();
+        public DbSet<SavedActivity> SavedActivities => Set<SavedActivity>(); // ✅
         public DbSet<AdminLog> AdminLogs => Set<AdminLog>();
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.HasPostgresExtension("uuid-ossp");
+            
+            // Apply configurations
             modelBuilder.ApplyConfiguration(new UserConfiguration());
             modelBuilder.ApplyConfiguration(new ActivityConfiguration());
             modelBuilder.ApplyConfiguration(new BookingConfiguration());
@@ -30,6 +34,7 @@ namespace TourismHub.Infrastructure.Persistence
             modelBuilder.ApplyConfiguration(new ActivityImageConfiguration());
             modelBuilder.ApplyConfiguration(new AdminLogConfiguration());
             modelBuilder.ApplyConfiguration(new CategoryConfiguration());
+            modelBuilder.ApplyConfiguration(new SavedActivityConfiguration()); 
         }
     }
 }

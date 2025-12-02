@@ -41,6 +41,7 @@ try
     builder.Services.AddScoped<TokenService>();
     builder.Services.AddScoped<PasswordHasher>();
     builder.Services.AddScoped<UserService>();
+    builder.Services.AddScoped<ISavedActivityService, SavedActivityService>();
 
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
