@@ -11,6 +11,7 @@ namespace TourismHub.Domain.Interfaces
         Task<List<Payment>> GetByStatusAsync(PaymentStatus status); 
         Task AddAsync(Payment payment);
         void Update(Payment payment);
+        void Delete(Payment payment);
         Task SaveChangesAsync(); 
     }
 }

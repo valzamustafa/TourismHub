@@ -1,9 +1,16 @@
 import React from 'react';
-import { Activity, BookingData } from '@/types/booking';
 
 interface BookingSummaryProps {
-  activity: Activity;
-  bookingData: BookingData;
+  activity: any;
+  bookingData: {
+    numberOfPeople: number;
+    selectedDate: string;
+    totalPrice: number;
+    personalInfo?: {
+      fullName: string;
+      email: string;
+    }
+  };
 }
 
 export const BookingSummary: React.FC<BookingSummaryProps> = ({ 
@@ -51,7 +58,7 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
           </div>
         </div>
 
-        <Divider />
+        <div className="border-t border-gray-200 my-3" />
 
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
@@ -71,5 +78,3 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
     </div>
   );
 };
-
-const Divider = () => <div className="border-t border-gray-200 my-3" />;
