@@ -35,7 +35,7 @@ namespace TourismHub.Domain.Entities
         public ICollection<Review> Reviews { get; set; } = new List<Review>();
         public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
         public ICollection<ActivityImage> Images { get; set; } = new List<ActivityImage>();
-
+public virtual ICollection<SavedActivity> SavedActivities { get; set; } = new List<SavedActivity>();
         public bool IsActive => Status == ActivityStatus.Active && EndDate > DateTime.UtcNow;
         public bool IsExpired => EndDate < DateTime.UtcNow;
         public bool IsUpcoming => StartDate > DateTime.UtcNow && EndDate > DateTime.UtcNow;

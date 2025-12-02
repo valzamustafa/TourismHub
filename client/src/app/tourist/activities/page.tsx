@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { SaveButton } from '@/components/SaveButton';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:5224';
@@ -39,7 +40,6 @@ interface Activity {
   included?: string[];
   requirements?: string[];
   quickFacts?: string[];
-  // ✅ Shtoni këto:
   startDate: string;
   endDate: string;
   isActive?: boolean;
@@ -58,137 +58,107 @@ export default function ActivitiesPage() {
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [showActivities, setShowActivities] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-const [showActivityModal, setShowActivityModal] = useState(false);
+  const [userId, setUserId] = useState<string>('');
   const sliderRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   
+  const getFullImageUrl = (imagePath: string): string => {
+    if (!imagePath || imagePath === 'string' || imagePath === 'null') {
+      return DEFAULT_IMAGES[0];
+    }
 
-const getFullImageUrl = (imagePath: string): string => {
-  console.log('🖼️ Processing image path:', imagePath);
-  
-
-  if (!imagePath || imagePath === 'string' || imagePath === 'null') {
-    console.log('⚠️ Using default image - empty/invalid path');
-    return DEFAULT_IMAGES[0];
-  }
-
-  if (imagePath.startsWith('http')) {
-    console.log('✅ Using HTTP URL:', imagePath);
-    return imagePath;
-  }
-  
-
-  if (imagePath.startsWith('/uploads/')) {
-    const fullUrl = `${BACKEND_BASE_URL}${imagePath}`;
-    console.log('🔗 Converted relative path to:', fullUrl);
-    return fullUrl;
-  }
-  
-
-  if (imagePath.includes('.')) {
-    const fullUrl = `${BACKEND_BASE_URL}/uploads/activity-images/${imagePath}`;
-    console.log('📁 Converted filename to:', fullUrl);
-    return fullUrl;
-  }
-  
-
-  console.log('⚠️ Using default image - unrecognized path format');
-  return DEFAULT_IMAGES[0];
-};
-const fetchActivitiesWithImages = async () => {
-  try {
-    setError(null);
-    setLoading(true);
-    
-    console.log('🚀 Fetching activities from:', `${API_BASE_URL}/activities`);
-    const response = await fetch(`${API_BASE_URL}/activities`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch activities: ${response.status}`);
+    if (imagePath.startsWith('http')) {
+      return imagePath;
     }
     
-    const activitiesData = await response.json();
-    console.log('📦 RAW ACTIVITIES FROM API:', activitiesData);
-
-    const activitiesWithImages = await Promise.all(
-      activitiesData.map(async (activity: any) => {
-        console.log(`\n🔍 Processing activity: ${activity.name} (ID: ${activity.id})`);
-        
-        try {
-          const imagesUrl = `${API_BASE_URL}/activityimages/activity/${activity.id}`;
-          console.log('📸 Fetching images from:', imagesUrl);
-          
-          const imagesResponse = await fetch(imagesUrl);
-          
-          let imageUrls: string[] = [];
-          
-          if (imagesResponse.ok) {
-            const imagesData = await imagesResponse.json();
-            console.log('🖼️ IMAGES API RESPONSE:', imagesData);
-            
-            if (imagesData.data && imagesData.data.length > 0) {
-              imageUrls = imagesData.data.map((img: any, index: number) => {
-                console.log(`🖼️ Image ${index + 1}:`, img);
-                const fullUrl = getFullImageUrl(img.imageUrl);
-                console.log(`🔄 Converted to: ${fullUrl}`);
-                return fullUrl;
-              });
-            } else {
-              console.log('❌ No images data in response');
-            }
-          } else {
-            console.log('❌ Images API failed:', imagesResponse.status);
-          }
-          
-          if (imageUrls.length === 0) {
-            console.log('⚠️ Using default images for:', activity.name);
-            imageUrls = DEFAULT_IMAGES;
-          }
-          
-          console.log('✅ Final images for', activity.name, ':', imageUrls);
-         
-          return {
-            ...activity,
-            images: imageUrls,
-            startDate: activity.startDate || activity.createdAt || new Date().toISOString(),
-            endDate: activity.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            status: activity.status || 'Pending',
-            included: Array.isArray(activity.included) ? activity.included : [],
-            requirements: Array.isArray(activity.requirements) ? activity.requirements : [],
-            quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts : [],
-            rating: activity.rating || 4.8,
-            reviews: activity.reviews || 124
-          };
-        } catch (error) {
-          console.error(`💥 Error for ${activity.name}:`, error);
-          return {
-            ...activity,
-            images: DEFAULT_IMAGES,
-            startDate: new Date().toISOString(),
-            endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            status: 'Pending',
-            included: [],
-            requirements: [],
-            quickFacts: [],
-            rating: 4.8,
-            reviews: 124
-          };
-        }
-      })
-    );
-
-    console.log('🎉 FINAL ACTIVITIES WITH IMAGES:', activitiesWithImages);
-    setActivities(activitiesWithImages);
+    if (imagePath.startsWith('/uploads/')) {
+      const fullUrl = `${BACKEND_BASE_URL}${imagePath}`;
+      return fullUrl;
+    }
     
-  } catch (error) {
-    console.error('💥 Main error:', error);
-    setError('Failed to load activities.');
-    setActivities([]);
-  } finally {
-    setLoading(false);
-  }
-};
+    if (imagePath.includes('.')) {
+      const fullUrl = `${BACKEND_BASE_URL}/uploads/activity-images/${imagePath}`;
+      return fullUrl;
+    }
+    
+    return DEFAULT_IMAGES[0];
+  };
+
+  const fetchActivitiesWithImages = async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      
+      const response = await fetch(`${API_BASE_URL}/activities`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch activities: ${response.status}`);
+      }
+      
+      const activitiesData = await response.json();
+
+      const activitiesWithImages = await Promise.all(
+        activitiesData.map(async (activity: any) => {
+          try {
+            const imagesUrl = `${API_BASE_URL}/activityimages/activity/${activity.id}`;
+            const imagesResponse = await fetch(imagesUrl);
+            
+            let imageUrls: string[] = [];
+            
+            if (imagesResponse.ok) {
+              const imagesData = await imagesResponse.json();
+              
+              if (imagesData.data && imagesData.data.length > 0) {
+                imageUrls = imagesData.data.map((img: any) => {
+                  return getFullImageUrl(img.imageUrl);
+                });
+              }
+            }
+            
+            if (imageUrls.length === 0) {
+              imageUrls = DEFAULT_IMAGES;
+            }
+            
+            return {
+              ...activity,
+              images: imageUrls,
+              startDate: activity.startDate || activity.createdAt || new Date().toISOString(),
+              endDate: activity.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              status: activity.status || 'Pending',
+              included: Array.isArray(activity.included) ? activity.included : [],
+              requirements: Array.isArray(activity.requirements) ? activity.requirements : [],
+              quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts : [],
+              rating: activity.rating || 4.8,
+              reviews: activity.reviews || 124
+            };
+          } catch (error) {
+            console.error(`Error for ${activity.name}:`, error);
+            return {
+              ...activity,
+              images: DEFAULT_IMAGES,
+              startDate: new Date().toISOString(),
+              endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              status: 'Pending',
+              included: [],
+              requirements: [],
+              quickFacts: [],
+              rating: 4.8,
+              reviews: 124
+            };
+          }
+        })
+      );
+
+      setActivities(activitiesWithImages);
+      
+    } catch (error) {
+      console.error('Main error:', error);
+      setError('Failed to load activities.');
+      setActivities([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -266,6 +236,7 @@ const fetchActivitiesWithImages = async () => {
     }
 
     const parsedUser = JSON.parse(userData);
+    setUserId(parsedUser.id);
     
     if (parsedUser.role !== 'Tourist') {
       if (parsedUser.role === 'Admin') {
@@ -330,7 +301,7 @@ const fetchActivitiesWithImages = async () => {
             </div>
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => router.push('/tourist/dashboard')}
+                onClick={() => router.push('/tourist/profile')}
                 className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
               >
                 Go to Dashboard
@@ -350,7 +321,6 @@ const fetchActivitiesWithImages = async () => {
         </div>
       </header>
 
-
       <section className="relative w-full h-screen overflow-hidden pt-20">
         <img
           src={currentBackground}
@@ -360,7 +330,6 @@ const fetchActivitiesWithImages = async () => {
         <div className="absolute inset-0 bg-black/40 transition-all duration-700"></div>
 
         <div className="relative z-20 h-full max-w-7xl mx-auto px-6 flex items-center gap-12">
-     
           <div className="w-full md:w-1/2 text-white animate-fadeIn">
             <h2 className="text-6xl font-bold leading-tight mb-6">
               EXPLORE <br /> CATEGORIES
@@ -403,7 +372,6 @@ const fetchActivitiesWithImages = async () => {
             )}
           </div>
 
-     
           <div className="w-full md:w-1/2 h-[500px] relative">
             <button
               onClick={scrollLeft}
@@ -419,12 +387,10 @@ const fetchActivitiesWithImages = async () => {
               </svg>
             </button>
 
-        
             <div className="relative h-full flex items-center">
               <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-black/50 to-transparent z-10 pointer-events-none" />
               <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-black/50 to-transparent z-10 pointer-events-none" />
 
-             
               <div
                 ref={sliderRef}
                 className="flex gap-8 overflow-x-auto scrollbar-hide py-8 px-12 snap-x snap-mandatory"
@@ -503,7 +469,6 @@ const fetchActivitiesWithImages = async () => {
               </svg>
             </button>
 
-     
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
               {categories.map((_, index) => (
                 <div
@@ -522,146 +487,154 @@ const fetchActivitiesWithImages = async () => {
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 mix-blend-overlay" />
       </section>
 
-     
-    {showActivities && (
-  <section className="py-16 bg-gradient-to-br from-gray-50 to-blue-50">
-    <div className="max-w-7xl mx-auto px-6">
-      <div className="text-center mb-12">
-        <h2 className="text-4xl font-bold text-gray-900 mb-4">
-          Activities in <span className="text-blue-600">{selectedCategory?.name}</span>
-        </h2>
-        <p className="text-lg text-gray-600">
-          Discover amazing {selectedCategory?.name.toLowerCase()} experiences
-        </p>
-        <div className="mt-2 text-sm text-gray-500">
-          {filteredActivities.length} activities found
-        </div>
-      </div>
+      {showActivities && (
+        <section className="py-16 bg-gradient-to-br from-gray-50 to-blue-50">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                Activities in <span className="text-blue-600">{selectedCategory?.name}</span>
+              </h2>
+              <p className="text-lg text-gray-600">
+                Discover amazing {selectedCategory?.name.toLowerCase()} experiences
+              </p>
+              <div className="mt-2 text-sm text-gray-500">
+                {filteredActivities.length} activities found
+              </div>
+            </div>
 
-      {filteredActivities.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">🏔️</div>
-          <h3 className="text-2xl font-bold text-gray-700 mb-2">No Activities Found</h3>
-          <p className="text-gray-500 mb-4">There are no activities available in this category yet.</p>
-          <p className="text-sm text-gray-400">
-            Try selecting a different category or check back later for new activities.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {filteredActivities.map((activity) => {
-  const mainImage = getFullImageUrl(activity.images?.[0]) || DEFAULT_IMAGES[0];
+            {filteredActivities.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">🏔️</div>
+                <h3 className="text-2xl font-bold text-gray-700 mb-2">No Activities Found</h3>
+                <p className="text-gray-500 mb-4">There are no activities available in this category yet.</p>
+                <p className="text-sm text-gray-400">
+                  Try selecting a different category or check back later for new activities.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredActivities.map((activity) => {
+                  const mainImage = getFullImageUrl(activity.images?.[0]) || DEFAULT_IMAGES[0];
 
-  const now = new Date();
-  const startDate = new Date(activity.startDate);
-  const endDate = new Date(activity.endDate);
-  const isActive = startDate <= now && endDate >= now;
-  const isUpcoming = startDate > now;
-  const isExpired = endDate < now;
-  
-  return (
-    <div key={activity.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105">
-      <div className="relative h-48">
-        <img
-          src={mainImage}
-          alt={activity.name}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            console.log('❌ Image failed to load:', e.currentTarget.src);
-            const randomImage = DEFAULT_IMAGES[Math.floor(Math.random() * DEFAULT_IMAGES.length)];
-            e.currentTarget.src = randomImage;
-          }}
-        />
-        <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-          ${activity.price}
-        </div>
-        <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
-          {activity.availableSlots} slots left
-        </div>
-   
-        <div className="absolute top-4 left-4">
-          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-            isExpired ? 'bg-red-500 text-white' :
-            isActive ? 'bg-green-500 text-white' :
-            isUpcoming ? 'bg-yellow-500 text-black' :
-            'bg-gray-500 text-white'
-          }`}>
-            {isExpired ? 'Expired' : isActive ? 'Active' : isUpcoming ? 'Upcoming' : activity.status}
-          </span>
-        </div>
-      
-        <div className="absolute bottom-4 right-4 bg-black/70 text-white px-2 py-1 rounded-full text-xs">
-          {new Date(activity.startDate).toLocaleDateString()}
-        </div>
-      </div>
-      
-      <div className="p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-2">{activity.name}</h3>
+                  const now = new Date();
+                  const startDate = new Date(activity.startDate);
+                  const endDate = new Date(activity.endDate);
+                  const isActive = startDate <= now && endDate >= now;
+                  const isUpcoming = startDate > now;
+                  const isExpired = endDate < now;
+                  
+                  return (
+                    <div key={activity.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105">
+                      <div className="relative h-48">
+                        <img
+                          src={mainImage}
+                          alt={activity.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const randomImage = DEFAULT_IMAGES[Math.floor(Math.random() * DEFAULT_IMAGES.length)];
+                            e.currentTarget.src = randomImage;
+                          }}
+                        />
+                        
+                      
+                        {userId && (
+                          <div className="absolute top-2 right-2">
+                            <SaveButton
+                              activityId={activity.id}
+                              userId={userId}
+                              size="small"
+                              onSaveChange={(saved) => {
+                                console.log(`Activity ${activity.name} ${saved ? 'saved' : 'unsaved'}`);
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                          ${activity.price}
+                        </div>
+                        <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
+                          {activity.availableSlots} slots left
+                        </div>
+                   
+                        <div className="absolute top-4 left-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                            isExpired ? 'bg-red-500 text-white' :
+                            isActive ? 'bg-green-500 text-white' :
+                            isUpcoming ? 'bg-yellow-500 text-black' :
+                            'bg-gray-500 text-white'
+                          }`}>
+                            {isExpired ? 'Expired' : isActive ? 'Active' : isUpcoming ? 'Upcoming' : activity.status}
+                          </span>
+                        </div>
+                      
+                        <div className="absolute bottom-4 right-4 bg-black/70 text-white px-2 py-1 rounded-full text-xs">
+                          {new Date(activity.startDate).toLocaleDateString()}
+                        </div>
+                      </div>
+                      
+                      <div className="p-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">{activity.name}</h3>
  
-        <div className="mb-3 text-sm text-gray-600 space-y-1">
-          <div className="flex items-center">
-            <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span>Start: {new Date(activity.startDate).toLocaleDateString()}</span>
+                        <div className="mb-3 text-sm text-gray-600 space-y-1">
+                          <div className="flex items-center">
+                            <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span>Start: {new Date(activity.startDate).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <svg className="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span>End: {new Date(activity.endDate).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center text-gray-600 mb-4">
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <span className="text-sm">{activity.location}</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <div className="text-lg font-bold text-green-600">
+                            ${activity.price}
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); 
+                              if (!activity.id) {
+                                alert('Activity ID is missing');
+                                return;
+                              }
+                              router.push(`/tourist/activities/${activity.id}`);
+                            }}
+                            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-blue-500/25"
+                          >
+                            See More
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="text-center mt-12">
+              <button
+                onClick={() => setShowActivities(false)}
+                className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                ← Back to Categories
+              </button>
+            </div>
           </div>
-          <div className="flex items-center">
-            <svg className="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span>End: {new Date(activity.endDate).toLocaleDateString()}</span>
-          </div>
-        </div>
-        
-        <div className="flex items-center text-gray-600 mb-4">
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <span className="text-sm">{activity.location}</span>
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <div className="text-lg font-bold text-green-600">
-            ${activity.price}
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation(); 
-              if (!activity.id) {
-                console.error('❌ Activity ID is missing:', activity);
-                alert('Activity ID is missing');
-                return;
-              }
-              console.log('🚀 Navigating to activity:', activity.id);
-              router.push(`/tourist/activities/${activity.id}`);
-            }}
-            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-blue-500/25"
-          >
-            See More
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-})}
-        </div>
+        </section>
       )}
-
-    
-      <div className="text-center mt-12">
-        <button
-          onClick={() => setShowActivities(false)}
-          className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-        >
-          ← Back to Categories
-        </button>
-      </div>
-    </div>
-  </section>
-)}
-
-
 
       <style jsx>{`
         .scrollbar-hide {

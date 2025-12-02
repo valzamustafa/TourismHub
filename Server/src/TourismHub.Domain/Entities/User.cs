@@ -22,7 +22,7 @@ namespace TourismHub.Domain.Entities
         public bool IsActive { get; set; } = true;
         public DateTime? LastLogin { get; set; }
 
-      
+      public virtual ICollection<SavedActivity> SavedActivities { get; set; } = new List<SavedActivity>();
         public ICollection<Activity> Activities { get; set; } = new List<Activity>();
         public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
         public ICollection<Review> Reviews { get; set; } = new List<Review>();

@@ -351,6 +351,39 @@ namespace TourismHub.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("TourismHub.Domain.Entities.SavedActivity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<Guid>("ActivityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("SavedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivityId")
+                        .HasDatabaseName("IX_SavedActivities_ActivityId");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_SavedActivities_UserId");
+
+                    b.HasIndex("UserId", "ActivityId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SavedActivities_User_Activity");
+
+                    b.ToTable("SavedActivities", (string)null);
+                });
+
             modelBuilder.Entity("TourismHub.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -506,6 +539,25 @@ namespace TourismHub.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TourismHub.Domain.Entities.SavedActivity", b =>
+                {
+                    b.HasOne("TourismHub.Domain.Entities.Activity", "Activity")
+                        .WithMany("SavedActivities")
+                        .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TourismHub.Domain.Entities.User", "User")
+                        .WithMany("SavedActivities")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Activity");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TourismHub.Domain.Entities.Activity", b =>
                 {
                     b.Navigation("Bookings");
@@ -513,6 +565,8 @@ namespace TourismHub.Infrastructure.Migrations
                     b.Navigation("Images");
 
                     b.Navigation("Reviews");
+
+                    b.Navigation("SavedActivities");
                 });
 
             modelBuilder.Entity("TourismHub.Domain.Entities.Booking", b =>
@@ -535,6 +589,8 @@ namespace TourismHub.Infrastructure.Migrations
                     b.Navigation("RefreshTokens");
 
                     b.Navigation("Reviews");
+
+                    b.Navigation("SavedActivities");
                 });
 #pragma warning restore 612, 618
         }
