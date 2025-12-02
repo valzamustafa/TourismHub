@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using TourismHub.API;
+using TourismHub.API.Models;
 using TourismHub.Application;
 using TourismHub.Domain.Entities;
 using TourismHub.Infrastructure;
@@ -13,13 +14,64 @@ using TourismHub.Application.Services.BackgroundServices;
 using TourismHub.Infrastructure.Persistence.Seeders;
 using TourismHub.Domain.Interfaces;
 using TourismHub.Infrastructure.Repositories;
-using Microsoft.AspNetCore.Http.Features; 
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Stripe;
+using Microsoft.AspNetCore.Authorization;
+
 try
 {
-    Console.WriteLine("🚀 Starting TourismHub API...");
-    
     var builder = WebApplication.CreateBuilder(args);
+    Console.WriteLine("🚀 Starting TourismHub API with Stripe...");
+
+    Console.WriteLine("🔧 Configuring Stripe...");
+  
+    var stripeSecretKey = "sk_test_51SZxVMJ9c3VbsRGND4GT79O3WGUrApQq6a3t6lWeiTWy6ijk1pw6OVBI6Nxnxt2cYElQQWIKrB7oE9xtRN68GTJe00nmdkNTrO";
+    var stripePublishableKey = "pk_test_51SZxVMJ9c3VbsRGNSmqABSV5ycCBFZv9h8QK41bUqmOBNphmkzyMWrjzpx6p0IxUt6YmahY7MTSF9JbOtPHGV3pY00AXS8A7pO"; // VENDOS PUBLISHABLE KEY TËN KËTU
+    
+
+    stripeSecretKey = stripeSecretKey?.Trim()
+        .Replace(" ", "")
+        .Replace("\t", "")
+        .Replace("\n", "")
+        .Replace("\r", "") ?? "";
+
+    if (string.IsNullOrEmpty(stripeSecretKey))
+    {
+        Console.WriteLine("❌ ERROR: Stripe secret key is empty!");
+    }
+    else if (!stripeSecretKey.StartsWith("sk_test_"))
+    {
+        Console.WriteLine($"❌ ERROR: Invalid Stripe key. Should start with 'sk_test_'. Found: {stripeSecretKey.Substring(0, Math.Min(10, stripeSecretKey.Length))}...");
+    }
+    else
+    {
+       
+        StripeConfiguration.ApiKey = stripeSecretKey;
+        
+        builder.Services.Configure<StripeSettings>(options =>
+        {
+            options.SecretKey = stripeSecretKey;
+            options.PublishableKey = stripePublishableKey;
+            options.WebhookSecret = "";
+        });
+        
+        Console.WriteLine("✅ Stripe configured with YOUR NEW STANDARD KEY!");
+        Console.WriteLine($"🔑 Secret Key Type: Standard Key");
+        Console.WriteLine($"🔑 Secret Key Length: {stripeSecretKey.Length}");
+        Console.WriteLine($"🔑 Secret Key (first 30 chars): {stripeSecretKey.Substring(0, Math.Min(30, stripeSecretKey.Length))}...");
+        
+        if (!string.IsNullOrEmpty(stripePublishableKey) && stripePublishableKey.StartsWith("pk_test_"))
+        {
+            Console.WriteLine($"🔑 Publishable Key: {stripePublishableKey.Substring(0, Math.Min(30, stripePublishableKey.Length))}...");
+        }
+        else
+        {
+            Console.WriteLine("⚠️  WARNING: Publishable key not configured or invalid!");
+            Console.WriteLine("Go to Stripe Dashboard -> API keys -> Copy 'Publishable key' from Standard keys table");
+        }
+    }
+
 
     builder.Logging.ClearProviders();
     builder.Logging.AddConsole();
@@ -28,20 +80,28 @@ try
 
     builder.WebHost.UseUrls("http://localhost:5224");
 
+    // Repositories
     builder.Services.AddScoped<IActivityRepository, ActivityRepository>();
-    builder.Services.AddScoped<IActivityImageRepository, ActivityImageRepository>(); 
-     builder.Services.AddHostedService<ActivityStatusUpdaterService>();
+    builder.Services.AddScoped<IActivityImageRepository, ActivityImageRepository>();
+    builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+    builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+    
+    // Background Services
+    builder.Services.AddHostedService<ActivityStatusUpdaterService>();
 
+    // Application Services
     builder.Services.AddScoped<ActivityImageService>();
     builder.Services.AddScoped<ImageUploadService>();
-    
     builder.Services.AddScoped<CategoryService>();
     builder.Services.AddScoped<ActivityService>();
     builder.Services.AddScoped<AuthService>();
-    builder.Services.AddScoped<TokenService>();
+    builder.Services.AddScoped<TourismHub.Application.Services.TokenService>();
     builder.Services.AddScoped<PasswordHasher>();
     builder.Services.AddScoped<UserService>();
     builder.Services.AddScoped<ISavedActivityService, SavedActivityService>();
+    builder.Services.AddScoped<PaymentService>();
+    builder.Services.AddScoped<BookingService>();
+    builder.Services.AddScoped<StripeWebhookService>();
 
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
@@ -50,28 +110,29 @@ try
         });
     
     builder.Services.AddEndpointsApiExplorer();
-    
+
     builder.Services.Configure<IISServerOptions>(options =>
     {
-        options.MaxRequestBodySize = 50 * 1024 * 1024; 
+        options.MaxRequestBodySize = 50 * 1024 * 1024;
     });
 
     builder.Services.Configure<FormOptions>(options =>
     {
-        options.MultipartBodyLengthLimit = 50 * 1024 * 1024; 
+        options.MultipartBodyLengthLimit = 50 * 1024 * 1024;
         options.ValueLengthLimit = int.MaxValue;
         options.MultipartBoundaryLengthLimit = int.MaxValue;
         options.MultipartHeadersCountLimit = int.MaxValue;
         options.MultipartHeadersLengthLimit = int.MaxValue;
     });
 
+    // Swagger Configuration
     builder.Services.AddSwaggerGen(c =>
     {
         c.SwaggerDoc("v1", new OpenApiInfo 
         { 
             Title = "TourismHub API", 
             Version = "v1",
-            Description = "TourismHub API Documentation"
+            Description = "TourismHub API Documentation with Stripe Payments"
         });
         
         c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -99,18 +160,25 @@ try
         });
     });
 
+    // CORS
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AllowAll", policy =>
         {
-            policy.AllowAnyOrigin()
+            policy.WithOrigins(
+                    "http://localhost:3000",
+                    "http://localhost:3001",
+                    "http://localhost:5173", 
+                    "http://localhost:5174")
                   .AllowAnyMethod()
-                  .AllowAnyHeader();
+                  .AllowAnyHeader()
+                  .AllowCredentials();
         });
     });
 
     Console.WriteLine("📦 Configuring JWT...");
 
+    // JWT Configuration
     var jwtSettings = builder.Configuration.GetSection("JwtSettings");
     builder.Services.Configure<JwtSettings>(jwtSettings);
 
@@ -166,6 +234,7 @@ try
 
     app.UseStaticFiles();
 
+    // Swagger UI
     app.UseSwagger();
     app.UseSwaggerUI(c => 
     {
@@ -211,6 +280,246 @@ try
         Console.WriteLine($"✅ Created uploads directory: {uploadsPath}");
     }
 
+    
+    app.MapPost("/api/test-payment", async (HttpContext context) =>
+    {
+        try
+        {
+            Console.WriteLine("🧪 Testing Stripe with your NEW standard key...");
+            
+            if (string.IsNullOrEmpty(StripeConfiguration.ApiKey))
+            {
+                await context.Response.WriteAsJsonAsync(new { 
+                    success = false,
+                    error = "Stripe not configured" 
+                });
+                return;
+            }
+
+            var options = new PaymentIntentCreateOptions
+            {
+                Amount = 1000, // $10.00
+                Currency = "usd",
+                PaymentMethodTypes = new List<string> { "card" },
+                Description = "Test payment with your new key"
+            };
+
+            var service = new PaymentIntentService();
+            var paymentIntent = await service.CreateAsync(options);
+
+            Console.WriteLine($"✅ SUCCESS! Payment intent created: {paymentIntent.Id}");
+            
+            await context.Response.WriteAsJsonAsync(new
+            {
+                success = true,
+                clientSecret = paymentIntent.ClientSecret,
+                message = "Payment intent created successfully!",
+                paymentIntentId = paymentIntent.Id,
+                testCard = "Use: 4242 4242 4242 4242",
+                keyType = "Standard Key (sk_test_) - FULL ACCESS"
+            });
+        }
+        catch (StripeException ex)
+        {
+            Console.WriteLine($"❌ Stripe error: {ex.Message}");
+            await context.Response.WriteAsJsonAsync(new 
+            { 
+                success = false,
+                error = "Stripe Error",
+                message = ex.Message,
+                stripeError = ex.StripeError?.Message,
+                currentKey = StripeConfiguration.ApiKey?.Substring(0, Math.Min(30, StripeConfiguration.ApiKey?.Length ?? 0)) + "...",
+                help = "Check if your new key is activated in Stripe Dashboard"
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ General error: {ex.Message}");
+            await context.Response.WriteAsJsonAsync(new { 
+                success = false,
+                error = ex.Message 
+            });
+        }
+    }).AllowAnonymous();
+
+    app.MapGet("/test-stripe-now", async () =>
+    {
+        try
+        {
+            Console.WriteLine("⚡ Quick test with NEW standard key...");
+            
+            var options = new PaymentIntentCreateOptions
+            {
+                Amount = 100, // $1.00
+                Currency = "usd",
+                PaymentMethodTypes = new List<string> { "card" },
+                Description = "Quick test with new standard key"
+            };
+
+            var service = new PaymentIntentService();
+            var intent = await service.CreateAsync(options);
+
+            return Results.Json(new
+            {
+                success = true,
+                message = "🎉 YOUR NEW STANDARD KEY WORKS PERFECTLY!",
+                paymentIntentId = intent.Id,
+                clientSecret = intent.ClientSecret,
+                testCard = "4242 4242 4242 4242",
+                expiryDate = "Any future date (e.g., 12/34)",
+                cvcCode = "Any 3 digits (e.g., 123)",
+                zipCode = "Any 5 digits",
+                keyType = "Standard Key (sk_test_) - FULL ACCESS",
+                nextStep = "Copy clientSecret to frontend and test payment"
+            });
+        }
+        catch (StripeException ex)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                error = "Stripe Error",
+                message = ex.Message,
+                details = ex.StripeError?.Message,
+                currentKey = StripeConfiguration.ApiKey?.Substring(0, Math.Min(30, StripeConfiguration.ApiKey?.Length ?? 0)) + "...",
+                help = "Your new standard key should work. If not, wait a few minutes for Stripe to activate it."
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                error = "General Error",
+                message = ex.Message
+            });
+        }
+    }).AllowAnonymous();
+
+    app.MapGet("/test-my-new-key", async () =>
+    {
+        try
+        {
+            Console.WriteLine("🔑 Testing YOUR NEW standard key...");
+            
+            var keyInfo = new
+            {
+                key = StripeConfiguration.ApiKey?.Substring(0, Math.Min(20, StripeConfiguration.ApiKey?.Length ?? 0)) + "...",
+                length = StripeConfiguration.ApiKey?.Length ?? 0,
+                isStandard = StripeConfiguration.ApiKey?.StartsWith("sk_") ?? false,
+                isTest = StripeConfiguration.ApiKey?.StartsWith("sk_test_") ?? false,
+                permissions = "FULL ACCESS (Standard Key)"
+            };
+            
+            Console.WriteLine($"Key Info: {System.Text.Json.JsonSerializer.Serialize(keyInfo)}");
+          
+            var options = new PaymentIntentCreateOptions
+            {
+                Amount = 50, // $0.50
+                Currency = "usd",
+                PaymentMethodTypes = new List<string> { "card" },
+                Description = "Test with your new standard key"
+            };
+
+            var service = new PaymentIntentService();
+            var intent = await service.CreateAsync(options);
+            var balanceService = new BalanceService();
+            var balance = await balanceService.GetAsync();
+
+            return Results.Json(new
+            {
+                success = true,
+                message = "✅ YOUR NEW STANDARD KEY WORKS PERFECTLY!",
+                paymentIntentId = intent.Id,
+                clientSecret = intent.ClientSecret,
+                balance = new {
+                    livemode = balance.Livemode,
+                    environment = balance.Livemode ? "LIVE" : "TEST",
+                    available = balance.Available?.FirstOrDefault()?.Amount
+                },
+                keyType = "Standard Key (sk_test_)",
+                permissions = "FULL API ACCESS",
+                timestamp = DateTime.UtcNow
+            });
+        }
+        catch (StripeException ex)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                error = "Stripe Error",
+                message = ex.Message,
+                stripeError = ex.StripeError?.Message,
+                keyType = "Standard Key",
+                help = "Wait 1-2 minutes for new key to activate, or create another key",
+                fix = "Go to Stripe Dashboard -> API keys -> Create another secret key"
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                error = "General Error",
+                message = ex.Message
+            });
+        }
+    }).AllowAnonymous();
+
+    app.MapGet("/api/test-stripe", () =>
+    {
+        return new
+        {
+            configured = !string.IsNullOrEmpty(StripeConfiguration.ApiKey),
+            keyLength = StripeConfiguration.ApiKey?.Length ?? 0,
+            keyPrefix = StripeConfiguration.ApiKey?.Substring(0, Math.Min(20, StripeConfiguration.ApiKey?.Length ?? 0)) + "...",
+            environment = StripeConfiguration.ApiKey?.StartsWith("sk_test_") == true ? "TEST (Standard)" : "UNKNOWN",
+            keyType = StripeConfiguration.ApiKey?.StartsWith("sk_") == true ? "Standard Key" : "Unknown",
+            timestamp = DateTime.UtcNow
+        };
+    }).AllowAnonymous();
+
+    app.MapPost("/api/payments/simple-test", async () =>
+    {
+        try
+        {
+            Console.WriteLine("🧪 Creating simple payment intent with new key...");
+            
+            var options = new PaymentIntentCreateOptions
+            {
+                Amount = 1999, 
+                Currency = "usd",
+                PaymentMethodTypes = new List<string> { "card" },
+                Description = "Simple test payment with new key"
+            };
+
+            var service = new PaymentIntentService();
+            var intent = await service.CreateAsync(options);
+
+            return Results.Json(new
+            {
+                success = true,
+                clientSecret = intent.ClientSecret,
+                paymentIntentId = intent.Id,
+                amount = intent.Amount,
+                currency = intent.Currency,
+                message = "Use this clientSecret with Stripe.js",
+                keyStatus = "NEW STANDARD KEY WORKING"
+            });
+        }
+        catch (StripeException ex)
+        {
+            return Results.Json(new
+            {
+                success = false,
+                error = "Stripe Error",
+                message = ex.Message,
+                stripeError = ex.StripeError?.Message,
+                help = "Your new key may need time to activate. Wait 2 minutes and try again."
+            });
+        }
+    }).AllowAnonymous();
+  
     app.Use(async (context, next) =>
     {
         try
@@ -222,22 +531,33 @@ try
             Console.WriteLine($"Unhandled exception: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             context.Response.StatusCode = 500;
-            await context.Response.WriteAsync("Internal Server Error");
+            await context.Response.WriteAsJsonAsync(new { 
+                success = false,
+                error = "Internal Server Error" 
+            });
         }
     });
 
     app.MapControllers();
 
-    app.MapGet("/", () => "TourismHub API is running with PostgreSQL!");
+    app.MapGet("/", () => "TourismHub API is running with PostgreSQL and Stripe!");
     app.MapGet("/api/health", () => new { 
         status = "Healthy", 
         database = "PostgreSQL",
+        stripe = "Configured with NEW STANDARD KEY",
+        testUrls = new {
+            testNewKey = "http://localhost:5224/test-my-new-key",
+            quickTest = "http://localhost:5224/test-stripe-now",
+            simpleTest = "http://localhost:5224/api/payments/simple-test"
+        },
         timestamp = DateTime.UtcNow 
     });
 
     Console.WriteLine("🎉 TourismHub API is running on http://localhost:5224");
     Console.WriteLine("📚 Swagger available at http://localhost:5224/swagger");
-    Console.WriteLine("📁 File uploads enabled at /uploads/");
+    Console.WriteLine("💰 Stripe Payments Configured with NEW STANDARD KEY");
+    Console.WriteLine("🔗 Test Your New Key: http://localhost:5224/test-my-new-key");
+    Console.WriteLine("💳 Test Card: 4242 4242 4242 4242");
     Console.WriteLine("🛑 Press Ctrl+C to stop the application");
 
     app.Run();

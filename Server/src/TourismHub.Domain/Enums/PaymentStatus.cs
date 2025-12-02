@@ -4,6 +4,7 @@ namespace TourismHub.Domain.Enums
     {
         Pending,
         Paid,
-        Failed
+        Failed,
+        Refunded 
     }
 }

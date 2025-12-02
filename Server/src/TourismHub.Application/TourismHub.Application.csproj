@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Stripe.net" Version="50.0.0" />
     <ProjectReference Include="..\TourismHub.Domain\TourismHub.Domain.csproj" />
     <ProjectReference Include="..\TourismHub.Infrastructure\TourismHub.Infrastructure.csproj" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />

@@ -54,6 +54,11 @@ namespace TourismHub.Infrastructure.Repositories
             _context.Payments.Update(payment);
         }
 
+        public void Delete(Payment payment)
+        {
+            _context.Payments.Remove(payment);
+        }
+
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();

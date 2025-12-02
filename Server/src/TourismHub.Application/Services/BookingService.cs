@@ -45,56 +45,70 @@ namespace TourismHub.Application.Services
             return await _bookingRepository.GetByStatusAsync(status);
         }
 
-        public async Task<Booking> CreateBookingAsync(Booking booking)
+       public async Task<Booking> CreateBookingAsync(Booking booking)
+{
+    try
+    {
+        Console.WriteLine($"📝 Creating booking for Activity: {booking.ActivityId}, User: {booking.UserId}");
+        
+        if (booking.Id == Guid.Empty)
+            booking.Id = Guid.NewGuid();
+        
+        if (booking.CreatedAt == default)
+            booking.CreatedAt = DateTime.UtcNow;
+        
+        if (booking.UpdatedAt == default)
+            booking.UpdatedAt = DateTime.UtcNow;
+        
+        if (booking.Status == 0) 
         {
-           
-            var activity = await _activityRepository.GetByIdAsync(booking.ActivityId);
-            if (activity == null)
-            {
-                throw new InvalidOperationException("Activity not found");
-            }
-
-            if (activity.AvailableSlots < booking.NumberOfPeople)
-            {
-                throw new InvalidOperationException("Not enough available slots");
-            }
-
-          
-            activity.AvailableSlots -= booking.NumberOfPeople;
-            _activityRepository.Update(activity);
-
-            await _bookingRepository.AddAsync(booking);
-            await _bookingRepository.SaveChangesAsync();
-            await _activityRepository.SaveChangesAsync();
-
-            return booking;
+            booking.Status = BookingStatus.Pending;
+        }
+        
+        if (booking.PaymentStatus == 0) 
+        {
+            booking.PaymentStatus = PaymentStatus.Pending;
+        }
+        var activity = await _activityRepository.GetByIdAsync(booking.ActivityId);
+        if (activity == null)
+        {
+            throw new InvalidOperationException($"Activity with ID {booking.ActivityId} not found");
         }
 
-        public async Task UpdateBookingAsync(Booking booking)
+        if (activity.AvailableSlots < booking.NumberOfPeople)
         {
-            _bookingRepository.Update(booking);
-            await _bookingRepository.SaveChangesAsync();
+            throw new InvalidOperationException($"Not enough available slots. Available: {activity.AvailableSlots}, Requested: {booking.NumberOfPeople}");
         }
 
-        public async Task DeleteBookingAsync(Guid id)
+        activity.AvailableSlots -= booking.NumberOfPeople;
+        _activityRepository.Update(activity);
+
+        Console.WriteLine($"✅ Booking prepared:");
+        Console.WriteLine($"   ID: {booking.Id}");
+        Console.WriteLine($"   Activity: {booking.ActivityId}");
+        Console.WriteLine($"   User: {booking.UserId}");
+        Console.WriteLine($"   People: {booking.NumberOfPeople}");
+        Console.WriteLine($"   Price: {booking.TotalPrice}");
+        Console.WriteLine($"   Status: {booking.Status}");
+        Console.WriteLine($"   PaymentStatus: {booking.PaymentStatus}");
+        
+        await _bookingRepository.AddAsync(booking);
+        await _bookingRepository.SaveChangesAsync();
+        await _activityRepository.SaveChangesAsync();
+
+        Console.WriteLine($"✅ Booking created successfully!");
+        return booking;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Error creating booking: {ex.Message}");
+        if (ex.InnerException != null)
         {
-            var booking = await _bookingRepository.GetByIdAsync(id);
-            if (booking != null)
-            {
-             
-                var activity = await _activityRepository.GetByIdAsync(booking.ActivityId);
-                if (activity != null)
-                {
-                    activity.AvailableSlots += booking.NumberOfPeople;
-                    _activityRepository.Update(activity);
-                }
-
-                _bookingRepository.Delete(booking);
-                await _bookingRepository.SaveChangesAsync();
-                await _activityRepository.SaveChangesAsync();
-            }
+            Console.WriteLine($"❌ Inner exception: {ex.InnerException.Message}");
         }
-
+        throw;
+    }
+}
         public async Task UpdateBookingStatusAsync(Guid id, BookingStatus status)
         {
             var booking = await _bookingRepository.GetByIdAsync(id);

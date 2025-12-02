@@ -1,3 +1,4 @@
+// types/booking.ts
 export interface BookingData {
   activityId: string;
   userId: string;
@@ -10,7 +11,7 @@ export interface BookingData {
     phone: string;
     specialRequirements?: string;
   };
-  paymentInfo: {
+  paymentInfo?: {
     cardNumber: string;
     expiryDate: string;
     cvv: string;

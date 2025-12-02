@@ -12,8 +12,8 @@ using TourismHub.Infrastructure.Persistence;
 namespace TourismHub.Infrastructure.Migrations
 {
     [DbContext(typeof(TourismHubDbContext))]
-    [Migration("20251202003309_InitialCreatePostgreSQLL")]
-    partial class InitialCreatePostgreSQLL
+    [Migration("20251202151937_InitialsCreatessPostgreSQL")]
+    partial class InitialsCreatessPostgreSQL
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -184,6 +184,9 @@ namespace TourismHub.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal>("TotalPrice")
+                        .HasColumnType("numeric");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -268,6 +271,9 @@ namespace TourismHub.Infrastructure.Migrations
                     b.Property<string>("TransactionId")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -574,8 +580,7 @@ namespace TourismHub.Infrastructure.Migrations
 
             modelBuilder.Entity("TourismHub.Domain.Entities.Booking", b =>
                 {
-                    b.Navigation("Payment")
-                        .IsRequired();
+                    b.Navigation("Payment");
                 });
 
             modelBuilder.Entity("TourismHub.Domain.Entities.Category", b =>

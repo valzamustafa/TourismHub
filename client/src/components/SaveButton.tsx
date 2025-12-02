@@ -2,25 +2,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Heart } from 'lucide-react';
 
 interface SaveButtonProps {
   activityId: string;
   userId: string;
   size?: 'small' | 'medium' | 'large';
-  onSaveChange?: (isSaved: boolean) => void;
+  onSaveChange?: (saved: boolean) => void;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
-
-export const SaveButton: React.FC<SaveButtonProps> = ({
-  activityId,
+export const SaveButton: React.FC<SaveButtonProps> = ({ 
+  activityId, 
   userId,
   size = 'medium',
   onSaveChange
 }) => {
-  const [isSaved, setIsSaved] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     checkIfSaved();
@@ -28,12 +26,19 @@ export const SaveButton: React.FC<SaveButtonProps> = ({
 
   const checkIfSaved = async () => {
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(
-        `${API_BASE_URL}/savedactivities/check/${userId}/${activityId}`
+        `http://localhost:5224/api/saved-activities/check?activityId=${activityId}&userId=${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
       );
+
       if (response.ok) {
         const data = await response.json();
-        setIsSaved(data.isSaved);
+        setSaved(data.saved);
       }
     } catch (error) {
       console.error('Error checking saved status:', error);
@@ -47,40 +52,28 @@ export const SaveButton: React.FC<SaveButtonProps> = ({
     try {
       const token = localStorage.getItem('token');
       
-      if (isSaved) {
-        // Unsave
-        const response = await fetch(
-          `${API_BASE_URL}/savedactivities/unsave/${userId}/${activityId}`,
-          {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
+      if (saved) {
+      
+        await fetch(`http://localhost:5224/api/saved-activities?activityId=${activityId}&userId=${userId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
           }
-        );
-        
-        if (response.ok) {
-          setIsSaved(false);
-          onSaveChange?.(false);
-        }
+        });
+        setSaved(false);
+        onSaveChange?.(false);
       } else {
         // Save
-        const response = await fetch(
-          `${API_BASE_URL}/savedactivities/save/${userId}/${activityId}`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        
-        if (response.ok) {
-          setIsSaved(true);
-          onSaveChange?.(true);
-        }
+        await fetch('http://localhost:5224/api/saved-activities', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ activityId, userId })
+        });
+        setSaved(true);
+        onSaveChange?.(true);
       }
     } catch (error) {
       console.error('Error toggling save:', error);
@@ -89,53 +82,32 @@ export const SaveButton: React.FC<SaveButtonProps> = ({
     }
   };
 
-  const getButtonClasses = () => {
-    const baseClasses = "transition-all duration-300 rounded-full flex items-center justify-center font-semibold";
-    
-    const sizeClasses = {
-      small: 'px-3 py-1.5 text-sm',
-      medium: 'px-4 py-2',
-      large: 'px-6 py-3 text-lg'
-    };
-
-    const stateClasses = isSaved 
-      ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 hover:border-red-300'
-      : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200 hover:border-gray-300';
-
-    return `${baseClasses} ${sizeClasses[size]} ${stateClasses}`;
-  };
-
-  const getIcon = () => {
-    if (loading) {
-      return (
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-      );
-    }
-    
-    if (isSaved) {
-      return hovered ? '🗑️' : '❤️';
-    }
-    
-    return '🤍';
-  };
-
-  const getText = () => {
-    if (loading) return 'Processing...';
-    if (isSaved) return hovered ? 'Remove' : 'Saved';
-    return 'Save';
+  const sizeClasses = {
+    small: 'w-8 h-8',
+    medium: 'w-10 h-10',
+    large: 'w-12 h-12'
   };
 
   return (
     <button
       onClick={handleSaveToggle}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       disabled={loading}
-      className={getButtonClasses()}
-      title={isSaved ? "Remove from saved" : "Save activity"}
+      className={`${sizeClasses[size]} flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm transition-all duration-300 ${
+        saved 
+          ? 'text-red-500 hover:bg-red-50' 
+          : 'text-gray-700 hover:bg-gray-100'
+      }`}
+      title={saved ? 'Remove from saved' : 'Save activity'}
     >
-      <span className="mr-2">{getIcon()}</span>
-      {getText()}
+      <Heart 
+        className={size === 'small' ? 'w-4 h-4' : 'w-5 h-5'} 
+        fill={saved ? 'currentColor' : 'none'}
+      />
+      {loading && (
+        <span className="absolute inset-0 flex items-center justify-center">
+          <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+        </span>
+      )}
     </button>
   );
 };

@@ -1,16 +1,23 @@
+// components/booking/PaymentForm.tsx
 import React from 'react';
-import { BookingData } from '@/types/booking';
+
+interface PaymentFormData {
+  cardNumber: string;
+  expiryDate: string;
+  cvv: string;
+  cardHolder: string;
+}
 
 interface PaymentFormProps {
-  data: BookingData['paymentInfo'];
-  onChange: (data: BookingData['paymentInfo']) => void;
+  data: PaymentFormData;
+  onChange: (data: PaymentFormData) => void;
 }
 
 export const PaymentForm: React.FC<PaymentFormProps> = ({ 
   data, 
   onChange 
 }) => {
-  const handleChange = (field: keyof typeof data, value: string) => {
+  const handleChange = (field: keyof PaymentFormData, value: string) => {
     onChange({
       ...data,
       [field]: value

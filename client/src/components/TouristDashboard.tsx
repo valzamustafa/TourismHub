@@ -36,38 +36,97 @@ const TouristDashboard = () => {
     }
   }, []);
 
-  const fetchTouristData = async (userId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      const activitiesResponse = await fetch('http://localhost:5224/api/activities', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (activitiesResponse.ok) {
-        const activitiesData = await activitiesResponse.json();
-        setActivities(activitiesData);
-      }
-
-  
-      const bookingsResponse = await fetch(`http://localhost:5224/api/bookings/user/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (bookingsResponse.ok) {
-        const bookingsData = await bookingsResponse.json();
-        setBookings(bookingsData);
-      }
-    } catch (error) {
-      console.error('Error fetching tourist data:', error);
+const fetchTouristData = async (userId: string) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      console.error('No token found');
+      return;
     }
-  };
+
+    const activitiesResponse = await fetch('http://localhost:5224/api/activities', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (activitiesResponse.ok) {
+      const activitiesData = await activitiesResponse.json();
+      setActivities(activitiesData);
+    } else {
+      console.error('Failed to fetch activities:', await activitiesResponse.text());
+    }
+
+  const bookingsResponse = await fetch('http://localhost:5224/api/bookings/my-bookings', {
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  }
+});
+
+    console.log('Bookings response status:', bookingsResponse.status);
+    
+    if (bookingsResponse.ok) {
+      const bookingsData = await bookingsResponse.json();
+      console.log('Bookings data received:', bookingsData);
+      
+      const transformedBookings = bookingsData.map((b: any) => ({
+        id: b.id,
+        activityName: b.activityName,
+        bookingDate: b.bookingDate,
+        numberOfPeople: b.numberOfPeople,
+        totalAmount: b.totalAmount,
+        status: b.status,
+        paymentStatus: b.paymentStatus
+      }));
+      
+      setBookings(transformedBookings);
+    } else {
+      const errorText = await bookingsResponse.text();
+      console.error('Failed to fetch bookings:', errorText);
+    
+      console.log('Trying alternative endpoint...');
+      await fetchAlternativeBookings(token, userId);
+    }
+  } catch (error) {
+    console.error('Error fetching tourist data:', error);
+  }
+};
+
+const fetchAlternativeBookings = async (token: string, userId: string) => {
+  try {
+ 
+    const response = await fetch(`http://localhost:5224/api/bookings`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      const allBookings = await response.json();
+      console.log('All bookings:', allBookings);
+    
+      const userBookings = allBookings.filter((b: any) => b.userId === userId);
+      console.log('Filtered user bookings:', userBookings);
+      
+      const transformedBookings = userBookings.map((b: any) => ({
+        id: b.id,
+        activityName: b.activityName || b.activity?.name || 'Unknown',
+        bookingDate: b.bookingDate,
+        numberOfPeople: b.numberOfPeople,
+        totalAmount: b.totalAmount || b.totalPrice,
+        status: b.status
+      }));
+      
+      setBookings(transformedBookings);
+    }
+  } catch (error) {
+    console.error('Error fetching alternative bookings:', error);
+  }
+};
 
   const handleBookActivity = async (activityId: string) => {
     if (!user) return;

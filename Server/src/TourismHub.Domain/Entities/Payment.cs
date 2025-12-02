@@ -8,13 +8,13 @@ namespace TourismHub.Domain.Entities
         public Guid Id { get; set; }
         public Guid BookingId { get; set; }
         public decimal Amount { get; set; }
-        public PaymentMethod PaymentMethod { get; set; }
+        public Domain.Enums.PaymentMethod PaymentMethod { get; set; }
         public PaymentStatus PaymentStatus { get; set; }
-
         public string? TransactionId { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; } 
 
-        // Relationships
-        public Booking Booking { get; set; }=null!;
+        // Navigation property
+        public virtual Booking Booking { get; set; } = null!;
     }
 }
