@@ -2,17 +2,23 @@
 'use client';
 
 import React from 'react';
+import { ChangePasswordForm } from './ChangePassword';
 
 interface AccountSettingsProps {
   onDeleteAccount: () => void;
+  userId: string;
 }
 
-export const AccountSettings: React.FC<AccountSettingsProps> = ({ onDeleteAccount }) => {
+export const AccountSettings: React.FC<AccountSettingsProps> = ({ 
+  onDeleteAccount,
+  userId 
+}) => {
   return (
     <div className="space-y-6">
       <div className="border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h3>
-        <PasswordForm />
+
+        <ChangePasswordForm userId={userId} />
       </div>
 
       <div className="border border-gray-200 rounded-lg p-6">
@@ -36,37 +42,7 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ onDeleteAccoun
   );
 };
 
-const PasswordForm: React.FC = () => (
-  <div className="space-y-4">
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-      <input
-        type="password"
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="Enter current password"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-      <input
-        type="password"
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="Enter new password"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-      <input
-        type="password"
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="Confirm new password"
-      />
-    </div>
-    <button className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-      Update Password
-    </button>
-  </div>
-);
+
 
 const NotificationPreferences: React.FC = () => (
   <div className="space-y-3">
@@ -87,4 +63,4 @@ const NotificationPreferences: React.FC = () => (
       <span className="text-gray-700">Activity reminders</span>
     </label>
   </div>
-);
+)

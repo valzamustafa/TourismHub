@@ -6,6 +6,9 @@ using TourismHub.Application.DTOs.User;
 using TourismHub.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using System.Globalization; 
+using Microsoft.AspNetCore.Authentication;
+
+
 namespace TourismHub.API.Controllers
 {
     [ApiController]
@@ -163,14 +166,19 @@ public async Task<IActionResult> GetUserById(string id)
             return NotFound(new { message = $"User with ID {id} not found" });
         }
 
-        var userDto = new UserListDto
+        var userDto = new
         {
-            Id = user.Id.ToString(),
-            Name = user.FullName,
-            Email = user.Email,
-            Role = user.Role.ToString(),
-            JoinDate = user.CreatedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            Status = user.IsActive ? "Active" : "Inactive"
+            id = user.Id.ToString(),
+            fullName = user.FullName, 
+            email = user.Email,
+            profileImage = user.ProfileImage,
+            role = user.Role.ToString(),
+            phone = user.Phone ?? "",
+            address = user.Address ?? "",
+            bio = user.Bio ?? "",
+            createdAt = user.CreatedAt,
+            isActive = user.IsActive,
+            lastLogin = user.LastLogin
         };
 
         return Ok(userDto);
@@ -181,43 +189,73 @@ public async Task<IActionResult> GetUserById(string id)
         return StatusCode(500, new { message = "An error occurred while retrieving the user", error = ex.Message });
     }
 }
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UserUpdateDto updateDto)
+
+[HttpPut("{id}")]
+public async Task<IActionResult> UpdateUser(string id, [FromBody] UserUpdateDto updateDto)
+{
+    try
+    {
+       
+        if (!Guid.TryParse(id, out Guid userId))
         {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-                var existingUser = await _userService.GetUserByIdAsync(id);
-                if (existingUser == null)
-                {
-                    return NotFound(new { message = $"User with ID {id} not found" });
-                }
-
-                if (!string.IsNullOrEmpty(updateDto.FullName))
-                {
-                    existingUser.FullName = updateDto.FullName;
-                }
-
-                existingUser.ProfileImage = updateDto.ProfileImage;
-                existingUser.UpdatedAt = DateTime.UtcNow;
-
-                await _userService.UpdateUserAsync(existingUser);
-
-                return Ok(new { 
-                    message = "User updated successfully",
-                    user = existingUser 
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error occurred while updating user with ID {id}");
-                return StatusCode(500, new { message = "An error occurred while updating the user", error = ex.Message });
-            }
+            return BadRequest(new { message = "Invalid user ID format" });
         }
+
+        _logger.LogInformation($"Updating user {id} with data: FullName={updateDto.FullName}, Phone={updateDto.Phone}, Address={updateDto.Address}, Bio={updateDto.Bio}");
+        
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning($"ModelState invalid: {ModelState}");
+            return BadRequest(ModelState);
+        }
+
+        var existingUser = await _userService.GetUserByIdAsync(userId);
+        if (existingUser == null)
+        {
+            _logger.LogWarning($"User with ID {id} not found");
+            return NotFound(new { message = $"User with ID {id} not found" });
+        }
+
+       
+        if (!string.IsNullOrEmpty(updateDto.FullName))
+            existingUser.FullName = updateDto.FullName;
+        
+        if (!string.IsNullOrEmpty(updateDto.Phone))
+            existingUser.Phone = updateDto.Phone;
+        
+        if (!string.IsNullOrEmpty(updateDto.Address))
+            existingUser.Address = updateDto.Address;
+        
+        if (!string.IsNullOrEmpty(updateDto.Bio))
+            existingUser.Bio = updateDto.Bio;
+        
+        existingUser.ProfileImage = updateDto.ProfileImage ?? existingUser.ProfileImage;
+        existingUser.UpdatedAt = DateTime.UtcNow;
+
+        await _userService.UpdateUserAsync(existingUser);
+
+       
+        return Ok(new { 
+            message = "User updated successfully",
+            user = new {
+                id = existingUser.Id.ToString(),
+                fullName = existingUser.FullName,
+                email = existingUser.Email,
+                phone = existingUser.Phone ?? "",
+                address = existingUser.Address ?? "",
+                bio = existingUser.Bio ?? "",
+                profileImage = existingUser.ProfileImage,
+                createdAt = existingUser.CreatedAt,
+                isActive = existingUser.IsActive
+            }
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, $"Error occurred while updating user with ID {id}");
+        return StatusCode(500, new { message = "An error occurred while updating the user", error = ex.Message });
+    }
+}
 
         [HttpPatch("{id}/password")]
         public async Task<IActionResult> UpdatePassword(Guid id, [FromBody] UpdatePasswordDto passwordDto)
@@ -313,7 +351,233 @@ public async Task<IActionResult> GetUserById(string id)
                 return StatusCode(500, new { message = "An error occurred while checking user existence", error = ex.Message });
             }
         }
+[HttpPost("upload-profile")]
+public async Task<IActionResult> UploadProfileImage([FromForm] IFormFile file, [FromForm] string userId)
+{
+    try
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { message = "No file uploaded" });
+        }
 
+     
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        
+        if (string.IsNullOrEmpty(extension) || !allowedExtensions.Contains(extension))
+        {
+            return BadRequest(new { message = "Invalid file type. Only JPG, JPEG, PNG, and WebP are allowed." });
+        }
+
+        if (file.Length > 5 * 1024 * 1024) 
+        {
+            return BadRequest(new { message = "File size exceeds 5MB limit" });
+        }
+
+       
+        var fileName = $"{Guid.NewGuid()}{extension}";
+        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+        
+        if (!Directory.Exists(uploadsFolder))
+        {
+            Directory.CreateDirectory(uploadsFolder);
+        }
+
+        var filePath = Path.Combine(uploadsFolder, fileName);
+        
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+       
+        var imageUrl = $"/uploads/{fileName}";
+        
+        if (!Guid.TryParse(userId, out Guid userGuid))
+        {
+            return BadRequest(new { message = "Invalid user ID" });
+        }
+
+      
+        var user = await _userService.GetUserByIdAsync(userGuid);
+        if (user == null)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+
+        user.ProfileImage = imageUrl;
+        user.UpdatedAt = DateTime.UtcNow;
+        
+        await _userService.UpdateUserAsync(user);
+
+        return Ok(new { 
+            success = true, 
+            imageUrl = imageUrl,
+            message = "Profile image uploaded successfully" 
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error uploading profile image");
+        return StatusCode(500, new { message = "Error uploading image", error = ex.Message });
+    }
+}
+[HttpPatch("provider/{id}/change-password")]
+public async Task<IActionResult> ChangeProviderPassword(Guid id, [FromBody] ProviderChangePasswordDto passwordDto)
+{
+    try
+    {
+        _logger.LogInformation($"Changing password for provider with ID {id}");
+        
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+     
+        if (passwordDto.NewPassword != passwordDto.ConfirmPassword)
+        {
+            return BadRequest(new { 
+                success = false,
+                message = "New password and confirmation do not match" 
+            });
+        }
+
+        var existingUser = await _userService.GetUserByIdAsync(id);
+        if (existingUser == null)
+        {
+            return NotFound(new { 
+                success = false,
+                message = $"Provider with ID {id} not found" 
+            });
+        }
+
+
+        if (existingUser.Role != UserRole.Provider)
+        {
+            return BadRequest(new { 
+                success = false,
+                message = "This endpoint is only for providers" 
+            });
+        }
+
+    
+        bool isCurrentPasswordValid = BCrypt.Net.BCrypt.Verify(
+            passwordDto.CurrentPassword, 
+            existingUser.PasswordHash
+        );
+        
+        if (!isCurrentPasswordValid)
+        {
+            return BadRequest(new { 
+                success = false,
+                message = "Current password is incorrect" 
+            });
+        }
+
+     
+        if (string.IsNullOrWhiteSpace(passwordDto.NewPassword) || passwordDto.NewPassword.Length < 6)
+        {
+            return BadRequest(new { 
+                success = false,
+                message = "New password must be at least 6 characters long" 
+            });
+        }
+
+       
+        bool isSamePassword = BCrypt.Net.BCrypt.Verify(
+            passwordDto.NewPassword, 
+            existingUser.PasswordHash
+        );
+        
+        if (isSamePassword)
+        {
+            return BadRequest(new { 
+                success = false,
+                message = "New password cannot be the same as current password" 
+            });
+        }
+
+        
+        existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(passwordDto.NewPassword);
+        existingUser.UpdatedAt = DateTime.UtcNow;
+
+        await _userService.UpdateUserAsync(existingUser);
+
+        _logger.LogInformation($"Password successfully updated for provider {id}");
+
+        return Ok(new { 
+            success = true,
+            message = "Password updated successfully" 
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, $"Error occurred while updating password for provider with ID {id}");
+        return StatusCode(500, new { 
+            success = false,
+            message = "An error occurred while updating the password", 
+            error = ex.Message 
+        });
+    }
+}
+
+[HttpGet("provider/{id}/profile")]
+public async Task<IActionResult> GetProviderProfile(Guid id)
+{
+    try
+    {
+        var user = await _userService.GetUserByIdAsync(id);
+        
+        if (user == null)
+        {
+            return NotFound(new { 
+                success = false,
+                message = $"Provider with ID {id} not found" 
+            });
+        }
+
+        if (user.Role != UserRole.Provider)
+        {
+            return BadRequest(new { 
+                success = false,
+                message = "User is not a provider" 
+            });
+        }
+
+        var providerProfile = new
+        {
+            id = user.Id.ToString(),
+            fullName = user.FullName,
+            email = user.Email,
+            profileImage = user.ProfileImage,
+            phone = user.Phone ?? "",
+            address = user.Address ?? "",
+            bio = user.Bio ?? "",
+            createdAt = user.CreatedAt,
+            lastLogin = user.LastLogin,
+            isActive = user.IsActive,
+            stats = new {
+                activitiesCount = user.Activities?.Count ?? 0
+            }
+        };
+
+        return Ok(new {
+            success = true,
+            data = providerProfile
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, $"Error getting provider profile for ID {id}");
+        return StatusCode(500, new { 
+            success = false,
+            message = "An error occurred while getting provider profile", 
+            error = ex.Message 
+        });
+    }
+}
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateUserStatus(Guid id, [FromBody] UpdateUserStatusDto statusDto)
         {
@@ -342,6 +606,7 @@ public async Task<IActionResult> GetUserById(string id)
             }
         }
     }
+    
 }
 
 public class UpdateUserStatusDto

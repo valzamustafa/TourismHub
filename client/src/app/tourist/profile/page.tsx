@@ -3,6 +3,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
+import { BookingList } from '@/components/profile/BookingList'; // Importo BookingList
+import { ChangePasswordForm } from '@/components/profile/ChangePassword';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
 
@@ -15,7 +18,6 @@ interface User {
   phone?: string;
   address?: string;
   bio?: string;
-  preferences?: string[];
   createdAt: string;
   lastLogin?: string;
 }
@@ -71,42 +73,39 @@ export default function TouristProfilePage() {
     email: '',
     phone: '',
     address: '',
-    bio: '',
-    preferences: [] as string[]
+    bio: ''
   });
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [selectedBookingFilter, setSelectedBookingFilter] = useState<string>('all');
   const router = useRouter();
 
   useEffect(() => {
     fetchProfileData();
   }, []);
-const getFullImageUrl = (imagePath: string): string => {
-  if (!imagePath || imagePath === 'string' || imagePath === 'null') {
+
+  const getFullImageUrl = (imagePath: string): string => {
+    if (!imagePath || imagePath === 'string' || imagePath === 'null') {
+      return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500';
+    }
+
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    
+    const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:5224';
+    
+    if (imagePath.startsWith('/uploads/')) {
+      const fullUrl = `${BACKEND_BASE_URL}${imagePath}`;
+      return fullUrl;
+    }
+    
+    if (imagePath.includes('.')) {
+      const fullUrl = `${BACKEND_BASE_URL}/uploads/activity-images/${imagePath}`;
+      return fullUrl;
+    }
+    
     return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500';
-  }
+  };
 
-  if (imagePath.startsWith('http')) {
-    return imagePath;
-  }
-  
-
-  const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:5224';
-  
-  if (imagePath.startsWith('/uploads/')) {
-    const fullUrl = `${BACKEND_BASE_URL}${imagePath}`;
-    return fullUrl;
-  }
-  
-
-  if (imagePath.includes('.')) {
-    const fullUrl = `${BACKEND_BASE_URL}/uploads/activity-images/${imagePath}`;
-    return fullUrl;
-  }
-  
-
-  return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500';
-};
   const fetchProfileData = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -119,7 +118,7 @@ const getFullImageUrl = (imagePath: string): string => {
 
       const parsedUser = JSON.parse(userData);
       
-   
+
       const userResponse = await fetch(`${API_BASE_URL}/users/${parsedUser.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -128,19 +127,20 @@ const getFullImageUrl = (imagePath: string): string => {
       });
 
       if (userResponse.ok) {
-        const userData = await userResponse.json();
-        setUser(userData);
+        const userDataFromApi = await userResponse.json();
+        setUser(userDataFromApi);
         setFormData({
-          fullName: userData.fullName,
-          email: userData.email,
-          phone: userData.phone || '',
-          address: userData.address || '',
-          bio: userData.bio || '',
-          preferences: userData.preferences || []
+          fullName: userDataFromApi.fullName || userDataFromApi.name || '',
+          email: userDataFromApi.email || '',
+          phone: userDataFromApi.phone || '',
+          address: userDataFromApi.address || '',
+          bio: userDataFromApi.bio || ''
         });
+
+        localStorage.setItem('user', JSON.stringify(userDataFromApi));
       }
 
-
+  
       const bookingsResponse = await fetch(`${API_BASE_URL}/bookings/user/${parsedUser.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -154,7 +154,7 @@ const getFullImageUrl = (imagePath: string): string => {
         calculateStats(bookingsData);
       }
 
-    
+
       const savedResponse = await fetch(`${API_BASE_URL}/savedactivities/user/${parsedUser.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -164,7 +164,6 @@ const getFullImageUrl = (imagePath: string): string => {
 
       if (savedResponse.ok) {
         const savedData = await savedResponse.json();
-
         const savedItems: SavedItem[] = savedData.map((item: any) => ({
           id: item.id,
           activityId: item.activityId,
@@ -175,7 +174,6 @@ const getFullImageUrl = (imagePath: string): string => {
           category: item.activityCategory,
           savedAt: item.savedAt
         }));
-        
         setSavedItems(savedItems);
       }
 
@@ -206,38 +204,137 @@ const getFullImageUrl = (imagePath: string): string => {
   const handleSaveProfile = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/users/${user?.id}`, {
+      
+      if (!token) {
+        alert('Session expired. Please login again.');
+        router.push('/');
+        return;
+      }
+
+      if (!user?.id) {
+        alert('User ID not found. Please try again.');
+        return;
+      }
+
+      const updateData = {
+        fullName: formData.fullName,
+        email: user.email,
+        phone: formData.phone,
+        address: formData.address,
+        bio: formData.bio,
+        profileImage: user.profileImage
+      };
+
+      console.log('Të dhënat që po dërgohen:', JSON.stringify(updateData, null, 2));
+
+      const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(updateData)
       });
 
+      console.log('Statusi i përgjigjes:', response.status);
+      
       if (response.ok) {
-        const updatedUser = await response.json();
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+        const result = await response.json();
+        console.log('Përgjigja nga serveri:', result);
+        
+        if (result.user) {
+          setUser(result.user);
+          localStorage.setItem('user', JSON.stringify(result.user));
+          
+          setFormData({
+            fullName: result.user.fullName,
+            email: result.user.email,
+            phone: result.user.phone || '',
+            address: result.user.address || '',
+            bio: result.user.bio || ''
+          });
+        }
+        
         setEditing(false);
         alert('Profile updated successfully!');
+        setTimeout(() => fetchProfileData(), 500);
+      } else {
+        const errorText = await response.text();
+        console.error('Gabim nga serveri:', errorText);
+        
+        let errorMessage = 'Failed to update profile';
+        try {
+          const errorJson = JSON.parse(errorText);
+          console.error('Gabim i strukturuar:', errorJson);
+          errorMessage = errorJson.message || errorMessage;
+          
+          if (errorJson.errors) {
+            const errorDetails = Object.entries(errorJson.errors)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join('\n');
+            errorMessage += `\n\nDetaje:\n${errorDetails}`;
+          }
+        } catch (e) {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        
+        alert(errorMessage);
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Failed to update profile');
+      alert('Failed to update profile. Please try again.');
     }
+  };
+
+  const handleEditProfile = () => {
+    if (user) {
+      setFormData({
+        fullName: user.fullName || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        address: user.address || '',
+        bio: user.bio || ''
+      });
+    }
+    setEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    if (user) {
+      setFormData({
+        fullName: user.fullName || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        address: user.address || '',
+        bio: user.bio || ''
+      });
+    }
+    setEditing(false);
   };
 
   const handleImageUpload = async (file: File) => {
     if (!user) return;
 
     setUploadingImage(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('userId', user.id);
-
+    
     try {
       const token = localStorage.getItem('token');
+      
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Invalid file type. Only JPEG, PNG, JPG and WebP are allowed.');
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size too large. Maximum 5MB allowed.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.id);
+
       const response = await fetch(`${API_BASE_URL}/users/upload-profile`, {
         method: 'POST',
         headers: {
@@ -246,17 +343,70 @@ const getFullImageUrl = (imagePath: string): string => {
         body: formData
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setUser({ ...user, profileImage: result.imageUrl });
-        alert('Profile image updated successfully!');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Upload error response:', errorText);
+        
+        let errorMessage = 'Failed to upload image';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
+        } catch {
+          errorMessage = `Server error: ${response.status}`;
+        }
+        
+        alert(errorMessage);
+        return;
       }
+
+      const result = await response.json();
+      console.log('Upload result:', result);
+      
+      if (result.success) {
+        const updatedUser = { ...user, profileImage: result.imageUrl };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        alert('Profile image updated successfully!');
+        
+        setTimeout(() => fetchProfileData(), 500);
+      } else {
+        throw new Error(result.message || 'Upload failed');
+      }
+
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert('Failed to upload image');
+      alert(error instanceof Error ? error.message : 'Failed to upload image');
     } finally {
       setUploadingImage(false);
     }
+  };
+
+  const getProfileImageUrl = (imageUrl: string | null): string => {
+    if (!imageUrl || imageUrl === 'null' || imageUrl === 'string') {
+      return '';
+    }
+
+    if (imageUrl.startsWith('data:image')) {
+      return imageUrl;
+    }
+
+    if (imageUrl.startsWith('http')) {
+      return imageUrl;
+    }
+    
+    const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:5224';
+
+    if (imageUrl.startsWith('/uploads/') || imageUrl.startsWith('uploads/')) {
+      const cleanUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+      return `${BACKEND_BASE_URL}${cleanUrl}`;
+    }
+    
+    if (imageUrl.includes('.')) {
+      return `${BACKEND_BASE_URL}/uploads/${imageUrl}`;
+    }
+    
+    return '';
   };
 
   const handleCancelBooking = async (bookingId: string) => {
@@ -275,10 +425,14 @@ const getFullImageUrl = (imagePath: string): string => {
       if (response.ok) {
         alert('Booking cancelled successfully!');
         fetchProfileData();
+      } else {
+        const errorText = await response.text();
+        console.error('Cancel booking error:', errorText);
+        alert('Failed to cancel booking. Please try again.');
       }
     } catch (error) {
       console.error('Error cancelling booking:', error);
-      alert('Failed to cancel booking');
+      alert('Failed to cancel booking. Please try again.');
     }
   };
 
@@ -290,8 +444,6 @@ const getFullImageUrl = (imagePath: string): string => {
       if (!token || !userData) return;
       
       const parsedUser = JSON.parse(userData);
-      
-
       const itemToRemove = savedItems.find(item => item.id === itemId);
       if (!itemToRemove) return;
       
@@ -319,7 +471,6 @@ const getFullImageUrl = (imagePath: string): string => {
   const handleDeleteAccount = () => {
     if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
       console.log('Account deletion requested');
-
     }
   };
 
@@ -380,22 +531,15 @@ const getFullImageUrl = (imagePath: string): string => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1">
-
             <div className="bg-white rounded-xl shadow-sm border p-6">
               <div className="text-center mb-6">
-                <div className="w-32 h-32 mx-auto mb-4 rounded-full overflow-hidden border-4 border-white shadow-lg">
-                  {user.profileImage ? (
-                    <img
-                      src={user.profileImage}
-                      alt={user.fullName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center text-white text-4xl font-bold">
-                    {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
-                    </div>
-                  )}
-                </div>
+                <ProfileAvatar
+                  imageUrl={getProfileImageUrl(user.profileImage)}
+                  userName={user.fullName}
+                  onImageChange={handleImageUpload}
+                  showUploadButton={true}
+                  uploading={uploadingImage}
+                />
                 <h2 className="text-xl font-bold text-gray-900 mt-4">{user.fullName}</h2>
                 <p className="text-gray-600 text-sm">{user.email}</p>
                 <p className="text-gray-500 text-sm mt-1">
@@ -427,7 +571,6 @@ const getFullImageUrl = (imagePath: string): string => {
                 </div>
               </div>
             </div>
-
 
             <div className="mt-4 bg-white rounded-xl shadow-sm border p-6">
               <nav className="space-y-2">
@@ -491,7 +634,8 @@ const getFullImageUrl = (imagePath: string): string => {
 
                 <button
                   onClick={() => setActiveTab('settings')}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors 
+                    ${
                     activeTab === 'settings'
                       ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
                       : 'text-gray-700 hover:bg-gray-50'
@@ -517,7 +661,7 @@ const getFullImageUrl = (imagePath: string): string => {
                     <h2 className="text-2xl font-bold text-gray-900">Profile Information</h2>
                     {!editing && (
                       <button
-                        onClick={() => setEditing(true)}
+                        onClick={handleEditProfile}
                         className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -547,7 +691,9 @@ const getFullImageUrl = (imagePath: string): string => {
                             value={formData.email}
                             onChange={(e) => setFormData({...formData, email: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            disabled
                           />
+                          <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
@@ -590,17 +736,7 @@ const getFullImageUrl = (imagePath: string): string => {
                           Save Changes
                         </button>
                         <button
-                          onClick={() => {
-                            setEditing(false);
-                            setFormData({
-                              fullName: user.fullName,
-                              email: user.email,
-                              phone: user.phone || '',
-                              address: user.address || '',
-                              bio: user.bio || '',
-                              preferences: user.preferences || []
-                            });
-                          }}
+                          onClick={handleCancelEdit}
                           className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
                         >
                           Cancel
@@ -640,282 +776,161 @@ const getFullImageUrl = (imagePath: string): string => {
               )}
 
               {activeTab === 'bookings' && (
+  <>
+    <div className="flex justify-between items-center mb-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+        <p className="text-gray-600 mt-1">Manage and view all your bookings</p>
+      </div>
+      <div className="flex items-center space-x-4">
+        <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-semibold">
+          {bookings.length} booking{bookings.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+    </div>
+
+    <BookingList
+      bookings={bookings}
+      onCancelBooking={handleCancelBooking}
+      onViewActivity={(activityId) => router.push(`/tourist/activities/${activityId}`)}
+    />
+
+    {bookings.length > 0 && (
+      <div className="mt-8 pt-6 border-t">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Booking Statistics</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-600">Total Bookings</p>
+            <p className="text-xl font-bold text-gray-900 mt-1">{stats.totalBookings}</p>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-600">Completed</p>
+            <p className="text-xl font-bold text-green-600 mt-1">{stats.completedBookings}</p>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-600">Pending</p>
+            <p className="text-xl font-bold text-yellow-600 mt-1">{stats.pendingBookings}</p>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-600">Total Spent</p>
+            <p className="text-xl font-bold text-blue-600 mt-1">${stats.totalSpent.toFixed(2)}</p>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
+)}
+
+              {activeTab === 'saved' && (
                 <>
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600">Filter by status:</span>
-                      <select
-                        value={selectedBookingFilter}
-                        onChange={(e) => setSelectedBookingFilter(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="all">All Bookings</option>
-                        <option value="pending">Pending</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">Saved Items</h2>
+                      <p className="text-gray-600 mt-1">Activities you've saved for later</p>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-semibold">
+                        {savedItems.length} items
+                      </span>
                     </div>
                   </div>
 
-                  {bookings.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="text-6xl mb-4">📅</div>
-                      <h3 className="text-xl font-bold text-gray-700 mb-2">No Bookings Found</h3>
-                      <p className="text-gray-500">
-                        {selectedBookingFilter === 'all' 
-                          ? "You haven't made any bookings yet."
-                          : `No ${selectedBookingFilter} bookings found.`}
+                  {savedItems.length === 0 ? (
+                    <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                      <div className="text-6xl mb-6">❤️</div>
+                      <h3 className="text-2xl font-bold text-gray-700 mb-3">No Saved Items Yet</h3>
+                      <p className="text-gray-600 max-w-md mx-auto mb-8">
+                        Save activities you're interested in by clicking the heart icon on any activity.
                       </p>
+                      <button
+                        onClick={() => router.push('/tourist/activities')}
+                        className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+                      >
+                        Browse Activities
+                      </button>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {bookings
-                        .filter(booking => {
-                          if (selectedBookingFilter === 'all') return true;
-                          return booking.status.toLowerCase() === selectedBookingFilter;
-                        })
-                        .map((booking) => (
-                          <div key={booking.id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-start space-x-4">
-                                {booking.activityImage && (
-                                  <img
-                                    src={booking.activityImage}
-                                    alt={booking.activityName}
-                                    className="w-20 h-20 object-cover rounded-lg"
-                                  />
-                                )}
-                                <div>
-                                  <h3 className="font-semibold text-gray-900">{booking.activityName}</h3>
-                                  <div className="mt-2 space-y-1 text-sm">
-                                    <div className="flex items-center text-gray-600">
-                                      <span className="mr-2">📅</span>
-                                      <span>Booking Date: {new Date(booking.bookingDate).toLocaleDateString()}</span>
-                                    </div>
-                                    <div className="flex items-center text-gray-600">
-                                      <span className="mr-2">📅</span>
-                                      <span>Activity Date: {new Date(booking.selectedDate).toLocaleDateString()}</span>
-                                    </div>
-                                    <div className="flex items-center text-gray-600">
-                                      <span className="mr-2">👥</span>
-                                      <span>People: {booking.numberOfPeople}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="text-right">
-                                <div className="text-xl font-bold text-green-600">${booking.totalAmount}</div>
-                                <div className="mt-2">
-                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                    booking.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
-                                    booking.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                    booking.status === 'Completed' ? 'bg-blue-100 text-blue-800' :
-                                    'bg-red-100 text-red-800'
-                                  }`}>
-                                    {booking.status}
-                                  </span>
-                                </div>
-                                <div className="mt-2">
-                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                    booking.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
-                                    booking.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-red-100 text-red-800'
-                                  }`}>
-                                    {booking.paymentStatus}
-                                  </span>
-                                </div>
-                                
-                                <div className="mt-3 space-x-2">
-                                  {booking.status === 'Pending' && (
-                                    <button
-                                      onClick={() => handleCancelBooking(booking.id)}
-                                      className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
-                                    >
-                                      Cancel Booking
-                                    </button>
-                                  )}
-                                  {(booking.status === 'Confirmed' || booking.status === 'Completed') && (
-                                    <button
-                                      onClick={() => router.push(`/tourist/activities/${booking.activityId}`)}
-                                      className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-                                    >
-                                      View Activity
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {savedItems.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-300 hover:-translate-y-1"
+                        >
+                          <div className="relative h-48">
+                            <img
+                              src={getFullImageUrl(item.activityImage || '')}
+                              alt={item.activityName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.log('Image failed to load:', {
+                                  original: item.activityImage,
+                                  converted: getFullImageUrl(item.activityImage || '')
+                                });
+                                e.currentTarget.src = 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500&fit=crop';
+                              }}
+                            />
+                            <button
+                              onClick={() => removeSavedItem(item.id)}
+                              className="absolute top-3 right-3 bg-white p-2 rounded-full shadow-lg hover:bg-red-50 hover:text-red-500 transition-colors"
+                              title="Remove from saved"
+                            >
+                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                            <div className="absolute bottom-3 left-3 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                              ${item.price}
+                            </div>
+                            <div className="absolute top-3 left-3">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                {item.category}
+                              </span>
                             </div>
                           </div>
-                        ))}
-                    </div>
-                  )}
-
-                  {bookings.length > 0 && (
-                    <div className="mt-8 pt-6 border-t">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Booking Statistics</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <p className="text-sm text-gray-600">Total Bookings</p>
-                          <p className="text-xl font-bold text-gray-900 mt-1">{stats.totalBookings}</p>
+                          
+                          <div className="p-5">
+                            <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 h-14">
+                              {item.activityName}
+                            </h3>
+                            
+                            <div className="flex items-center text-gray-600 text-sm mb-4">
+                              <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <span className="truncate">{item.location}</span>
+                            </div>
+                            
+                            <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                              <span className="text-xs text-gray-500">
+                                Saved {new Date(item.savedAt).toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                              <button
+                                onClick={() => router.push(`/tourist/activities/${item.activityId}`)}
+                                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all font-semibold"
+                              >
+                                View Details
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <p className="text-sm text-gray-600">Completed</p>
-                          <p className="text-xl font-bold text-green-600 mt-1">{stats.completedBookings}</p>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <p className="text-sm text-gray-600">Pending</p>
-                          <p className="text-xl font-bold text-yellow-600 mt-1">{stats.pendingBookings}</p>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <p className="text-sm text-gray-600">Total Spent</p>
-                          <p className="text-xl font-bold text-blue-600 mt-1">${stats.totalSpent.toFixed(2)}</p>
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   )}
                 </>
               )}
 
-{activeTab === 'saved' && (
-  <>
-    <div className="flex justify-between items-center mb-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Saved Items</h2>
-        <p className="text-gray-600 mt-1">Activities you've saved for later</p>
-      </div>
-      <div className="flex items-center space-x-4">
-        <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-semibold">
-          {savedItems.length} items
-        </span>
-      </div>
-    </div>
-
-    {savedItems.length === 0 ? (
-      <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-        <div className="text-6xl mb-6">❤️</div>
-        <h3 className="text-2xl font-bold text-gray-700 mb-3">No Saved Items Yet</h3>
-        <p className="text-gray-600 max-w-md mx-auto mb-8">
-          Save activities you're interested in by clicking the heart icon on any activity.
-        </p>
-        <button
-          onClick={() => router.push('/tourist/activities')}
-          className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
-        >
-          Browse Activities
-        </button>
-      </div>
-    ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {savedItems.map((item) => (
-          <div 
-            key={item.id} 
-            className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-300 hover:-translate-y-1"
-          >
-            <div className="relative h-48">
-              <img
-                src={getFullImageUrl(item.activityImage || '')}
-                alt={item.activityName}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  console.log('Image failed to load:', {
-                    original: item.activityImage,
-                    converted: getFullImageUrl(item.activityImage || '')
-                  });
-                  e.currentTarget.src = 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500&fit=crop';
-                }}
-              />
-              <button
-                onClick={() => removeSavedItem(item.id)}
-                className="absolute top-3 right-3 bg-white p-2 rounded-full shadow-lg hover:bg-red-50 hover:text-red-500 transition-colors"
-                title="Remove from saved"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              </button>
-              <div className="absolute bottom-3 left-3 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                ${item.price}
-              </div>
-              <div className="absolute top-3 left-3">
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
-                  {item.category}
-                </span>
-              </div>
-            </div>
-            
-            <div className="p-5">
-              <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 h-14">
-                {item.activityName}
-              </h3>
-              
-              <div className="flex items-center text-gray-600 text-sm mb-4">
-                <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span className="truncate">{item.location}</span>
-              </div>
-              
-              <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                <span className="text-xs text-gray-500">
-                  Saved {new Date(item.savedAt).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}
-                </span>
-                <button
-                  onClick={() => router.push(`/tourist/activities/${item.activityId}`)}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all font-semibold"
-                >
-                  View Details
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </>
-)}
               {activeTab === 'settings' && (
                 <>
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Account Settings</h2>
                   <div className="space-y-6">
                     <div className="border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-                          <input
-                            type="password"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter current password"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-                          <input
-                            type="password"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter new password"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-                          <input
-                            type="password"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Confirm new password"
-                          />
-                        </div>
-                        <button className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                          Update Password
-                        </button>
-                      </div>
+                      <ChangePasswordForm userId={user.id} />
                     </div>
 
                     <div className="border border-gray-200 rounded-lg p-6">

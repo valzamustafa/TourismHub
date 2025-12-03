@@ -27,7 +27,7 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
       
       <div className="border border-gray-200 rounded-lg p-4">
         <div className="flex items-start space-x-4">
-          {activity.images[0] && (
+          {activity.images && activity.images[0] && (
             <img 
               src={activity.images[0]} 
               alt={activity.name}
@@ -45,16 +45,21 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Date:</span>
             <span className="text-gray-900">
-              {new Date(bookingData.selectedDate).toLocaleDateString()}
+              {new Date(bookingData.selectedDate).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
             </span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Number of People:</span>
-            <span className="text-gray-900">{bookingData.numberOfPeople}</span>
+            <span className="text-gray-900 font-medium">{bookingData.numberOfPeople}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Price per person:</span>
-            <span className="text-gray-900">${activity.price}</span>
+            <span className="text-gray-900">${activity.price.toFixed(2)}</span>
           </div>
         </div>
 
@@ -69,9 +74,9 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
             <span className="text-gray-600">Tax (10%):</span>
             <span className="text-gray-900">${tax.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between font-semibold">
+          <div className="flex justify-between font-semibold text-lg">
             <span className="text-gray-900">Total:</span>
-            <span className="text-blue-600">${total.toFixed(2)}</span>
+            <span className="text-green-600">${total.toFixed(2)}</span>
           </div>
         </div>
       </div>

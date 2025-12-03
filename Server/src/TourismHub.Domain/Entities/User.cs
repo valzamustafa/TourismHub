@@ -9,14 +9,17 @@ namespace TourismHub.Domain.Entities
         public Guid Id { get; set; }
         public required string FullName { get; set; }
         public required string Email { get; set; }
-           public required string PasswordHash { get; set; }
+        public required string PasswordHash { get; set; }
         public UserRole Role { get; set; }
         public string? ProfileImage { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    
+        public string? Phone { get; set; } 
+        public string? Address { get; set; } 
+        public string? Bio { get; set; } 
+
         public string? RefreshToken { get; set; }
         public DateTime? RefreshTokenExpiry { get; set; }
         public bool IsActive { get; set; } = true;
@@ -26,6 +29,6 @@ namespace TourismHub.Domain.Entities
         public ICollection<Activity> Activities { get; set; } = new List<Activity>();
         public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
         public ICollection<Review> Reviews { get; set; } = new List<Review>();
-        public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>(); // Nëse përdorim entitet të veçantë
+        public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>(); 
     }
 }
