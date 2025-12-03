@@ -94,7 +94,57 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+[HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordDto forgotPasswordDto)
+    {
+        try
+        {
+            _logger.LogInformation($"Forgot password request for: {forgotPasswordDto.Email}");
+            
+            var origin = Request.Headers["Origin"].ToString();
+            await _authService.ForgotPasswordAsync(forgotPasswordDto, origin);
+            
+            return Ok(new { 
+                message = "If your email is registered, you will receive a password reset link" 
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error during forgot password for: {forgotPasswordDto.Email}");
+            return StatusCode(500, new { 
+                message = "An error occurred", 
+                error = ex.Message
+            });
+        }
+    }
 
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordDto resetPasswordDto)
+    {
+        try
+        {
+            _logger.LogInformation("Reset password attempt");
+            
+            await _authService.ResetPasswordAsync(resetPasswordDto);
+            
+            return Ok(new { 
+                message = "Password reset successful. You can now login with your new password." 
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning($"Reset password failed: {ex.Message}");
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during password reset");
+            return StatusCode(500, new { 
+                message = "Internal server error", 
+                error = ex.Message
+            });
+        }
+    }
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(RefreshTokenRequestDto logoutRequest)
     {

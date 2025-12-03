@@ -12,8 +12,8 @@ using TourismHub.Infrastructure.Persistence;
 namespace TourismHub.Infrastructure.Migrations
 {
     [DbContext(typeof(TourismHubDbContext))]
-    [Migration("20251202203502_InitialCreatePostgreSQLL")]
-    partial class InitialCreatePostgreSQLL
+    [Migration("20251203145913_InitialsCreatessPostgreSQL")]
+    partial class InitialsCreatessPostgreSQL
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -242,6 +242,38 @@ namespace TourismHub.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Categories", (string)null);
+                });
+
+            modelBuilder.Entity("TourismHub.Domain.Entities.PasswordResetToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Created")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("Expires")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsUsed")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PasswordResetTokens");
                 });
 
             modelBuilder.Entity("TourismHub.Domain.Entities.Payment", b =>
@@ -519,6 +551,17 @@ namespace TourismHub.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TourismHub.Domain.Entities.PasswordResetToken", b =>
+                {
+                    b.HasOne("TourismHub.Domain.Entities.User", "User")
+                        .WithMany("PasswordResetTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TourismHub.Domain.Entities.Payment", b =>
                 {
                     b.HasOne("TourismHub.Domain.Entities.Booking", "Booking")
@@ -605,6 +648,8 @@ namespace TourismHub.Infrastructure.Migrations
                     b.Navigation("Activities");
 
                     b.Navigation("Bookings");
+
+                    b.Navigation("PasswordResetTokens");
 
                     b.Navigation("RefreshTokens");
 

@@ -15,7 +15,7 @@ namespace TourismHub.Domain.Entities
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
+         public DateTime? DeletedAt { get; set; }
         public string? Phone { get; set; } 
         public string? Address { get; set; } 
         public string? Bio { get; set; } 
@@ -24,7 +24,7 @@ namespace TourismHub.Domain.Entities
         public DateTime? RefreshTokenExpiry { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime? LastLogin { get; set; }
-
+       public virtual ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>();
       public virtual ICollection<SavedActivity> SavedActivities { get; set; } = new List<SavedActivity>();
         public ICollection<Activity> Activities { get; set; } = new List<Activity>();
         public ICollection<Booking> Bookings { get; set; } = new List<Booking>();

@@ -15,6 +15,7 @@ const LoginForm = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
@@ -22,16 +23,93 @@ const LoginForm = () => {
       [e.target.name]: e.target.value
     });
   };
- const handleSubmit = async (e: React.FormEvent) => {
+
+  const handleForgotPassword = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setMessage('');
+    
+    if (!formData.email.trim()) {
+      setMessage('Please enter your email address');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setMessage('Please enter a valid email address');
+      return;
+    }
+
+    setForgotPasswordLoading(true);
+    
+    try {
+      console.log('Sending forgot password request for:', formData.email);
+      
+      const response = await fetch('http://localhost:5224/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ 
+          email: formData.email.trim() 
+        })
+      });
+
+      console.log('Response status:', response.status);
+      
+      let responseData;
+      
+      try {
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+        
+        responseData = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error('Parse error:', parseError);
+        responseData = { message: 'Invalid response from server' };
+      }
+
+      console.log('Response data:', responseData);
+
+      if (response.ok) {
+        setMessage(`✅ ${responseData.message || 'Password reset link sent to your email. Check your inbox!'}`);
+        
+        setFormData(prev => ({
+          ...prev,
+          email: ''
+        }));
+      } else {
+        setMessage(`❌ ${responseData.message || 'Error sending reset link. Please try again.'}`);
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      setMessage('❌ Network error. Please check: 1) Server is running, 2) CORS is configured, 3) API endpoint exists');
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
 
     try {
-      if (!isLogin && formData.password !== formData.confirmPassword) {
-        setMessage('Passwords do not match');
-        setLoading(false);
-        return;
+    
+      if (!isLogin) {
+        if (formData.password !== formData.confirmPassword) {
+          setMessage('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+        
+        if (formData.password.length < 6) {
+          setMessage('Password must be at least 6 characters');
+          setLoading(false);
+          return;
+        }
       }
 
       const endpoint = isLogin ? 'login' : 'register';
@@ -41,37 +119,42 @@ const LoginForm = () => {
       
       if (isLogin) {
         body = {
-          email: formData.email,
+          email: formData.email.trim(),
           password: formData.password
         };
       } else {
         body = {
-          fullName: formData.fullName,
-          email: formData.email,
+          fullName: formData.fullName.trim(),
+          email: formData.email.trim(),
           password: formData.password,
           role: formData.role
         };
       }
 
+      console.log('Sending request to:', url, 'with body:', body);
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify(body)
       });
       
-      const responseText = await response.text();
       let responseData;
+      const responseText = await response.text();
+      console.log('Login/Register response:', response.status, responseText);
       
       try {
         responseData = responseText ? JSON.parse(responseText) : {};
       } catch (parseError) {
+        console.error('Parse error:', parseError);
         responseData = { message: 'Invalid response from server' };
       }
 
       if (response.ok) {
-        setMessage(`${isLogin ? 'Login' : 'Registration'} successful!`);
+        setMessage(`✅ ${isLogin ? 'Login' : 'Registration'} successful! Redirecting...`);
 
         if (responseData.accessToken) {
           localStorage.setItem('token', responseData.accessToken);
@@ -80,28 +163,48 @@ const LoginForm = () => {
             id: responseData.userId,
             name: responseData.fullName,
             email: responseData.email,
-            role: responseData.role
+            role: responseData.role,
+            profileImage: responseData.profileImage
           }));
           
-     setTimeout(() => {
-  if (responseData.role === 'Admin') {
-    window.location.href = '/admin';
-  } else if (responseData.role === 'Provider') {
-    window.location.href = '/provider';
-  } else {
-    window.location.href = '/tourist/activities';
-  }
-}, 1000);
+          if (rememberMe && isLogin) {
+            localStorage.setItem('rememberedEmail', formData.email);
+          } else {
+            localStorage.removeItem('rememberedEmail');
+          }
+         
+          setTimeout(() => {
+            if (responseData.role === 'Admin') {
+              window.location.href = '/admin';
+            } else if (responseData.role === 'Provider') {
+              window.location.href = '/provider';
+            } else {
+              window.location.href = '/tourist/activities';
+            }
+          }, 1500);
         }
       } else {
-        setMessage(responseData.message || `HTTP Error: ${response.status}`);
+        setMessage(`❌ ${responseData.message || `Error: ${response.status}`}`);
       }
     } catch (error) {
-      setMessage('Network error. Please check if the server is running.');
+      console.error('Login/Register error:', error);
+      setMessage('❌ Network error. Please check if the server is running at http://localhost:5224');
     } finally {
       setLoading(false);
     }
   };
+
+  useState(() => {
+    const rememberedEmail = localStorage.getItem('rememberedEmail');
+    if (rememberedEmail && isLogin) {
+      setFormData(prev => ({
+        ...prev,
+        email: rememberedEmail
+      }));
+      setRememberMe(true);
+    }
+  });
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#c8d5c0] p-4 sm:p-8">
       <div className="w-full max-w-7xl relative rounded-2xl overflow-hidden shadow-2xl">
@@ -114,7 +217,7 @@ const LoginForm = () => {
         
         {/* Content */}
         <div className="relative grid lg:grid-cols-2 gap-8 p-8 lg:p-16 min-h-[600px]">
-        <div className="flex items-center justify-center lg:justify-start">
+          <div className="flex items-center justify-center lg:justify-start">
             <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20">
               <h1 className="text-white text-2xl font-bold mb-2">TourismHub</h1>
               <p className="text-white/90 text-lg mb-8">
@@ -141,7 +244,7 @@ const LoginForm = () => {
 
                 <div>
                   <label className="block text-white/90 mb-2">
-                    E-mail
+                    Email Address
                   </label>
                   <input
                     type="email"
@@ -154,23 +257,6 @@ const LoginForm = () => {
                   />
                 </div>
 
-                {!isLogin && (
-                  <div>
-                    <label className="block text-white/90 mb-2">
-                      Role
-                    </label>
-                    <select
-                      name="role"
-                      value={formData.role}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm appearance-none"
-                    >
-                      <option value="Tourist">Tourist</option>
-                      <option value="Provider">Provider</option>
-                      <option value="Admin">Admin</option>
-                    </select>
-                  </div>
-                )}
 
                 <div>
                   <label className="block text-white/90 mb-2">
@@ -207,17 +293,28 @@ const LoginForm = () => {
                 )}
 
                 {isLogin && (
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="remember"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded border-white/30 bg-white/20 cursor-pointer"
-                    />
-                    <label htmlFor="remember" className="ml-2 text-white/90 cursor-pointer">
-                      Remember me
-                    </label>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="remember"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="w-4 h-4 rounded border-white/30 bg-white/20 cursor-pointer"
+                      />
+                      <label htmlFor="remember" className="ml-2 text-white/90 cursor-pointer text-sm">
+                        Remember me
+                      </label>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={forgotPasswordLoading}
+                      className="text-white/80 hover:text-white text-sm underline transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {forgotPasswordLoading ? 'Sending...' : 'Forgot Password?'}
+                    </button>
                   </div>
                 )}
 
@@ -229,7 +326,7 @@ const LoginForm = () => {
                       required
                       className="w-4 h-4 rounded border-white/30 bg-white/20 cursor-pointer"
                     />
-                    <label htmlFor="agreeTerms" className="ml-2 text-white/90 cursor-pointer">
+                    <label htmlFor="agreeTerms" className="ml-2 text-white/90 cursor-pointer text-sm">
                       I agree to the terms and conditions
                     </label>
                   </div>
@@ -237,7 +334,7 @@ const LoginForm = () => {
 
                 {message && (
                   <div className={`p-4 rounded-lg text-sm text-center backdrop-blur-sm ${
-                    message.includes('successful') 
+                    message.includes('✅') 
                       ? 'bg-green-500/20 text-green-200 border border-green-300/30' 
                       : 'bg-red-500/20 text-red-200 border border-red-300/30'
                   }`}>
@@ -262,7 +359,7 @@ const LoginForm = () => {
               </form>
 
               <div className="text-center mt-6 pt-6 border-t border-white/20">
-                <p className="text-white/90">
+                <p className="text-white/90 text-sm">
                   {isLogin ? "Don't have an account?" : "Already have an account?"}
                   <button 
                     onClick={() => {
@@ -276,7 +373,7 @@ const LoginForm = () => {
                         role: 'Tourist'
                       });
                     }}
-                    className="ml-2 text-white font-semibold hover:text-white/80 transition-colors duration-200"
+                    className="ml-2 text-white font-semibold hover:text-white/80 transition-colors duration-200 text-sm"
                   >
                     {isLogin ? 'Create Account' : 'Login'}
                   </button>
