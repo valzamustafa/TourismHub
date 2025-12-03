@@ -18,6 +18,15 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Stripe;
 using Microsoft.AspNetCore.Authorization;
+using TourismHub.Application.Interfaces.Services; 
+using TourismHub.Infrastructure.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Http;
+using TourismHub.Application.DTOs.Auth;
 
 try
 {
@@ -27,7 +36,7 @@ try
     Console.WriteLine("🔧 Configuring Stripe...");
   
     var stripeSecretKey = "sk_test_51SZxVMJ9c3VbsRGND4GT79O3WGUrApQq6a3t6lWeiTWy6ijk1pw6OVBI6Nxnxt2cYElQQWIKrB7oE9xtRN68GTJe00nmdkNTrO";
-    var stripePublishableKey = "pk_test_51SZxVMJ9c3VbsRGNSmqABSV5ycCBFZv9h8QK41bUqmOBNphmkzyMWrjzpx6p0IxUt6YmahY7MTSF9JbOtPHGV3pY00AXS8A7pO"; // VENDOS PUBLISHABLE KEY TËN KËTU
+    var stripePublishableKey = "pk_test_51SZxVMJ9c3VbsRGNSmqABSV5ycCBFZv9h8QK41bUqmOBNphmkzyMWrjzpx6p0IxUt6YmahY7MTSF9JbOtPHGV3pY00AXS8A7pO";
     
 
     stripeSecretKey = stripeSecretKey?.Trim()
@@ -85,6 +94,9 @@ try
     builder.Services.AddScoped<IActivityImageRepository, ActivityImageRepository>();
     builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
     builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+    builder.Services.AddScoped<IUserRepository, UserRepository>();
+    builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+    builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
     
     // Background Services
     builder.Services.AddHostedService<ActivityStatusUpdaterService>();
@@ -94,15 +106,25 @@ try
     builder.Services.AddScoped<ImageUploadService>();
     builder.Services.AddScoped<CategoryService>();
     builder.Services.AddScoped<ActivityService>();
-    builder.Services.AddScoped<AuthService>();
-    builder.Services.AddScoped<TourismHub.Application.Services.TokenService>();
-    builder.Services.AddScoped<PasswordHasher>();
+    
+    builder.Services.AddScoped<TourismHub.Application.Interfaces.Services.IPasswordHasher, 
+                              TourismHub.Application.Services.PasswordHasher>();
+    
+    builder.Services.AddScoped<TourismHub.Application.Interfaces.Services.ITokenService, 
+                              TourismHub.Application.Services.TokenService>();
+
+    builder.Services.AddScoped<TourismHub.Infrastructure.Services.IEmailService, 
+                          TourismHub.Infrastructure.Services.EmailService>();
+   
+    builder.Services.AddScoped<TourismHub.Application.Interfaces.Services.IAuthService, 
+                              TourismHub.Application.Services.AuthService>();
+    
     builder.Services.AddScoped<UserService>();
     builder.Services.AddScoped<ISavedActivityService, SavedActivityService>();
     builder.Services.AddScoped<PaymentService>();
     builder.Services.AddScoped<BookingService>();
     builder.Services.AddScoped<StripeWebhookService>();
-
+    
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
         {
@@ -111,9 +133,9 @@ try
     
     builder.Services.AddEndpointsApiExplorer();
 
-    builder.Services.Configure<IISServerOptions>(options =>
+    builder.Services.Configure<KestrelServerOptions>(options =>
     {
-        options.MaxRequestBodySize = 50 * 1024 * 1024;
+        options.Limits.MaxRequestBodySize = 50 * 1024 * 1024; // 50MB
     });
 
     builder.Services.Configure<FormOptions>(options =>
@@ -160,10 +182,10 @@ try
         });
     });
 
-    // CORS
+    // CORS Configuration 
     builder.Services.AddCors(options =>
     {
-        options.AddPolicy("AllowAll", policy =>
+        options.AddPolicy("AllowFrontend", policy =>
         {
             policy.WithOrigins(
                     "http://localhost:3000",
@@ -172,7 +194,15 @@ try
                     "http://localhost:5174")
                   .AllowAnyMethod()
                   .AllowAnyHeader()
-                  .AllowCredentials();
+                  .AllowCredentials()
+                  .SetPreflightMaxAge(TimeSpan.FromHours(1));
+        });
+        
+        options.AddPolicy("AllowAll", policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
         });
     });
 
@@ -229,8 +259,23 @@ try
     var app = builder.Build();
 
     Console.WriteLine("🔄 Configuring Middleware...");
-    
-    app.UseCors("AllowAll");
+
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Method == "OPTIONS")
+        {
+            context.Response.Headers.Add("Access-Control-Allow-Origin", context.Request.Headers["Origin"]);
+            context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+            context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Origin, Accept");
+            context.Response.Headers.Add("Access-Control-Allow-Credentials", "true");
+            context.Response.Headers.Add("Access-Control-Max-Age", "86400"); // 24 hours
+            context.Response.StatusCode = 200;
+            await context.Response.CompleteAsync();
+            return;
+        }
+        
+        await next();
+    });
 
     app.UseStaticFiles();
 
@@ -244,6 +289,9 @@ try
     });
 
     app.UseRouting();
+    
+    app.UseCors("AllowFrontend");
+    
     app.UseAuthentication();
     app.UseAuthorization();
 
@@ -280,7 +328,17 @@ try
         Console.WriteLine($"✅ Created uploads directory: {uploadsPath}");
     }
 
-    
+    app.MapGet("/api/cors-test", () =>
+    {
+        return Results.Json(new
+        {
+            message = "✅ CORS is working correctly!",
+            timestamp = DateTime.UtcNow,
+            allowedOrigins = new[] { "http://localhost:3000", "http://localhost:5173" },
+            corsConfigured = true
+        });
+    }).AllowAnonymous();
+
     app.MapPost("/api/test-payment", async (HttpContext context) =>
     {
         try
@@ -519,7 +577,36 @@ try
             });
         }
     }).AllowAnonymous();
-  
+
+    app.MapPost("/api/test-email", async (HttpContext context) =>
+    {
+        try
+        {
+            var emailService = context.RequestServices.GetRequiredService<TourismHub.Infrastructure.Services.IEmailService>();
+            
+            await emailService.SendPasswordResetEmailAsync(
+                "test@example.com", 
+                "Test User", 
+                "test-token-123", 
+                "http://localhost:3000");
+
+            await context.Response.WriteAsJsonAsync(new
+            {
+                success = true,
+                message = "Test email sent (check server logs)"
+            });
+        }
+        catch (Exception ex)
+        {
+            await context.Response.WriteAsJsonAsync(new 
+            { 
+                success = false,
+                error = ex.Message,
+                stackTrace = ex.StackTrace
+            });
+        }
+    }).AllowAnonymous();
+
     app.Use(async (context, next) =>
     {
         try
@@ -545,10 +632,13 @@ try
         status = "Healthy", 
         database = "PostgreSQL",
         stripe = "Configured with NEW STANDARD KEY",
+        email = "Configured for Gmail",
         testUrls = new {
             testNewKey = "http://localhost:5224/test-my-new-key",
             quickTest = "http://localhost:5224/test-stripe-now",
-            simpleTest = "http://localhost:5224/api/payments/simple-test"
+            simpleTest = "http://localhost:5224/api/payments/simple-test",
+            testEmail = "http://localhost:5224/api/test-email",
+            corsTest = "http://localhost:5224/api/cors-test"
         },
         timestamp = DateTime.UtcNow 
     });
@@ -556,7 +646,11 @@ try
     Console.WriteLine("🎉 TourismHub API is running on http://localhost:5224");
     Console.WriteLine("📚 Swagger available at http://localhost:5224/swagger");
     Console.WriteLine("💰 Stripe Payments Configured with NEW STANDARD KEY");
+    Console.WriteLine("📧 Email Service Configured for Gmail");
+    Console.WriteLine("🔗 Test CORS: http://localhost:5224/api/cors-test");
     Console.WriteLine("🔗 Test Your New Key: http://localhost:5224/test-my-new-key");
+    Console.WriteLine("📧 Test Email: http://localhost:5224/api/test-email");
+    Console.WriteLine("🔐 Forgot Password: http://localhost:5224/api/auth/forgot-password (në AuthController)");
     Console.WriteLine("💳 Test Card: 4242 4242 4242 4242");
     Console.WriteLine("🛑 Press Ctrl+C to stop the application");
 

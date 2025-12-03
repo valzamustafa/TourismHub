@@ -7,7 +7,7 @@ using TourismHub.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using System.Globalization; 
 using Microsoft.AspNetCore.Authentication;
-
+using Microsoft.AspNetCore.Http;
 
 namespace TourismHub.API.Controllers
 {
@@ -576,6 +576,35 @@ public async Task<IActionResult> GetProviderProfile(Guid id)
             message = "An error occurred while getting provider profile", 
             error = ex.Message 
         });
+    }
+}
+[HttpPatch("{id}/soft-delete")]
+public async Task<IActionResult> SoftDeleteUser(Guid id)
+{
+    try
+    {
+        var existingUser = await _userService.GetUserByIdAsync(id);
+        if (existingUser == null)
+        {
+            return NotFound(new { message = $"User with ID {id} not found" });
+        }
+
+        existingUser.IsActive = false;
+        existingUser.DeletedAt = DateTime.UtcNow;
+        existingUser.Email = $"{existingUser.Email}_deleted_{DateTime.UtcNow.Ticks}"; 
+        existingUser.UpdatedAt = DateTime.UtcNow;
+
+        await _userService.UpdateUserAsync(existingUser);
+
+        return Ok(new { 
+            message = "User deactivated successfully",
+            user = existingUser 
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, $"Error occurred while deactivating user with ID {id}");
+        return StatusCode(500, new { message = "An error occurred while deactivating the user", error = ex.Message });
     }
 }
         [HttpPatch("{id}/status")]

@@ -9,6 +9,7 @@ namespace TourismHub.Infrastructure.Persistence
         public TourismHubDbContext(DbContextOptions<TourismHubDbContext> options) : base(options) { }
 
         public DbSet<User> Users => Set<User>();
+        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
         public DbSet<Activity> Activities => Set<Activity>();
         public DbSet<Booking> Bookings => Set<Booking>();
         public DbSet<Payment> Payments => Set<Payment>();
@@ -35,6 +36,11 @@ namespace TourismHub.Infrastructure.Persistence
             modelBuilder.ApplyConfiguration(new AdminLogConfiguration());
             modelBuilder.ApplyConfiguration(new CategoryConfiguration());
             modelBuilder.ApplyConfiguration(new SavedActivityConfiguration()); 
+             modelBuilder.Entity<PasswordResetToken>()
+                .HasOne(t => t.User)
+                .WithMany(u => u.PasswordResetTokens)
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

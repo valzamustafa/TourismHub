@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TourismHub.Application.Services;
 using TourismHub.Domain.Entities;
 using TourismHub.Domain.Enums;
-
+using Microsoft.Extensions.Logging;
 namespace TourismHub.API.Controllers
 {
     [Route("api/[controller]")]

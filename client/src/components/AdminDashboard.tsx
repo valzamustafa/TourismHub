@@ -1433,28 +1433,34 @@ const UsersManagement: React.FC = () => {
     fetchUsers();
   }, []);
 
-  const fetchUsers = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5224/api/users', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const usersData = await response.json();
-        setUsers(usersData);
-      } else {
-        console.error('Failed to fetch users');
+ const fetchUsers = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('http://localhost:5224/api/users', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setLoading(false);
+    });
+
+    if (response.ok) {
+      const usersData = await response.json();
+      
+      const activeUsers = usersData.filter((user: User) => 
+        user.isActive === true || 
+        user.status === 'Active' || 
+        !user.email.includes('_deleted_')
+      );
+      setUsers(activeUsers);
+    } else {
+      console.error('Failed to fetch users');
     }
-  };
+  } catch (error) {
+    console.error('Error fetching users:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1529,55 +1535,83 @@ const UsersManagement: React.FC = () => {
     }
   };
 
-  const handleUpdateRole = async (userId: string, newRole: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5224/api/users/${userId}/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ role: newRole })
-      });
+const handleUpdateRole = async (userId: string, newRole: string) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    const roleEnum = newRole === 'Admin' ? 0 : 
+                     newRole === 'Provider' ? 1 : 2; 
+    
+    const response = await fetch(`http://localhost:5224/api/users/${userId}/role`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ 
+        role: roleEnum 
+      })
+    });
 
-      if (response.ok) {
-        fetchUsers();
-        alert('User role updated successfully!');
-      } else {
-        const errorData = await response.json();
-        alert(`Failed to update role: ${errorData.message}`);
-      }
-    } catch (error) {
-      console.error('Error updating role:', error);
-      alert('Error updating role. Please try again.');
+    if (response.ok) {
+      fetchUsers();
+      alert('User role updated successfully!');
+    } else {
+      const errorData = await response.json();
+      alert(`Failed to update role: ${errorData.message || 'Unknown error'}`);
     }
-  };
+  } catch (error) {
+    console.error('Error updating role:', error);
+    alert('Error updating role. Please try again.');
+  }
+};
 
-  const handleUpdateStatus = async (userId: string, isActive: boolean) => {
-    try {
-      const token = localStorage.getItem('token');
+ const handleUpdateStatus = async (userId: string, isActive: boolean) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!isActive) {
+      if (confirm('Are you sure you want to deactivate this user? This will mark them as inactive.')) {
+        const response = await fetch(`http://localhost:5224/api/users/${userId}/soft-delete`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          fetchUsers();
+          alert('User deactivated successfully!');
+        } else {
+          const errorData = await response.json();
+          alert(`Failed to deactivate user: ${errorData.message}`);
+        }
+      }
+    } else {
+    
       const response = await fetch(`http://localhost:5224/api/users/${userId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ isActive })
+        body: JSON.stringify({ isActive: true })
       });
 
       if (response.ok) {
         fetchUsers();
-        alert(`User ${isActive ? 'activated' : 'deactivated'} successfully!`);
+        alert('User activated successfully!');
       } else {
         const errorData = await response.json();
-        alert(`Failed to update status: ${errorData.message}`);
+        alert(`Failed to activate user: ${errorData.message}`);
       }
-    } catch (error) {
-      console.error('Error updating status:', error);
-      alert('Error updating status. Please try again.');
     }
-  };
+  } catch (error) {
+    console.error('Error updating status:', error);
+    alert('Error updating status. Please try again.');
+  }
+};
 
   if (loading) {
     return (
