@@ -29,6 +29,17 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.ProfileImage)
             .HasMaxLength(500);
+            builder.Property(u => u.Phone)
+            .HasMaxLength(20) 
+            .IsRequired(false);
+
+        builder.Property(u => u.Address)
+            .HasMaxLength(500) 
+            .IsRequired(false);
+
+        builder.Property(u => u.Bio)
+            .HasMaxLength(2000) 
+            .IsRequired(false);
 
         builder.Property(u => u.CreatedAt)
             .IsRequired();

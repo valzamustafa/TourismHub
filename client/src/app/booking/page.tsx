@@ -7,6 +7,7 @@ import { CheckoutForm } from '@/app/booking/CheckoutForm';
 import { BookingStepper } from '@/components/booking/BookingStepper';
 import { PersonalInfoForm } from '@/components/booking/PersonalInfoForm';
 import { BookingSummary } from '@/components/booking/BookingSummary';
+import { PeopleSelector } from '@/components/booking/PeopleSelector';
 
 const steps = ['Personal Information', 'Payment', 'Confirmation'];
 
@@ -18,7 +19,7 @@ export default function BookingPage() {
   const [bookingData, setBookingData] = useState({
     activityId: '',
     userId: '',
-    numberOfPeople: 2,
+    numberOfPeople: 1, 
     selectedDate: new Date().toISOString().split('T')[0],
     totalPrice: 0,
     personalInfo: {
@@ -62,6 +63,16 @@ export default function BookingPage() {
 
     fetchActivity();
   }, [router]);
+
+
+  const handleNumberOfPeopleChange = (value: number) => {
+    if (value < 1) return;
+    setBookingData(prev => ({
+      ...prev,
+      numberOfPeople: value,
+      totalPrice: activity ? activity.price * value : 0
+    }));
+  };
 
   const createPaymentIntent = async () => {
     try {
@@ -253,10 +264,23 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
               {currentStep === 0 && (
-                <PersonalInfoForm
-                  data={bookingData.personalInfo}
-                  onChange={handlePersonalInfoChange}
-                />
+                <>
+              
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Number of People</h3>
+                    <PeopleSelector
+                      value={bookingData.numberOfPeople}
+                      onChange={handleNumberOfPeopleChange}
+                      maxPeople={10}
+                    />
+                  </div>
+
+
+                  <PersonalInfoForm
+                    data={bookingData.personalInfo}
+                    onChange={handlePersonalInfoChange}
+                  />
+                </>
               )}
 
               {currentStep === 1 && clientSecret && (
@@ -289,6 +313,9 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
                     </p>
                     <p className="text-sm text-green-800 mt-2">
                       <strong>Activity:</strong> {activity.name}
+                    </p>
+                    <p className="text-sm text-green-800 mt-1">
+                      <strong>Number of People:</strong> {bookingData.numberOfPeople}
                     </p>
                     <p className="text-sm text-green-800 mt-1">
                       <strong>Total Paid:</strong> ${bookingData.totalPrice.toFixed(2)}

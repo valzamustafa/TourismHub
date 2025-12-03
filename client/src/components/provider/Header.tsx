@@ -1,13 +1,14 @@
-import { Plus, Bell, User, MapPin, Compass } from "lucide-react";
+import { Plus, Bell, User, MapPin, Compass, Lock } from "lucide-react";
 
 interface HeaderProps {
   onAddActivity: () => void;
+  onChangePassword?: () => void; 
   showAddButton?: boolean;
   userName?: string;
   userLocation?: string;
 }
 
-const Header = ({ onAddActivity, showAddButton = true, userName, userLocation = "Mountain Region" }: HeaderProps) => {
+const Header = ({ onAddActivity, onChangePassword, showAddButton = true, userName, userLocation = "Mountain Region" }: HeaderProps) => {
   return (
     <header className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 shadow-2xl border-b border-amber-500/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,6 +43,17 @@ const Header = ({ onAddActivity, showAddButton = true, userName, userLocation = 
                 <span className="text-xs text-white font-bold">3</span>
               </span>
             </button>
+            
+            {/* Butoni për Change Password */}
+            {onChangePassword && (
+              <button
+                onClick={onChangePassword}
+                className="p-3 text-gray-400 hover:text-amber-400 hover:bg-gray-800/50 rounded-xl transition-all duration-300 backdrop-blur-sm"
+                title="Change Password"
+              >
+                <Lock className="w-5 h-5" />
+              </button>
+            )}
             
             <div className="flex items-center space-x-4 bg-gray-800/50 backdrop-blur-sm rounded-xl px-4 py-2 border border-gray-700">
               <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">

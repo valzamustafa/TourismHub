@@ -1,4 +1,3 @@
-// app/provider/dashboard/page.tsx
 'use client';
 
 import { useState, useEffect } from "react";
@@ -9,6 +8,7 @@ import ActivitiesTable from "@/components/provider/ActivitiesTable";
 import BookingsTable from "@/components/provider/BookingsTable";
 import AddActivityModal from "@/components/provider/AddActivityModal";
 import EditActivityModal from "@/components/provider/EditActivityModal";
+import ChangePasswordModal from "@/components/provider/ChangePasswordModal"; // Shto këtë import
 import Header from "@/components/provider/Header";
 
 interface Category {
@@ -61,6 +61,7 @@ const ProviderDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [showEditActivity, setShowEditActivity] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false); // Shto këtë
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
@@ -230,6 +231,7 @@ const ProviderDashboard = () => {
       setLoading(false);
     }
   };
+
 const handleUpdateStatus = async (activityId: string, status: string) => {
   try {
     const token = localStorage.getItem('token');
@@ -457,8 +459,6 @@ const handleUpdateStatus = async (activityId: string, status: string) => {
     }
   };
 
- 
-
   const handleDataChange = (field: string, value: string | number) => {
     setNewActivity(prev => ({
       ...prev,
@@ -485,6 +485,7 @@ const handleUpdateStatus = async (activityId: string, status: string) => {
     <div className="min-h-screen bg-gray-900">
       <Header 
         onAddActivity={() => setShowAddActivity(true)} 
+        onChangePassword={() => setShowChangePassword(true)} // Shto këtë
         userName={user.name}
         userLocation={stats.popularLocation}
       />
@@ -622,6 +623,13 @@ const handleUpdateStatus = async (activityId: string, status: string) => {
         onDataChange={handleEditDataChange}
         existingImages={editingActivity?.images || []}
         categories={categories}
+      />
+
+
+      <ChangePasswordModal
+        isOpen={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        providerId={user.id}
       />
     </div>
   );
