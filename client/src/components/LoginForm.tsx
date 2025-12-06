@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react"; 
 import { Facebook, Instagram, Youtube, Twitter } from 'lucide-react';
 
 const LoginForm = () => {
@@ -194,17 +194,19 @@ const LoginForm = () => {
     }
   };
 
-  useState(() => {
-    const rememberedEmail = localStorage.getItem('rememberedEmail');
-    if (rememberedEmail && isLogin) {
-      setFormData(prev => ({
-        ...prev,
-        email: rememberedEmail
-      }));
-      setRememberMe(true);
-    }
-  });
+  useEffect(() => {
 
+    if (typeof window !== 'undefined') {
+      const rememberedEmail = localStorage.getItem('rememberedEmail');
+      if (rememberedEmail && isLogin) {
+        setFormData(prev => ({
+          ...prev,
+          email: rememberedEmail
+        }));
+        setRememberMe(true);
+      }
+    }
+  }, [isLogin]); 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#c8d5c0] p-4 sm:p-8">
       <div className="w-full max-w-7xl relative rounded-2xl overflow-hidden shadow-2xl">

@@ -79,6 +79,7 @@ public async Task<IActionResult> GetAllUsers([FromQuery] UserRole? role = null)
                 return StatusCode(500, new { message = "An error occurred while retrieving the user", error = ex.Message });
             }
         }
+        
 
         [HttpGet("role/{role}")]
         public async Task<IActionResult> GetUsersByRole(UserRole role)

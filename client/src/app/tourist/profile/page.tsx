@@ -1,11 +1,9 @@
-// app/tourist/profile/page.tsx
+// app/tourist/profile/page.tsx 
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
-import { BookingList } from '@/components/profile/BookingList'; // Importo BookingList
-import { ChangePasswordForm } from '@/components/profile/ChangePassword';
+import ContactButton from '@/components/ContactButton';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
 
@@ -33,6 +31,8 @@ interface Booking {
   totalAmount: number;
   status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
   paymentStatus: 'Pending' | 'Paid' | 'Failed' | 'Refunded';
+  providerId?: string; 
+  providerName?: string; 
 }
 
 interface SavedItem {
@@ -44,6 +44,8 @@ interface SavedItem {
   location: string;
   category: string;
   savedAt: string;
+  providerId?: string; 
+  providerName?: string; 
 }
 
 interface ActivityStats {
@@ -54,10 +56,24 @@ interface ActivityStats {
   favoriteCategories: string[];
 }
 
+interface Chat {
+  id: string;
+  otherUser: {
+    id: string;
+    fullName: string;
+    profileImage: string | null;
+    role: string;
+  };
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+}
+
 export default function TouristProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
   const [stats, setStats] = useState<ActivityStats>({
     totalBookings: 0,
     pendingBookings: 0,
@@ -65,7 +81,7 @@ export default function TouristProfilePage() {
     totalSpent: 0,
     favoriteCategories: []
   });
-  const [activeTab, setActiveTab] = useState<'profile' | 'bookings' | 'saved' | 'settings'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'bookings' | 'saved' | 'settings' | 'chats'>('profile');
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
@@ -117,7 +133,6 @@ export default function TouristProfilePage() {
       }
 
       const parsedUser = JSON.parse(userData);
-      
 
       const userResponse = await fetch(`${API_BASE_URL}/users/${parsedUser.id}`, {
         headers: {
@@ -140,7 +155,6 @@ export default function TouristProfilePage() {
         localStorage.setItem('user', JSON.stringify(userDataFromApi));
       }
 
-  
       const bookingsResponse = await fetch(`${API_BASE_URL}/bookings/user/${parsedUser.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -153,7 +167,6 @@ export default function TouristProfilePage() {
         setBookings(bookingsData);
         calculateStats(bookingsData);
       }
-
 
       const savedResponse = await fetch(`${API_BASE_URL}/savedactivities/user/${parsedUser.id}`, {
         headers: {
@@ -172,15 +185,41 @@ export default function TouristProfilePage() {
           price: item.activityPrice,
           location: item.activityLocation,
           category: item.activityCategory,
-          savedAt: item.savedAt
+          savedAt: item.savedAt,
+          providerId: item.providerId, 
+          providerName: item.providerName 
         }));
         setSavedItems(savedItems);
       }
+
+
+      await fetchChats();
 
     } catch (error) {
       console.error('Error fetching profile data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchChats = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/chats/my-chats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setChats(data.chats);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching chats:', error);
     }
   };
 
@@ -225,8 +264,6 @@ export default function TouristProfilePage() {
         profileImage: user.profileImage
       };
 
-      console.log('Të dhënat që po dërgohen:', JSON.stringify(updateData, null, 2));
-
       const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
         method: 'PUT',
         headers: {
@@ -235,12 +272,9 @@ export default function TouristProfilePage() {
         },
         body: JSON.stringify(updateData)
       });
-
-      console.log('Statusi i përgjigjes:', response.status);
       
       if (response.ok) {
         const result = await response.json();
-        console.log('Përgjigja nga serveri:', result);
         
         if (result.user) {
           setUser(result.user);
@@ -265,7 +299,6 @@ export default function TouristProfilePage() {
         let errorMessage = 'Failed to update profile';
         try {
           const errorJson = JSON.parse(errorText);
-          console.error('Gabim i strukturuar:', errorJson);
           errorMessage = errorJson.message || errorMessage;
           
           if (errorJson.errors) {
@@ -360,7 +393,6 @@ export default function TouristProfilePage() {
       }
 
       const result = await response.json();
-      console.log('Upload result:', result);
       
       if (result.success) {
         const updatedUser = { ...user, profileImage: result.imageUrl };
@@ -474,6 +506,23 @@ export default function TouristProfilePage() {
     }
   };
 
+  const handleOpenChat = (chatId: string) => {
+    router.push(`/chats/${chatId}`);
+  };
+
+  const handleContactProvider = (providerId: string, providerName: string, activityId?: string, activityName?: string) => {
+    if (!user) return;
+    
+
+    if (user.id === providerId) {
+      alert('You cannot chat with yourself');
+      return;
+    }
+
+   
+    router.push(`/chats?providerId=${providerId}`);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -500,6 +549,8 @@ export default function TouristProfilePage() {
       </div>
     );
   }
+
+  const totalUnreadMessages = chats.reduce((sum, chat) => sum + chat.unreadCount, 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -533,13 +584,40 @@ export default function TouristProfilePage() {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-sm border p-6">
               <div className="text-center mb-6">
-                <ProfileAvatar
-                  imageUrl={getProfileImageUrl(user.profileImage)}
-                  userName={user.fullName}
-                  onImageChange={handleImageUpload}
-                  showUploadButton={true}
-                  uploading={uploadingImage}
-                />
+                <div className="relative inline-block">
+                  {getProfileImageUrl(user.profileImage) ? (
+                    <img
+                      src={getProfileImageUrl(user.profileImage)}
+                      alt={user.fullName}
+                      className="w-24 h-24 rounded-full mx-auto border-4 border-white shadow-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold mx-auto border-4 border-white shadow-lg">
+                      {user.fullName.charAt(0)}
+                    </div>
+                  )}
+                  <label className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full cursor-pointer hover:bg-blue-600 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleImageUpload(e.target.files[0]);
+                        }
+                      }}
+                      disabled={uploadingImage}
+                    />
+                    {uploadingImage ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    )}
+                  </label>
+                </div>
                 <h2 className="text-xl font-bold text-gray-900 mt-4">{user.fullName}</h2>
                 <p className="text-gray-600 text-sm">{user.email}</p>
                 <p className="text-gray-500 text-sm mt-1">
@@ -567,6 +645,16 @@ export default function TouristProfilePage() {
                       <span className="text-gray-600">Saved Items:</span>
                       <span className="font-semibold text-purple-600">{savedItems.length}</span>
                     </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Active Chats:</span>
+                      <span className="font-semibold text-amber-600">{chats.length}</span>
+                    </div>
+                    {totalUnreadMessages > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Unread Messages:</span>
+                        <span className="font-semibold text-red-600">{totalUnreadMessages}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -633,9 +721,29 @@ export default function TouristProfilePage() {
                 </button>
 
                 <button
+                  onClick={() => setActiveTab('chats')}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                    activeTab === 'chats'
+                      ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    My Chats
+                    {totalUnreadMessages > 0 && (
+                      <span className="ml-auto text-xs font-semibold px-2 py-1 rounded-full bg-red-100 text-red-800">
+                        {totalUnreadMessages}
+                      </span>
+                    )}
+                  </div>
+                </button>
+
+                <button
                   onClick={() => setActiveTab('settings')}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors 
-                    ${
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                     activeTab === 'settings'
                       ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
                       : 'text-gray-700 hover:bg-gray-50'
@@ -776,50 +884,182 @@ export default function TouristProfilePage() {
               )}
 
               {activeTab === 'bookings' && (
-  <>
-    <div className="flex justify-between items-center mb-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
-        <p className="text-gray-600 mt-1">Manage and view all your bookings</p>
-      </div>
-      <div className="flex items-center space-x-4">
-        <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-semibold">
-          {bookings.length} booking{bookings.length !== 1 ? 's' : ''}
-        </span>
-      </div>
-    </div>
+                <>
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+                      <p className="text-gray-600 mt-1">Manage and view all your bookings</p>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-semibold">
+                        {bookings.length} booking{bookings.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
 
-    <BookingList
-      bookings={bookings}
-      onCancelBooking={handleCancelBooking}
-      onViewActivity={(activityId) => router.push(`/tourist/activities/${activityId}`)}
-    />
+                  {bookings.length === 0 ? (
+                    <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                      <div className="text-6xl mb-6">📅</div>
+                      <h3 className="text-2xl font-bold text-gray-700 mb-3">No Bookings Yet</h3>
+                      <p className="text-gray-600 max-w-md mx-auto mb-8">
+                        You haven't made any bookings yet. Explore activities and book your next adventure!
+                      </p>
+                      <button
+                        onClick={() => router.push('/tourist/activities')}
+                        className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+                      >
+                        Browse Activities
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {bookings.map((booking) => (
+                        <div 
+                          key={booking.id}
+                          className="bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start space-x-4">
+                              <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                                <img
+                                  src={getFullImageUrl(booking.activityImage || '')}
+                                  alt={booking.activityName}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.src = 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500&fit=crop';
+                                  }}
+                                />
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-gray-900 text-lg mb-1">
+                                  {booking.activityName}
+                                </h3>
+                                
+                                <div className="flex flex-wrap gap-3 mb-3">
+                                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                    booking.status === 'Confirmed' 
+                                      ? 'bg-green-100 text-green-800'
+                                      : booking.status === 'Pending'
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : booking.status === 'Cancelled'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    {booking.status}
+                                  </span>
+                                  
+                                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                    booking.paymentStatus === 'Paid'
+                                      ? 'bg-green-100 text-green-800'
+                                      : booking.paymentStatus === 'Pending'
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {booking.paymentStatus}
+                                  </span>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                  <div>
+                                    <p className="text-gray-600">Date</p>
+                                    <p className="font-semibold text-gray-900">
+                                      {new Date(booking.selectedDate).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-600">People</p>
+                                    <p className="font-semibold text-gray-900">
+                                      {booking.numberOfPeople}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-600">Amount</p>
+                                    <p className="font-semibold text-gray-900">
+                                      ${booking.totalAmount.toFixed(2)}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-gray-600">Booked On</p>
+                                    <p className="font-semibold text-gray-900">
+                                      {new Date(booking.bookingDate).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                </div>
 
-    {bookings.length > 0 && (
-      <div className="mt-8 pt-6 border-t">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Booking Statistics</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Total Bookings</p>
-            <p className="text-xl font-bold text-gray-900 mt-1">{stats.totalBookings}</p>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Completed</p>
-            <p className="text-xl font-bold text-green-600 mt-1">{stats.completedBookings}</p>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Pending</p>
-            <p className="text-xl font-bold text-yellow-600 mt-1">{stats.pendingBookings}</p>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Total Spent</p>
-            <p className="text-xl font-bold text-blue-600 mt-1">${stats.totalSpent.toFixed(2)}</p>
-          </div>
-        </div>
-      </div>
-    )}
-  </>
-)}
+                                {booking.providerName && (
+                                  <div className="mt-4 flex items-center justify-between">
+                                    <div className="flex items-center">
+                                      <span className="text-gray-600 mr-2">Provider:</span>
+                                      <span className="font-medium text-gray-900">{booking.providerName}</span>
+                                    </div>
+                                    {booking.providerId && user && (
+                                      <div className="ml-4">
+                                        <ContactButton
+                                          currentUserId={user.id}
+                                          otherUserId={booking.providerId}
+                                          currentUserName={user.fullName}
+                                          otherUserName={booking.providerName || 'Provider'}
+                                          activityId={booking.activityId}
+                                          activityName={booking.activityName}
+                                          variant="icon"
+                                          size="sm"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-col space-y-2">
+                              <button
+                                onClick={() => router.push(`/tourist/activities/${booking.activityId}`)}
+                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-semibold"
+                              >
+                                View Activity
+                              </button>
+                              
+                              {booking.status === 'Pending' && (
+                                <button
+                                  onClick={() => handleCancelBooking(booking.id)}
+                                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-semibold"
+                                >
+                                  Cancel Booking
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {bookings.length > 0 && (
+                    <div className="mt-8 pt-6 border-t">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Booking Statistics</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <p className="text-sm text-gray-600">Total Bookings</p>
+                          <p className="text-xl font-bold text-gray-900 mt-1">{stats.totalBookings}</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <p className="text-sm text-gray-600">Completed</p>
+                          <p className="text-xl font-bold text-green-600 mt-1">{stats.completedBookings}</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <p className="text-sm text-gray-600">Pending</p>
+                          <p className="text-xl font-bold text-yellow-600 mt-1">{stats.pendingBookings}</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <p className="text-sm text-gray-600">Total Spent</p>
+                          <p className="text-xl font-bold text-blue-600 mt-1">${stats.totalSpent.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
               {activeTab === 'saved' && (
                 <>
@@ -862,22 +1102,32 @@ export default function TouristProfilePage() {
                               alt={item.activityName}
                               className="w-full h-full object-cover"
                               onError={(e) => {
-                                console.log('Image failed to load:', {
-                                  original: item.activityImage,
-                                  converted: getFullImageUrl(item.activityImage || '')
-                                });
                                 e.currentTarget.src = 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500&fit=crop';
                               }}
                             />
-                            <button
-                              onClick={() => removeSavedItem(item.id)}
-                              className="absolute top-3 right-3 bg-white p-2 rounded-full shadow-lg hover:bg-red-50 hover:text-red-500 transition-colors"
-                              title="Remove from saved"
-                            >
-                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                            </button>
+                            <div className="absolute top-3 right-3 flex space-x-1">
+                              <button
+                                onClick={() => removeSavedItem(item.id)}
+                                className="bg-white p-2 rounded-full shadow-lg hover:bg-red-50 hover:text-red-500 transition-colors"
+                                title="Remove from saved"
+                              >
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                              {user && item.providerId && (
+                                <ContactButton
+                                  currentUserId={user.id}
+                                  otherUserId={item.providerId}
+                                  currentUserName={user.fullName}
+                                  otherUserName={item.providerName || 'Provider'}
+                                  activityId={item.activityId}
+                                  activityName={item.activityName}
+                                  variant="icon"
+                                  size="sm"
+                                />
+                              )}
+                            </div>
                             <div className="absolute bottom-3 left-3 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-semibold">
                               ${item.price}
                             </div>
@@ -892,6 +1142,15 @@ export default function TouristProfilePage() {
                             <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 h-14">
                               {item.activityName}
                             </h3>
+                            
+                            {item.providerName && (
+                              <div className="flex items-center text-gray-600 text-sm mb-2">
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <span className="truncate">{item.providerName}</span>
+                              </div>
+                            )}
                             
                             <div className="flex items-center text-gray-600 text-sm mb-4">
                               <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -924,13 +1183,175 @@ export default function TouristProfilePage() {
                 </>
               )}
 
+              {activeTab === 'chats' && (
+                <>
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">My Chats</h2>
+                      <p className="text-gray-600 mt-1">Connect with activity providers</p>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-semibold">
+                        {chats.length} chat{chats.length !== 1 ? 's' : ''}
+                      </span>
+                      {totalUnreadMessages > 0 && (
+                        <span className="px-4 py-2 bg-red-100 text-red-800 rounded-full font-semibold">
+                          {totalUnreadMessages} unread
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {chats.length === 0 ? (
+                    <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                      <div className="text-6xl mb-6">💬</div>
+                      <h3 className="text-2xl font-bold text-gray-700 mb-3">No Chats Yet</h3>
+                      <p className="text-gray-600 max-w-md mx-auto mb-8">
+                        Start a conversation with an activity provider by clicking the contact button on their activity page.
+                      </p>
+                      <button
+                        onClick={() => router.push('/tourist/activities')}
+                        className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+                      >
+                        Browse Activities
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {chats.map((chat) => (
+                        <div 
+                          key={chat.id}
+                          className="bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className="relative">
+                              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                                {chat.otherUser.fullName?.charAt(0) || 'U'}
+                              </div>
+                              {chat.unreadCount > 0 && (
+                                <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                  {chat.unreadCount}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h3 className="font-semibold text-gray-900 truncate">
+                                    {chat.otherUser.fullName}
+                                  </h3>
+                                  <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                                    {chat.otherUser.role}
+                                  </span>
+                                </div>
+                                <span className="text-sm text-gray-500 whitespace-nowrap">
+                                  {new Date(chat.lastMessageAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                              
+                              <div className="flex justify-between items-center mt-2">
+                                <p className="text-gray-600 text-sm truncate">
+                                  {chat.lastMessage}
+                                </p>
+                                {chat.unreadCount > 0 && (
+                                  <span className="flex-shrink-0 ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                    {chat.unreadCount} new
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/chats/${chat.id}`);
+                                }}
+                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-semibold"
+                              >
+                                Open Chat
+                              </button>
+                              {user && (
+                                <ContactButton
+                                  currentUserId={user.id}
+                                  otherUserId={chat.otherUser.id}
+                                  currentUserName={user.fullName}
+                                  otherUserName={chat.otherUser.fullName}
+                                  variant="icon"
+                                  size="sm"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-8 pt-6 border-t">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Chat Statistics</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600">Active Conversations</p>
+                        <p className="text-xl font-bold text-gray-900 mt-1">{chats.length}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600">Providers Contacted</p>
+                        <p className="text-xl font-bold text-blue-600 mt-1">
+                          {new Set(chats.map(chat => chat.otherUser.id)).size}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600">Unread Messages</p>
+                        <p className="text-xl font-bold text-red-600 mt-1">{totalUnreadMessages}</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
               {activeTab === 'settings' && (
                 <>
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Account Settings</h2>
                   <div className="space-y-6">
                     <div className="border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h3>
-                      <ChangePasswordForm userId={user.id} />
+                      <form className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Current Password
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            New Password
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Confirm New Password
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                        >
+                          Update Password
+                        </button>
+                      </form>
                     </div>
 
                     <div className="border border-gray-200 rounded-lg p-6">

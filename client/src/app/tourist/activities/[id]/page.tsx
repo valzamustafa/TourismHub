@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import ContactButton from '@/components/ContactButton';
 
 interface Activity {
   id: string;
@@ -14,6 +15,7 @@ interface Activity {
   category: string;
   categoryId: string;
   providerName: string;
+  providerId: string; 
   duration: string;
   images: string[];
   status: string;
@@ -36,6 +38,7 @@ export default function ActivityDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [user, setUser] = useState<any>(null);
 
   const DEFAULT_IMAGES = [
     'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=800&h=500&fit=crop',
@@ -62,6 +65,7 @@ export default function ActivityDetailPage() {
     }
 
     const parsedUser = JSON.parse(userData);
+    setUser(parsedUser);
     
     if (parsedUser.role !== 'Tourist') {
       if (parsedUser.role === 'Admin') {
@@ -80,15 +84,34 @@ export default function ActivityDetailPage() {
       setError(null);
       setLoading(true);
 
-      const activityResponse = await fetch(`${API_BASE_URL}/activities/${params.id}`);
+      const token = localStorage.getItem('token');
+      
+      const activityResponse = await fetch(`${API_BASE_URL}/activities/${params.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (!activityResponse.ok) {
         throw new Error(`Failed to fetch activity: ${activityResponse.status}`);
       }
       
       const activityData = await activityResponse.json();
+
+      let providerId = activityData.providerId;
+      if (!providerId && activityData.provider) {
+        providerId = activityData.provider.id;
+      }
+      
       const imagesResponse = await fetch(
-        `${API_BASE_URL}/activityimages/activity/${params.id}`
+        `${API_BASE_URL}/activityimages/activity/${params.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
       );
       
       let images = [];
@@ -99,6 +122,7 @@ export default function ActivityDetailPage() {
 
       const enhancedActivity: Activity = {
         ...activityData,
+        providerId: providerId,
         images: images.length > 0 ? images : DEFAULT_IMAGES,
         rating: activityData.rating || 4.8,
         reviews: activityData.reviews || 124,
@@ -419,9 +443,18 @@ export default function ActivityDetailPage() {
                     <span className="text-sm text-green-700 ml-2">4.8 (124 reviews)</span>
                   </div>
                 </div>
-                <button className="px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors">
-                  Contact
-                </button>
+              {user && activity.providerId && activity.providerId !== 'DEBUG_NO_PROVIDER_ID' && activity.providerName !== 'Unknown Provider' && (
+  <ContactButton
+    currentUserId={user.id}
+    otherUserId={activity.providerId}
+    currentUserName={user.fullName}
+    otherUserName={activity.providerName}
+    activityId={activity.id}
+    activityName={activity.name}
+    variant="button"
+    size="md"
+  />
+)}
               </div>
             </div>
           </div>

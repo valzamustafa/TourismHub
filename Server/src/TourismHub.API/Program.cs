@@ -27,6 +27,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Http;
 using TourismHub.Application.DTOs.Auth;
+using TourismHub.Application.Interfaces;
 
 try
 {
@@ -106,6 +107,7 @@ try
     builder.Services.AddScoped<ImageUploadService>();
     builder.Services.AddScoped<CategoryService>();
     builder.Services.AddScoped<ActivityService>();
+    builder.Services.AddScoped<IChatService, ChatService>();
     
     builder.Services.AddScoped<TourismHub.Application.Interfaces.Services.IPasswordHasher, 
                               TourismHub.Application.Services.PasswordHasher>();
@@ -182,7 +184,7 @@ try
         });
     });
 
-    // CORS Configuration 
+    // CORS Configuration - 
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AllowFrontend", policy =>
@@ -260,15 +262,20 @@ try
 
     Console.WriteLine("🔄 Configuring Middleware...");
 
+    // Middleware për CORS preflight - 
     app.Use(async (context, next) =>
     {
         if (context.Request.Method == "OPTIONS")
         {
-            context.Response.Headers.Add("Access-Control-Allow-Origin", context.Request.Headers["Origin"]);
-            context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-            context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Origin, Accept");
-            context.Response.Headers.Add("Access-Control-Allow-Credentials", "true");
-            context.Response.Headers.Add("Access-Control-Max-Age", "86400"); // 24 hours
+        
+            context.Response.Headers.Append("Access-Control-Allow-Origin", context.Request.Headers["Origin"]);
+            context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+          
+            context.Response.Headers.Append("Access-Control-Allow-Headers", 
+                "Content-Type, Authorization, X-Requested-With, Origin, Accept, Expires, Pragma, Cache-Control, X-CSRF-TOKEN, Access-Control-Allow-Headers");
+            context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
+            context.Response.Headers.Append("Access-Control-Max-Age", "86400"); // 24 hours
+            context.Response.Headers.Append("Access-Control-Expose-Headers", "*");
             context.Response.StatusCode = 200;
             await context.Response.CompleteAsync();
             return;
@@ -290,6 +297,7 @@ try
 
     app.UseRouting();
     
+
     app.UseCors("AllowFrontend");
     
     app.UseAuthentication();
@@ -328,14 +336,30 @@ try
         Console.WriteLine($"✅ Created uploads directory: {uploadsPath}");
     }
 
-    app.MapGet("/api/cors-test", () =>
+    // Endpoint testues për CORS
+    app.MapGet("/api/cors-test", (HttpContext context) =>
     {
         return Results.Json(new
         {
             message = "✅ CORS is working correctly!",
             timestamp = DateTime.UtcNow,
             allowedOrigins = new[] { "http://localhost:3000", "http://localhost:5173" },
-            corsConfigured = true
+            corsConfigured = true,
+            headers = context.Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString()),
+            method = context.Request.Method
+        });
+    }).AllowAnonymous();
+
+    app.MapGet("/api/test-headers", (HttpContext context) =>
+    {
+        return Results.Json(new
+        {
+            success = true,
+            message = "Headers test successful",
+            receivedHeaders = context.Request.Headers
+                .Where(h => h.Key.StartsWith("Cache") || h.Key.StartsWith("Pragma") || h.Key == "Expires")
+                .ToDictionary(h => h.Key, h => h.Value.ToString()),
+            timestamp = DateTime.UtcNow
         });
     }).AllowAnonymous();
 
@@ -638,7 +662,8 @@ try
             quickTest = "http://localhost:5224/test-stripe-now",
             simpleTest = "http://localhost:5224/api/payments/simple-test",
             testEmail = "http://localhost:5224/api/test-email",
-            corsTest = "http://localhost:5224/api/cors-test"
+            corsTest = "http://localhost:5224/api/cors-test",
+            headersTest = "http://localhost:5224/api/test-headers"
         },
         timestamp = DateTime.UtcNow 
     });
@@ -648,6 +673,7 @@ try
     Console.WriteLine("💰 Stripe Payments Configured with NEW STANDARD KEY");
     Console.WriteLine("📧 Email Service Configured for Gmail");
     Console.WriteLine("🔗 Test CORS: http://localhost:5224/api/cors-test");
+    Console.WriteLine("🔗 Test Headers: http://localhost:5224/api/test-headers");
     Console.WriteLine("🔗 Test Your New Key: http://localhost:5224/test-my-new-key");
     Console.WriteLine("📧 Test Email: http://localhost:5224/api/test-email");
     Console.WriteLine("🔐 Forgot Password: http://localhost:5224/api/auth/forgot-password (në AuthController)");

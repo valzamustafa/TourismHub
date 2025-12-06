@@ -8,8 +8,10 @@ import ActivitiesTable from "@/components/provider/ActivitiesTable";
 import BookingsTable from "@/components/provider/BookingsTable";
 import AddActivityModal from "@/components/provider/AddActivityModal";
 import EditActivityModal from "@/components/provider/EditActivityModal";
-import ChangePasswordModal from "@/components/provider/ChangePasswordModal"; // Shto këtë import
+import ChangePasswordModal from "@/components/provider/ChangePasswordModal";
+import ChatList from "@/components/provider/ChatList";
 import Header from "@/components/provider/Header";
+import { MessageSquare, Activity, Calendar, TrendingUp, Compass } from "lucide-react";
 
 interface Category {
   id: string;
@@ -20,7 +22,7 @@ interface Category {
   activityCount: number;
 }
 
-interface Activity {
+interface ActivityType {
   id: string;
   name: string;
   description: string;
@@ -54,16 +56,17 @@ interface Booking {
 }
 
 const ProviderDashboard = () => {
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activities, setActivities] = useState<ActivityType[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [showEditActivity, setShowEditActivity] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false); // Shto këtë
-  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<ActivityType | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const router = useRouter();
   
   const [stats, setStats] = useState({
@@ -72,7 +75,8 @@ const ProviderDashboard = () => {
     totalRevenue: 0,
     pendingBookings: 0,
     activeAdventurers: 0,
-    popularLocation: ""
+    popularLocation: "",
+    unreadMessages: 0
   });
 
   const [newActivity, setNewActivity] = useState({
@@ -128,6 +132,7 @@ const ProviderDashboard = () => {
     setUser(parsedUser);
     fetchProviderData(parsedUser);
     fetchCategories();
+    fetchUnreadCount();
   }, [router]);
 
   const fetchCategories = async () => {
@@ -143,11 +148,9 @@ const ProviderDashboard = () => {
       if (response.ok) {
         const categoriesData = await response.json();
         setCategories(categoriesData);
-      } else {
-        console.error('Failed to fetch categories');
       }
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error('Failed to fetch categories:', error);
     }
   };
 
@@ -155,6 +158,7 @@ const ProviderDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       
+      // Fetch activities
       const activitiesResponse = await fetch(`http://localhost:5224/api/activities/provider/${userData.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -178,7 +182,7 @@ const ProviderDashboard = () => {
         setActivities(processedActivities);
         
         const locationCounts: { [key: string]: number } = {};
-        processedActivities.forEach((activity: Activity) => {
+        processedActivities.forEach((activity: ActivityType) => {
           locationCounts[activity.location] = (locationCounts[activity.location] || 0) + 1;
         });
         
@@ -191,10 +195,9 @@ const ProviderDashboard = () => {
           totalActivities: processedActivities.length,
           popularLocation 
         }));
-      } else {
-        console.error('Failed to fetch activities');
       }
 
+      // Fetch bookings
       const bookingsResponse = await fetch(`http://localhost:5224/api/bookings/provider/${userData.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -222,8 +225,6 @@ const ProviderDashboard = () => {
           pendingBookings,
           activeAdventurers
         }));
-      } else {
-        console.error('Failed to fetch bookings');
       }
     } catch (error) {
       console.error('Error fetching provider data:', error);
@@ -232,64 +233,75 @@ const ProviderDashboard = () => {
     }
   };
 
-const handleUpdateStatus = async (activityId: string, status: string) => {
-  try {
-    const token = localStorage.getItem('token');
-    
-    const statusMap: Record<string, number> = {
-      'Pending': 0,
-      'Active': 1, 
-      'Inactive': 2,
-      'Rejected': 3,
-      'Completed': 4,
-      'Expired': 5,
-      'Cancelled': 6
-    };
-    
-    const statusValue = statusMap[status];
-    
-    if (statusValue === undefined) {
-      alert(`Invalid status: ${status}`);
-      return;
+  const fetchUnreadCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5224/api/chats/unread-count', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.unreadCount || 0);
+        setStats(prev => ({ ...prev, unreadMessages: data.unreadCount || 0 }));
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
     }
-    
-    const payload = {
-      Status: statusValue
-    };
-    
-    console.log('Sending status update:', payload);
-    
-    const response = await fetch(`http://localhost:5224/api/activities/${activityId}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    const responseText = await response.text();
-    console.log('Response:', response.status, responseText);
-    
-    if (response.ok) {
-      setActivities(prevActivities => 
-        prevActivities.map(activity => 
-          activity.id === activityId 
-            ? { ...activity, status: status }
-            : activity
-        )
-      );
+  };
+
+  const handleUpdateStatus = async (activityId: string, status: string) => {
+    try {
+      const token = localStorage.getItem('token');
       
-      alert('Status updated successfully!');
-    } else {
-      alert(`Failed: ${responseText}`);
+      const statusMap: Record<string, number> = {
+        'Pending': 0,
+        'Active': 1, 
+        'Inactive': 2,
+        'Completed': 4,
+        'Cancelled': 6
+      };
+      
+      const statusValue = statusMap[status];
+      
+      if (statusValue === undefined) {
+        alert(`Invalid status: ${status}`);
+        return;
+      }
+      
+      const payload = {
+        Status: statusValue
+      };
+      
+      const response = await fetch(`http://localhost:5224/api/activities/${activityId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (response.ok) {
+        setActivities(prevActivities => 
+          prevActivities.map(activity => 
+            activity.id === activityId 
+              ? { ...activity, status: status }
+              : activity
+          )
+        );
+        alert('Status updated successfully!');
+      } else {
+        const errorText = await response.text();
+        alert(`Failed: ${errorText}`);
+      }
+      
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error updating status');
     }
-    
-  } catch (error) {
-    console.error('Error:', error);
-    alert('Error updating status');
-  }
-};
+  };
 
   const handleAddActivity = async (e: React.FormEvent, images: File[]) => {
     e.preventDefault();
@@ -345,7 +357,6 @@ const handleUpdateStatus = async (activityId: string, status: string) => {
         alert('Activity created successfully!');
       } else {
         const errorText = await activityResponse.text();
-        console.error('Failed to create activity:', errorText);
         alert('Failed to create activity: ' + errorText);
       }
     } catch (error) {
@@ -354,7 +365,7 @@ const handleUpdateStatus = async (activityId: string, status: string) => {
     }
   };
 
-  const handleEditActivity = (activity: Activity) => {
+  const handleEditActivity = (activity: ActivityType) => {
     setEditingActivity(activity);
     setEditActivityData({
       name: activity.name,
@@ -424,7 +435,6 @@ const handleUpdateStatus = async (activityId: string, status: string) => {
         alert('Activity updated successfully!');
       } else {
         const errorData = await response.json();
-        console.error('Failed to update activity:', errorData);
         alert('Failed to update activity: ' + (errorData.message || 'Unknown error'));
       }
     } catch (error) {
@@ -450,7 +460,6 @@ const handleUpdateStatus = async (activityId: string, status: string) => {
         alert('Activity deleted successfully!');
       } else {
         const errorText = await response.text();
-        console.error('Failed to delete activity:', errorText);
         alert('Failed to delete activity: ' + errorText);
       }
     } catch (error) {
@@ -482,111 +491,178 @@ const handleUpdateStatus = async (activityId: string, status: string) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <Header 
         onAddActivity={() => setShowAddActivity(true)} 
-        onChangePassword={() => setShowChangePassword(true)} // Shto këtë
-        userName={user.name}
+        onChangePassword={() => setShowChangePassword(true)}
+        userName={user.fullName || user.name}
         userLocation={stats.popularLocation}
+        showAddButton={true}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white">
-            Welcome back, {user.name}!
-          </h1>
-          <p className="text-gray-400">Manage your activities and bookings</p>
+        {/* Welcome Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white">
+                Welcome back, <span className="text-amber-400">{user.fullName || user.name}!</span>
+              </h1>
+              <p className="text-gray-400 mt-2">Manage your activities, bookings, and chats</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              {unreadCount > 0 && (
+                <div className="relative">
+                  <button
+                    onClick={() => setActiveTab('chats')}
+                    className="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl hover:from-red-600 hover:to-pink-700 transition-all duration-300 font-semibold flex items-center"
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    {unreadCount} Unread Messages
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
+        {/* Stats Cards */}
         <StatsCards stats={stats} />
 
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 mb-6">
-          <TabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+        {/* Tabs Navigation */}
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 mb-6 mt-8">
+          <div className="px-6 pt-4">
+            <TabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+          </div>
 
           <div className="p-6">
             {activeTab === 'overview' && (
-              <div>
-                <h2 className="text-lg font-semibold text-white mb-6">Your Activities</h2>
-                {activities.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-400">No activities found. Create your first activity!</p>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column - Quick Stats */}
+                <div className="lg:col-span-2">
+                  <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700 mb-6">
+                    <h2 className="text-xl font-bold text-white mb-4 flex items-center">
+                      <Compass className="w-5 h-5 mr-2 text-amber-400" />
+                      Quick Overview
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                        <div className="text-2xl font-bold text-amber-400 mb-1">{stats.totalActivities}</div>
+                        <div className="text-sm text-gray-400">Total Activities</div>
+                      </div>
+                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                        <div className="text-2xl font-bold text-emerald-400 mb-1">{stats.totalBookings}</div>
+                        <div className="text-sm text-gray-400">Total Bookings</div>
+                      </div>
+                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                        <div className="text-2xl font-bold text-blue-400 mb-1">${stats.totalRevenue}</div>
+                        <div className="text-sm text-gray-400">Total Revenue</div>
+                      </div>
+                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                        <div className="text-2xl font-bold text-red-400 mb-1">{stats.unreadMessages}</div>
+                        <div className="text-sm text-gray-400">Unread Messages</div>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {activities.slice(0, 6).map((activity) => {
-                      const now = new Date();
-                      const startDate = new Date(activity.startDate);
-                      const endDate = new Date(activity.endDate);
-                      
-                      let statusColor = 'bg-gray-500/20';
-                      let statusText = activity.status;
-                      let statusBorder = 'border-gray-500/30';
-                      let statusTextColor = 'text-gray-400';
-                      
-                      if (endDate < now) {
-                        statusColor = 'bg-red-500/20';
-                        statusText = 'Expired';
-                        statusBorder = 'border-red-500/30';
-                        statusTextColor = 'text-red-400';
-                      } else if (startDate <= now && endDate >= now) {
-                        statusColor = 'bg-emerald-500/20';
-                        statusText = 'Active';
-                        statusBorder = 'border-emerald-500/30';
-                        statusTextColor = 'text-emerald-400';
-                      } else if (startDate > now) {
-                        statusColor = 'bg-amber-500/20';
-                        statusText = 'Upcoming';
-                        statusBorder = 'border-amber-500/30';
-                        statusTextColor = 'text-amber-400';
-                      }
-                      
-                      return (
-                        <div key={activity.id} className="bg-gray-700/50 rounded-xl p-4 border border-gray-600 hover:border-amber-500/30 transition-all duration-300">
-                          <h3 className="font-semibold text-white mb-2">{activity.name}</h3>
-                          <p className="text-sm text-gray-400 mb-2">{activity.location}</p>
+
+                  {/* Recent Activities */}
+                  <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+                    <h2 className="text-xl font-bold text-white mb-4 flex items-center">
+                      <Activity className="w-5 h-5 mr-2 text-emerald-400" />
+                      Recent Activities
+                    </h2>
+                    {activities.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-400">No activities found. Create your first activity!</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {activities.slice(0, 3).map((activity) => {
+                          const now = new Date();
+                          const startDate = new Date(activity.startDate);
+                          const endDate = new Date(activity.endDate);
                           
-                          <div className="text-xs text-gray-500 mb-2 space-y-1">
-                            <div className="flex items-center">
-                              <span className="mr-1">📅</span>
-                              <span>Start: {new Date(activity.startDate).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <span className="mr-1">➡️</span>
-                              <span>End: {new Date(activity.endDate).toLocaleDateString()}</span>
-                            </div>
-                          </div>
+                          let statusColor = 'bg-gray-500';
+                          let statusText = activity.status;
                           
-                          <p className="text-lg font-bold text-amber-400">${activity.price}</p>
-                          <div className="flex justify-between items-center mt-3">
-                            <span className="text-sm text-gray-500">{activity.availableSlots} slots</span>
-                            <span className={`px-2 py-1 rounded-full text-xs ${statusColor} ${statusBorder} ${statusTextColor}`}>
-                              {statusText}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          if (endDate < now) {
+                            statusColor = 'bg-red-500';
+                            statusText = 'Expired';
+                          } else if (startDate <= now && endDate >= now) {
+                            statusColor = 'bg-emerald-500';
+                            statusText = 'Active';
+                          } else if (startDate > now) {
+                            statusColor = 'bg-amber-500';
+                            statusText = 'Upcoming';
+                          }
+                          
+                          return (
+                            <div key={activity.id} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-700 hover:border-amber-500/30 transition-colors">
+                              <div>
+                                <h3 className="font-semibold text-white">{activity.name}</h3>
+                                <p className="text-sm text-gray-400">{activity.location}</p>
+                              </div>
+                              <div className="flex items-center space-x-4">
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor} text-white`}>
+                                  {statusText}
+                                </span>
+                                <span className="text-lg font-bold text-amber-400">${activity.price}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+
+                {/* Right Column - Chats */}
+                <div className="lg:col-span-1">
+                  <div className="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden">
+                    <div className="p-4 border-b border-gray-700">
+                      <h2 className="text-xl font-bold text-white flex items-center">
+                        <MessageSquare className="w-5 h-5 mr-2 text-amber-400" />
+                        Recent Chats
+                      </h2>
+                    </div>
+                    <div className="p-4">
+                      <ChatList providerId={user.id} compact={true} />
+                    </div>
+                    <div className="p-4 border-t border-gray-700">
+                      <button
+                        onClick={() => router.push('/chats')}
+                        className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-700 text-white rounded-xl hover:from-amber-700 hover:to-orange-800 transition-all duration-300 font-semibold"
+                      >
+                        View All Chats
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
-          {activeTab === 'activities' && (
-  <div>
-    {activities.length === 0 ? (
-      <div className="text-center py-8">
-        <p className="text-gray-400">No activities found. Create your first activity!</p>
-      </div>
-    ) : (
-      <ActivitiesTable 
-        activities={activities} 
-        onDeleteActivity={handleDeleteActivity}
-        onEditActivity={handleEditActivity}
-        onStatusChange={handleUpdateStatus} 
-      />
-    )}
-  </div>
-)}
+            {activeTab === 'activities' && (
+              <div>
+                {activities.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400">No activities found. Create your first activity!</p>
+                    <button
+                      onClick={() => setShowAddActivity(true)}
+                      className="mt-4 px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-700 text-white rounded-xl hover:from-amber-700 hover:to-orange-800 transition-all duration-300 font-semibold"
+                    >
+                      Create Your First Activity
+                    </button>
+                  </div>
+                ) : (
+                  <ActivitiesTable 
+                    activities={activities} 
+                    onDeleteActivity={handleDeleteActivity}
+                    onEditActivity={handleEditActivity}
+                    onStatusChange={handleUpdateStatus} 
+                  />
+                )}
+              </div>
+            )}
 
             {activeTab === 'bookings' && (
               <div>
@@ -599,10 +675,25 @@ const handleUpdateStatus = async (activityId: string, status: string) => {
                 )}
               </div>
             )}
+
+            {activeTab === 'performance' && (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📊</div>
+                <h3 className="text-2xl font-bold text-white mb-2">Performance Analytics</h3>
+                <p className="text-gray-400">Coming soon - Detailed analytics and insights</p>
+              </div>
+            )}
+
+            {activeTab === 'chats' && (
+              <div>
+                <ChatList providerId={user.id} compact={false} />
+              </div>
+            )}
           </div>
         </div>
       </div>
 
+      {/* Modals */}
       <AddActivityModal
         isOpen={showAddActivity}
         onClose={() => setShowAddActivity(false)}
@@ -624,7 +715,6 @@ const handleUpdateStatus = async (activityId: string, status: string) => {
         existingImages={editingActivity?.images || []}
         categories={categories}
       />
-
 
       <ChangePasswordModal
         isOpen={showChangePassword}

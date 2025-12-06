@@ -1,9 +1,10 @@
-// app/tourist/page.tsx
+// app/tourist/activities/page.tsx
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { SaveButton } from '@/components/SaveButton';
+import ContactButton from '@/components/ContactButton';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:5224';
@@ -32,6 +33,7 @@ interface Activity {
   category: string;
   categoryId: string;
   providerName: string;
+  providerId: string;
   duration: string;
   images: string[];
   status: string;
@@ -59,6 +61,7 @@ export default function ActivitiesPage() {
   const [showActivities, setShowActivities] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>('');
+  const [user, setUser] = useState<any>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   
@@ -89,6 +92,8 @@ export default function ActivitiesPage() {
       setError(null);
       setLoading(true);
       
+      console.log('Fetching activities from:', `${API_BASE_URL}/activities`);
+      
       const response = await fetch(`${API_BASE_URL}/activities`);
       
       if (!response.ok) {
@@ -96,6 +101,8 @@ export default function ActivitiesPage() {
       }
       
       const activitiesData = await response.json();
+      
+      console.log('Raw activities data from API:', activitiesData);
 
       const activitiesWithImages = await Promise.all(
         activitiesData.map(async (activity: any) => {
@@ -119,8 +126,51 @@ export default function ActivitiesPage() {
               imageUrls = DEFAULT_IMAGES;
             }
             
+            // Sigurohu që të kesh providerId - kontrollo mënyra të ndryshme
+            let providerId = activity.providerId;
+
+            // Kontrollo nëse provider ekziston dhe ka ID
+            if (!providerId && activity.provider) {
+              // Provoni çelësa të ndryshëm
+              providerId = activity.provider.id || 
+                           activity.provider.userId || 
+                           activity.provider.userID ||
+                           activity.provider.Id;
+            }
+
+            // Për providerName
+            let providerName = activity.providerName;
+            if (!providerName && activity.provider) {
+              providerName = activity.provider.fullName || 
+                             activity.provider.name || 
+                             activity.provider.FullName ||
+                             activity.provider.UserName ||
+                             activity.provider.username ||
+                             'Unknown Provider';
+            }
+
+            // Nëse ende nuk ka providerId, provo me inspect të thellë
+            if (!providerId && activity.provider) {
+              // Provoni të gjeni ID në çdo vend të mundshëm
+              const possibleKeys = ['id', 'userId', 'userID', 'Id', 'ID', 'providerId'];
+              for (const key of possibleKeys) {
+                if (activity.provider[key]) {
+                  providerId = activity.provider[key];
+                  break;
+                }
+              }
+            }
+
+            // Nëse ende nuk ka providerId, vendos një vlerë të kushtëzuar për debug
+            if (!providerId) {
+              console.warn(`No providerId found for activity: ${activity.name}`);
+              providerId = 'DEBUG_NO_PROVIDER_ID';
+            }
+            
             return {
               ...activity,
+              providerId: providerId || '',
+              providerName: providerName || 'Unknown Provider',
               images: imageUrls,
               startDate: activity.startDate || activity.createdAt || new Date().toISOString(),
               endDate: activity.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -132,9 +182,11 @@ export default function ActivitiesPage() {
               reviews: activity.reviews || 124
             };
           } catch (error) {
-            console.error(`Error for ${activity.name}:`, error);
+            console.error(`Error processing ${activity.name}:`, error);
             return {
               ...activity,
+              providerId: activity.providerId || '',
+              providerName: activity.providerName || 'Unknown Provider',
               images: DEFAULT_IMAGES,
               startDate: new Date().toISOString(),
               endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -148,6 +200,14 @@ export default function ActivitiesPage() {
           }
         })
       );
+
+      console.log('Final activities with images:', activitiesWithImages.map(a => ({
+        id: a.id,
+        name: a.name,
+        providerId: a.providerId,
+        providerName: a.providerName,
+        hasProviderId: !!a.providerId
+      })));
 
       setActivities(activitiesWithImages);
       
@@ -168,6 +228,7 @@ export default function ActivitiesPage() {
         throw new Error(`Failed to fetch categories: ${response.status} ${response.statusText}`);
       }
       const data = await response.json();
+      
       setCategories(data);
       if (data.length > 0) {
         setSelectedCategory(data[0]);
@@ -201,11 +262,6 @@ export default function ActivitiesPage() {
     filterActivitiesByCategory(category);
   };
 
-  const handleBookNow = (activity: Activity) => {
-    localStorage.setItem('selectedActivity', JSON.stringify(activity));
-    router.push('/booking');
-  };
-
   const checkScrollButtons = () => {
     if (sliderRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = sliderRef.current;
@@ -230,13 +286,19 @@ export default function ActivitiesPage() {
     const userData = localStorage.getItem('user');
     const token = localStorage.getItem('token');
 
+    console.log('User data from localStorage:', userData);
+    console.log('Token from localStorage:', token ? 'Exists' : 'Missing');
+
     if (!userData || !token) {
       router.push('/');
       return;
     }
 
     const parsedUser = JSON.parse(userData);
+    console.log('Parsed user object:', parsedUser);
+    
     setUserId(parsedUser.id);
+    setUser(parsedUser);
     
     if (parsedUser.role !== 'Tourist') {
       if (parsedUser.role === 'Admin') {
@@ -502,128 +564,139 @@ export default function ActivitiesPage() {
               </div>
             </div>
 
-            {filteredActivities.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">🏔️</div>
-                <h3 className="text-2xl font-bold text-gray-700 mb-2">No Activities Found</h3>
-                <p className="text-gray-500 mb-4">There are no activities available in this category yet.</p>
-                <p className="text-sm text-gray-400">
-                  Try selecting a different category or check back later for new activities.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredActivities.map((activity) => {
-                  const mainImage = getFullImageUrl(activity.images?.[0]) || DEFAULT_IMAGES[0];
-
-                  const now = new Date();
-                  const startDate = new Date(activity.startDate);
-                  const endDate = new Date(activity.endDate);
-                  const isActive = startDate <= now && endDate >= now;
-                  const isUpcoming = startDate > now;
-                  const isExpired = endDate < now;
-                  
-                  return (
-                    <div key={activity.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105">
-                      <div className="relative h-48">
-                        <img
-                          src={mainImage}
-                          alt={activity.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const randomImage = DEFAULT_IMAGES[Math.floor(Math.random() * DEFAULT_IMAGES.length)];
-                            e.currentTarget.src = randomImage;
-                          }}
-                        />
-                        
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredActivities.map((activity) => {
+                const mainImage = getFullImageUrl(activity.images?.[0]) || DEFAULT_IMAGES[0];
+                
+                const now = new Date();
+                const startDate = new Date(activity.startDate);
+                const endDate = new Date(activity.endDate);
+                const isActive = startDate <= now && endDate >= now;
+                const isUpcoming = startDate > now;
+                const isExpired = endDate < now;
+                
+                return (
+                  <div key={activity.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105">
+                    <div className="relative h-48">
+                      <img
+                        src={mainImage}
+                        alt={activity.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const randomImage = DEFAULT_IMAGES[Math.floor(Math.random() * DEFAULT_IMAGES.length)];
+                          e.currentTarget.src = randomImage;
+                        }}
+                      />
                       
-                        {userId && (
-                          <div className="absolute top-2 right-2">
-                            <SaveButton
-                              activityId={activity.id}
-                              userId={userId}
-                              size="small"
-                              onSaveChange={(saved) => {
-                                console.log(`Activity ${activity.name} ${saved ? 'saved' : 'unsaved'}`);
-                              }}
-                            />
-                          </div>
-                        )}
-                        
-                        <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                          ${activity.price}
+                      {/* Save Button */}
+                      {userId && (
+                        <div className="absolute top-2 right-2">
+                          <SaveButton
+                            activityId={activity.id}
+                            userId={userId}
+                            size="small"
+                            onSaveChange={(saved) => {
+                              console.log(`Activity ${activity.name} ${saved ? 'saved' : 'unsaved'}`);
+                            }}
+                          />
                         </div>
-                        <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
-                          {activity.availableSlots} slots left
-                        </div>
-                   
-                        <div className="absolute top-4 left-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                            isExpired ? 'bg-red-500 text-white' :
-                            isActive ? 'bg-green-500 text-white' :
-                            isUpcoming ? 'bg-yellow-500 text-black' :
-                            'bg-gray-500 text-white'
-                          }`}>
-                            {isExpired ? 'Expired' : isActive ? 'Active' : isUpcoming ? 'Upcoming' : activity.status}
-                          </span>
-                        </div>
+                      )}
                       
-                        <div className="absolute bottom-4 right-4 bg-black/70 text-white px-2 py-1 rounded-full text-xs">
-                          {new Date(activity.startDate).toLocaleDateString()}
+                      <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                        ${activity.price}
+                      </div>
+                      <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
+                        {activity.availableSlots} slots left
+                      </div>
+                      
+                      {/* Status Badge */}
+                      <div className="absolute top-4 left-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                          isExpired ? 'bg-red-500 text-white' :
+                          isActive ? 'bg-green-500 text-white' :
+                          isUpcoming ? 'bg-yellow-500 text-black' :
+                          'bg-gray-500 text-white'
+                        }`}>
+                          {isExpired ? 'Expired' : isActive ? 'Active' : isUpcoming ? 'Upcoming' : activity.status}
+                        </span>
+                      </div>
+                      
+                      {/* Date Badge */}
+                      <div className="absolute bottom-4 right-4 bg-black/70 text-white px-2 py-1 rounded-full text-xs">
+                        {new Date(activity.startDate).toLocaleDateString()}
+                      </div>
+                    </div>
+                    
+                    <div className="p-6">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">{activity.name}</h3>
+                      
+                      {/* Date Info */}
+                      <div className="mb-3 text-sm text-gray-600 space-y-1">
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>Start: {new Date(activity.startDate).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>End: {new Date(activity.endDate).toLocaleDateString()}</span>
                         </div>
                       </div>
                       
-                      <div className="p-6">
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">{activity.name}</h3>
- 
-                        <div className="mb-3 text-sm text-gray-600 space-y-1">
-                          <div className="flex items-center">
-                            <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span>Start: {new Date(activity.startDate).toLocaleDateString()}</span>
-                          </div>
-                          <div className="flex items-center">
-                            <svg className="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span>End: {new Date(activity.endDate).toLocaleDateString()}</span>
-                          </div>
+                      {/* Location */}
+                      <div className="flex items-center text-gray-600 mb-4">
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span className="text-sm">{activity.location}</span>
+                      </div>
+                      
+                      {/* Price and Buttons */}
+                      <div className="flex justify-between items-center mt-4">
+                        <div className="text-lg font-bold text-green-600">
+                          ${activity.price}
                         </div>
-                        
-                        <div className="flex items-center text-gray-600 mb-4">
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          <span className="text-sm">{activity.location}</span>
-                        </div>
-                        
-                        <div className="flex justify-between items-center">
-                          <div className="text-lg font-bold text-green-600">
-                            ${activity.price}
-                          </div>
+                        <div className="flex space-x-2">
                           <button
                             onClick={(e) => {
-                              e.stopPropagation(); 
+                              e.stopPropagation();
                               if (!activity.id) {
                                 alert('Activity ID is missing');
                                 return;
                               }
                               router.push(`/tourist/activities/${activity.id}`);
                             }}
-                            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-blue-500/25"
+                            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-blue-500/25"
                           >
                             See More
                           </button>
+                          
+                          {/* BUTONI I KONTRAKTIMIT - TASHMË I NJËJTË SI NË [id]/page.tsx */}
+                         {/* BUTONI I KONTRAKTIMIT - TASHMË I NJËJTË SI NË [id]/page.tsx */}
+{user && activity.providerId && activity.providerId !== 'DEBUG_NO_PROVIDER_ID' && activity.providerName !== 'Unknown Provider' && (
+  <ContactButton
+    currentUserId={user.id}
+    otherUserId={activity.providerId}
+    currentUserName={user.fullName || user.username || 'User'}
+    otherUserName={activity.providerName}
+    activityId={activity.id}
+    activityName={activity.name}
+    variant="icon" // Përputhet me ikonën e vogël
+    size="sm"
+  />
+)}
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-
+                  </div>
+                );
+              })}
+            </div>
+            
             <div className="text-center mt-12">
               <button
                 onClick={() => setShowActivities(false)}
