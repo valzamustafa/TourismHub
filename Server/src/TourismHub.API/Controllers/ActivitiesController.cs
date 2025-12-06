@@ -33,99 +33,106 @@ namespace TourismHub.API.Controllers
         }
         
         [HttpGet]
-        public async Task<IActionResult> GetAllActivities()
+public async Task<IActionResult> GetAllActivities()
+{
+    try
+    {
+        _logger.LogInformation("=== CONTROLLER: Getting all activities ===");
+        
+        var activities = await _activityService.GetAllActivitiesAsync();
+        
+        _logger.LogInformation($"=== CONTROLLER: Successfully retrieved {activities.Count} activities ===");
+        
+        var result = activities.Select(a => new
         {
-            try
-            {
-                _logger.LogInformation("=== CONTROLLER: Getting all activities ===");
-                
-                var activities = await _activityService.GetAllActivitiesAsync();
-                
-                _logger.LogInformation($"=== CONTROLLER: Successfully retrieved {activities.Count} activities ===");
-                
-                var result = activities.Select(a => new
-                {
-                    a.Id,
-                    a.Name,
-                    a.Description,
-                    a.Price,
-                    a.AvailableSlots,
-                    a.Location,
-                    a.CategoryId,
-                    Category = a.Category?.Name ?? "Unknown",
-                    ProviderName = a.Provider?.FullName ?? "Unknown Provider",
-                    Duration = a.Duration,
-                    Included = a.Included?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                    Requirements = a.Requirements?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                    QuickFacts = a.QuickFacts?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                 
-                    StartDate = a.StartDate,
-                    EndDate = a.EndDate,
-                    IsActive = a.IsActive,
-                    IsExpired = a.IsExpired,
-                    IsUpcoming = a.IsUpcoming,
-                    
-                    Status = a.Status.ToString(),
-                    Images = a.Images?.Select(img => img.ImageUrl).ToList() ?? new List<string>(),
-                    a.CreatedAt
-                }).ToList();
-                
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "=== CONTROLLER ERROR: Failed to get activities ===");
-                
-                return StatusCode(500, new { 
-                    message = "Internal server error",
-                    error = "Check server logs for details"
-                });
-            }
-        }
+            a.Id,
+            a.Name,
+            a.Description,
+            a.Price,
+            a.AvailableSlots,
+            a.Location,
+            a.CategoryId,
+            Category = a.Category?.Name ?? "Unknown",
+            
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetActivityById(Guid id)
+            ProviderId = a.ProviderId ?? Guid.Empty,  
+            ProviderName = a.Provider?.FullName ?? "Unknown Provider",
+            
+            Duration = a.Duration,
+            Included = a.Included?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+            Requirements = a.Requirements?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+            QuickFacts = a.QuickFacts?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+         
+            StartDate = a.StartDate,
+            EndDate = a.EndDate,
+            IsActive = a.IsActive,
+            IsExpired = a.IsExpired,
+            IsUpcoming = a.IsUpcoming,
+            
+            Status = a.Status.ToString(),
+            Images = a.Images?.Select(img => img.ImageUrl).ToList() ?? new List<string>(),
+            a.CreatedAt
+        }).ToList();
+        
+        return Ok(result);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "=== CONTROLLER ERROR: Failed to get activities ===");
+        
+        return StatusCode(500, new { 
+            message = "Internal server error",
+            error = "Check server logs for details"
+        });
+    }
+}
+       [HttpGet("{id}")]
+public async Task<IActionResult> GetActivityById(Guid id)
+{
+    try
+    {
+        var activity = await _activityService.GetActivityByIdAsync(id);
+        if (activity == null)
+            return NotFound(new { message = "Activity not found" });
+
+        var result = new
         {
-            try
-            {
-                var activity = await _activityService.GetActivityByIdAsync(id);
-                if (activity == null)
-                    return NotFound(new { message = "Activity not found" });
+            activity.Id,
+            activity.Name,
+            activity.Description,
+            activity.Price,
+            activity.AvailableSlots,
+            activity.Location,
+            activity.CategoryId,
+            Category = activity.Category?.Name ?? "Unknown",
+            
+ 
+            ProviderId = activity.ProviderId ?? Guid.Empty, 
+            ProviderName = activity.Provider?.FullName ?? "Unknown Provider",
+            
+            Duration = activity.Duration,
+            Included = activity.Included?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+            Requirements = activity.Requirements?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+            QuickFacts = activity.QuickFacts?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+           
+            StartDate = activity.StartDate,
+            EndDate = activity.EndDate,
+            IsActive = activity.IsActive,
+            IsExpired = activity.IsExpired,
+            IsUpcoming = activity.IsUpcoming,
+            
+            Status = activity.Status.ToString(),
+            Images = activity.Images?.Select(img => img.ImageUrl).ToList() ?? new List<string>()
+        };
 
-                var result = new
-                {
-                    activity.Id,
-                    activity.Name,
-                    activity.Description,
-                    activity.Price,
-                    activity.AvailableSlots,
-                    activity.Location,
-                    activity.CategoryId,
-                    Category = activity.Category?.Name ?? "Unknown",
-                    ProviderName = activity.Provider?.FullName ?? "Unknown Provider",
-                    Duration = activity.Duration,
-                    Included = activity.Included?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                    Requirements = activity.Requirements?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                    QuickFacts = activity.QuickFacts?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                   
-                    StartDate = activity.StartDate,
-                    EndDate = activity.EndDate,
-                    IsActive = activity.IsActive,
-                    IsExpired = activity.IsExpired,
-                    IsUpcoming = activity.IsUpcoming,
-                    
-                    Status = activity.Status.ToString(),
-                    Images = activity.Images?.Select(img => img.ImageUrl).ToList() ?? new List<string>()
-                };
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in GetActivityById");
-                return StatusCode(500, new { message = "An error occurred while retrieving the activity" });
-            }
-        }
+        return Ok(result);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error in GetActivityById");
+        return StatusCode(500, new { message = "An error occurred while retrieving the activity" });
+    }
+}
 [HttpPost]
 public async Task<IActionResult> CreateActivity([FromForm] ActivityCreateDto createDto)
 {

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace TourismHub.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialsCreatessPostgreSQL : Migration
+    public partial class InitialCreatePostgreSQLL : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -43,6 +43,7 @@ namespace TourismHub.Infrastructure.Migrations
                     ProfileImage = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Phone = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
                     Address = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     Bio = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
@@ -112,6 +113,35 @@ namespace TourismHub.Infrastructure.Migrations
                     table.ForeignKey(
                         name: "FK_AdminLogs_Users_AdminId",
                         column: x => x.AdminId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Chats",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ProviderId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TouristId = table.Column<Guid>(type: "uuid", nullable: false),
+                    LastMessage = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    LastMessageAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Chats", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Chats_Users_ProviderId",
+                        column: x => x.ProviderId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Chats_Users_TouristId",
+                        column: x => x.TouristId,
                         principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -274,6 +304,34 @@ namespace TourismHub.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ChatMessages",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ChatId = table.Column<Guid>(type: "uuid", nullable: false),
+                    SenderId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Content = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
+                    IsRead = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    SentAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChatMessages", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ChatMessages_Chats_ChatId",
+                        column: x => x.ChatId,
+                        principalTable: "Chats",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ChatMessages_Users_SenderId",
+                        column: x => x.SenderId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Payments",
                 columns: table => new
                 {
@@ -339,6 +397,47 @@ namespace TourismHub.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_ChatMessages_ChatId",
+                table: "ChatMessages",
+                column: "ChatId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChatMessages_IsRead",
+                table: "ChatMessages",
+                column: "IsRead");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChatMessages_SenderId",
+                table: "ChatMessages",
+                column: "SenderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChatMessages_SentAt",
+                table: "ChatMessages",
+                column: "SentAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Chats_LastMessageAt",
+                table: "Chats",
+                column: "LastMessageAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Chats_ProviderId",
+                table: "Chats",
+                column: "ProviderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Chats_ProviderId_TouristId",
+                table: "Chats",
+                columns: new[] { "ProviderId", "TouristId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Chats_TouristId",
+                table: "Chats",
+                column: "TouristId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_PasswordResetTokens_UserId",
                 table: "PasswordResetTokens",
                 column: "UserId");
@@ -397,6 +496,9 @@ namespace TourismHub.Infrastructure.Migrations
                 name: "AdminLogs");
 
             migrationBuilder.DropTable(
+                name: "ChatMessages");
+
+            migrationBuilder.DropTable(
                 name: "PasswordResetTokens");
 
             migrationBuilder.DropTable(
@@ -410,6 +512,9 @@ namespace TourismHub.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "SavedActivities");
+
+            migrationBuilder.DropTable(
+                name: "Chats");
 
             migrationBuilder.DropTable(
                 name: "Bookings");

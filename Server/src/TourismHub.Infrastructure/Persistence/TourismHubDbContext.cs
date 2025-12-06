@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TourismHub.Domain.Entities;
 using TourismHub.Infrastructure.Persistence.Configurations;
+using TourismHub.Persistence.Configurations;
 
 namespace TourismHub.Infrastructure.Persistence
 {
@@ -19,6 +20,8 @@ namespace TourismHub.Infrastructure.Persistence
         public DbSet<SavedActivity> SavedActivities => Set<SavedActivity>(); // ✅
         public DbSet<AdminLog> AdminLogs => Set<AdminLog>();
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<Chat> Chats { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -36,6 +39,8 @@ namespace TourismHub.Infrastructure.Persistence
             modelBuilder.ApplyConfiguration(new AdminLogConfiguration());
             modelBuilder.ApplyConfiguration(new CategoryConfiguration());
             modelBuilder.ApplyConfiguration(new SavedActivityConfiguration()); 
+            modelBuilder.ApplyConfiguration(new ChatConfiguration()); 
+            modelBuilder.ApplyConfiguration(new ChatMessageConfiguration()); 
              modelBuilder.Entity<PasswordResetToken>()
                 .HasOne(t => t.User)
                 .WithMany(u => u.PasswordResetTokens)

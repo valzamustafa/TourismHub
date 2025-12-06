@@ -1,98 +1,169 @@
-// components/profile/ProfileAvatar.tsx
+// components/profile/ProfileForm.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-interface ProfileAvatarProps {
-  imageUrl: string | null;
-  userName: string;
-  onImageChange: (file: File) => void;
-  showUploadButton?: boolean;
-  uploading?: boolean;
+interface ProfileFormProps {
+  data: {
+    fullName: string;
+    email: string;
+    phone: string;
+    address: string;
+    bio: string;
+  };
+  onChange: (data: ProfileFormProps['data']) => void;
+  editing: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+  onEdit: () => void;
 }
 
-export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
-  imageUrl,
-  userName,
-  onImageChange,
-  showUploadButton = true,
-  uploading = false
+export const ProfileForm: React.FC<ProfileFormProps> = ({
+  data,
+  onChange,
+  editing,
+  onSave,
+  onCancel,
+  onEdit
 }) => {
-  const [hovered, setHovered] = useState(false);
+  const [formData, setFormData] = useState(data);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      onImageChange(file);
-    }
+
+  useEffect(() => {
+    setFormData(data);
+  }, [data]);
+
+  const handleChange = (field: keyof typeof data, value: string) => {
+    const newFormData = {
+      ...formData,
+      [field]: value
+    };
+    setFormData(newFormData);
+    onChange(newFormData);
   };
 
-  const getInitial = () => {
-    if (!userName || userName.length === 0) return 'U';
-    return userName.charAt(0).toUpperCase();
+  const handleEditClick = () => {
+   
+    setFormData(data);
+    onEdit();
   };
+
+  const handleCancelClick = () => {
+
+    setFormData(data);
+    onCancel();
+  };
+
+  if (editing) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <input
+              type="text"
+              value={formData.fullName}
+              onChange={(e) => handleChange('fullName', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleChange('email', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => handleChange('phone', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter your phone number"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+            <input
+              type="text"
+              value={formData.address}
+              onChange={(e) => handleChange('address', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter your address"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+          <textarea
+            value={formData.bio}
+            onChange={(e) => handleChange('bio', e.target.value)}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Tell us about yourself..."
+          />
+        </div>
+
+        <div className="flex space-x-2 pt-4">
+          <button
+            onClick={onSave}
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+          >
+            Save Changes
+          </button>
+          <button
+            onClick={handleCancelClick}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div 
-      className="relative w-32 h-32 mx-auto mb-4 group"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div className="w-full h-full rounded-full overflow-hidden border-4 border-white shadow-lg relative">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={userName || 'User'}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-        ) : null}
-        
-      
-        {(!imageUrl || !imageUrl.trim()) && (
-          <div className="w-full h-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center text-white text-4xl font-bold">
-            {getInitial()}
-          </div>
-        )}
-        
-
-        {showUploadButton && hovered && !uploading && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full">
-            <div className="text-white text-center">
-              <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span className="text-xs font-semibold">Upload Photo</span>
-            </div>
-          </div>
-        )}
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <InfoField label="Full Name" value={data.fullName} />
+        <InfoField label="Email" value={data.email} />
+        <InfoField label="Phone" value={data.phone || 'Not provided'} />
+        <InfoField label="Address" value={data.address || 'Not provided'} />
       </div>
 
-      {showUploadButton && (
-        <label className={`absolute -bottom-2 -right-2 bg-white p-3 rounded-full shadow-lg cursor-pointer transition-all duration-200 z-10 ${
-          hovered ? 'scale-110 shadow-xl' : ''
-        } ${uploading ? 'cursor-not-allowed opacity-50' : 'hover:bg-gray-50'}`}>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-            disabled={uploading}
-          />
-          {uploading ? (
-            <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-          ) : (
-            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          )}
-        </label>
-      )}
+      {data.bio && <InfoField label="Bio" value={data.bio} multiline />}
+
+      <div className="pt-4">
+        <button
+          onClick={handleEditClick}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center"
+        >
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          Edit Profile
+        </button>
+      </div>
     </div>
   );
 };
+
+const InfoField: React.FC<{ label: string; value: string; multiline?: boolean }> = ({ 
+  label, 
+  value, 
+  multiline = false 
+}) => (
+  <div className="bg-gray-50 p-4 rounded-lg">
+    <label className="block text-sm font-medium text-gray-500 mb-1">{label}</label>
+    {multiline ? (
+      <p className="text-gray-900 whitespace-pre-line">{value}</p>
+    ) : (
+      <p className="text-gray-900 font-semibold">{value}</p>
+    )}
+  </div>
+)
