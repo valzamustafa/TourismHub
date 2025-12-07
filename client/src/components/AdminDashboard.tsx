@@ -1,6 +1,6 @@
 // components/AdminDashboard.tsx
 import React, { useState, useEffect } from 'react';
-
+import AnalyticsReports from './AnalyticsReports';
 interface StatCardProps {
   title: string;
   value: string | number;
@@ -3490,19 +3490,8 @@ const AdminDashboard: React.FC = () => {
             onProviderChange={setSelectedProvider}
           />
         );
-      case 'analytics':
-        return (
-          <div style={{ padding: '24px', backgroundColor: '#1e1e1e', borderRadius: '12px' }}>
-            <h2 style={{ color: '#ffffff', fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>
-              Analytics & Reports
-            </h2>
-            <div style={{ color: '#b0b0b0', textAlign: 'center', padding: '40px' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>📈</div>
-              <h3 style={{ fontSize: '20px', marginBottom: '8px' }}>Analytics Coming Soon</h3>
-              <p>Detailed analytics and reporting features will be available in the next update.</p>
-            </div>
-          </div>
-        );
+    case 'analytics':
+  return <AnalyticsReports />;
       case 'dashboard':
       default:
         return (
