@@ -563,10 +563,10 @@ export default function TouristProfilePage() {
             </div>
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => router.push('/tourist/activities')}
+                onClick={() => router.push('/')}
                 className="px-4 py-2 text-blue-600 hover:text-blue-800"
               >
-                ← Back to Activities
+                ← Back to Home
               </button>
               <button
                 onClick={() => router.push('/tourist/profile')}

@@ -153,37 +153,37 @@ const LoginForm = () => {
         responseData = { message: 'Invalid response from server' };
       }
 
-      if (response.ok) {
-        setMessage(`✅ ${isLogin ? 'Login' : 'Registration'} successful! Redirecting...`);
+if (response.ok) {
+  setMessage(`✅ ${isLogin ? 'Login' : 'Registration'} successful! Redirecting...`);
 
-        if (responseData.accessToken) {
-          localStorage.setItem('token', responseData.accessToken);
-          localStorage.setItem('refreshToken', responseData.refreshToken);
-          localStorage.setItem('user', JSON.stringify({
-            id: responseData.userId,
-            name: responseData.fullName,
-            email: responseData.email,
-            role: responseData.role,
-            profileImage: responseData.profileImage
-          }));
-          
-          if (rememberMe && isLogin) {
-            localStorage.setItem('rememberedEmail', formData.email);
-          } else {
-            localStorage.removeItem('rememberedEmail');
-          }
-         
-          setTimeout(() => {
-            if (responseData.role === 'Admin') {
-              window.location.href = '/admin';
-            } else if (responseData.role === 'Provider') {
-              window.location.href = '/provider';
-            } else {
-              window.location.href = '/tourist/activities';
-            }
-          }, 1500);
-        }
+  if (responseData.accessToken) {
+    localStorage.setItem('token', responseData.accessToken);
+    localStorage.setItem('refreshToken', responseData.refreshToken);
+    localStorage.setItem('user', JSON.stringify({
+      id: responseData.userId,
+      name: responseData.fullName,
+      email: responseData.email,
+      role: responseData.role,
+      profileImage: responseData.profileImage
+    }));
+    
+    if (rememberMe && isLogin) {
+      localStorage.setItem('rememberedEmail', formData.email);
+    } else {
+      localStorage.removeItem('rememberedEmail');
+    }
+   
+    setTimeout(() => {
+      if (responseData.role === 'Admin') {
+        window.location.href = '/';
+      } else if (responseData.role === 'Provider') {
+        window.location.href ='/';
       } else {
+        window.location.href = '/';
+      }
+    }, 1500);
+  }
+} else {
         setMessage(`❌ ${responseData.message || `Error: ${response.status}`}`);
       }
     } catch (error) {
