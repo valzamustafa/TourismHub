@@ -17,7 +17,8 @@ namespace TourismHub.Infrastructure.Persistence
         public DbSet<Review> Reviews => Set<Review>();
         public DbSet<ActivityImage> ActivityImages => Set<ActivityImage>();
         public DbSet<Category> Categories => Set<Category>();
-        public DbSet<SavedActivity> SavedActivities => Set<SavedActivity>(); // ✅
+        public DbSet<SavedActivity> SavedActivities => Set<SavedActivity>(); 
+        public DbSet<Notification> Notifications => Set<Notification>(); 
         public DbSet<AdminLog> AdminLogs => Set<AdminLog>();
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
@@ -41,6 +42,7 @@ namespace TourismHub.Infrastructure.Persistence
             modelBuilder.ApplyConfiguration(new SavedActivityConfiguration()); 
             modelBuilder.ApplyConfiguration(new ChatConfiguration()); 
             modelBuilder.ApplyConfiguration(new ChatMessageConfiguration()); 
+             modelBuilder.ApplyConfiguration(new NotificationConfiguration()); 
              modelBuilder.Entity<PasswordResetToken>()
                 .HasOne(t => t.User)
                 .WithMany(u => u.PasswordResetTokens)

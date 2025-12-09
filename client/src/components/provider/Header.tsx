@@ -1,4 +1,8 @@
+// components/Header.tsx
+'use client';
+
 import { Plus, Bell, User, MapPin, Compass, Lock } from "lucide-react";
+import NotificationBell from "../NotificationBell";
 
 interface HeaderProps {
   onAddActivity: () => void;
@@ -37,14 +41,10 @@ const Header = ({ onAddActivity, onChangePassword, showAddButton = true, userNam
               <span className="text-gray-300 text-sm">{userLocation}</span>
             </div>
 
-            <button className="relative p-3 text-gray-400 hover:text-amber-400 hover:bg-gray-800/50 rounded-xl transition-all duration-300 backdrop-blur-sm">
-              <Bell className="w-6 h-6" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full border-2 border-gray-900 flex items-center justify-center">
-                <span className="text-xs text-white font-bold">3</span>
-              </span>
-            </button>
+        
+            <NotificationBell />
             
-            {/* Butoni për Change Password */}
+
             {onChangePassword && (
               <button
                 onClick={onChangePassword}

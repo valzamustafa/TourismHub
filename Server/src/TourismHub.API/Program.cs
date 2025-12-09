@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using TourismHub.API;
@@ -28,11 +29,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Http;
 using TourismHub.Application.DTOs.Auth;
 using TourismHub.Application.Interfaces;
+using TourismHub.API.Hubs;
 
 try
 {
     var builder = WebApplication.CreateBuilder(args);
-    Console.WriteLine("🚀 Starting TourismHub API with Stripe...");
+    Console.WriteLine("🚀 Starting TourismHub API with Stripe and Notifications...");
 
     Console.WriteLine("🔧 Configuring Stripe...");
   
@@ -82,7 +84,6 @@ try
         }
     }
 
-
     builder.Logging.ClearProviders();
     builder.Logging.AddConsole();
     builder.Logging.AddDebug();
@@ -90,7 +91,9 @@ try
 
     builder.WebHost.UseUrls("http://localhost:5224");
 
-    // Repositories
+
+    Console.WriteLine("📦 Configuring Repositories...");
+    
     builder.Services.AddScoped<IActivityRepository, ActivityRepository>();
     builder.Services.AddScoped<IActivityImageRepository, ActivityImageRepository>();
     builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
@@ -98,16 +101,25 @@ try
     builder.Services.AddScoped<IUserRepository, UserRepository>();
     builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
     builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+    builder.Services.AddScoped<TourismHub.Domain.Interfaces.INotificationRepository, 
+                              TourismHub.Infrastructure.Repositories.NotificationRepository>();
     
-    // Background Services
+
+    Console.WriteLine("⏰ Adding Background Services...");
     builder.Services.AddHostedService<ActivityStatusUpdaterService>();
 
-    // Application Services
+
+    Console.WriteLine("🔧 Adding Application Services...");
+    
     builder.Services.AddScoped<ActivityImageService>();
     builder.Services.AddScoped<ImageUploadService>();
     builder.Services.AddScoped<CategoryService>();
     builder.Services.AddScoped<ActivityService>();
     builder.Services.AddScoped<IChatService, ChatService>();
+    
+
+    builder.Services.AddScoped<INotificationService, NotificationService>();
+    builder.Services.AddScoped<NotificationHelper>();
     
     builder.Services.AddScoped<TourismHub.Application.Interfaces.Services.IPasswordHasher, 
                               TourismHub.Application.Services.PasswordHasher>();
@@ -127,10 +139,12 @@ try
     builder.Services.AddScoped<BookingService>();
     builder.Services.AddScoped<StripeWebhookService>();
     
+
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+            options.JsonSerializerOptions.WriteIndented = true;
         });
     
     builder.Services.AddEndpointsApiExplorer();
@@ -149,14 +163,24 @@ try
         options.MultipartHeadersLengthLimit = int.MaxValue;
     });
 
-    // Swagger Configuration
+
+    Console.WriteLine("🔔 Adding SignalR for Real-time Notifications...");
+    builder.Services.AddSignalR(options =>
+    {
+        options.EnableDetailedErrors = true;
+        options.MaximumReceiveMessageSize = 102400; // 100KB
+        options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+        options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+    });
+
+  
     builder.Services.AddSwaggerGen(c =>
     {
         c.SwaggerDoc("v1", new OpenApiInfo 
         { 
             Title = "TourismHub API", 
             Version = "v1",
-            Description = "TourismHub API Documentation with Stripe Payments"
+            Description = "TourismHub API Documentation with Stripe Payments and Real-time Notifications"
         });
         
         c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -184,7 +208,8 @@ try
         });
     });
 
-    // CORS Configuration - 
+
+    Console.WriteLine("🌐 Configuring CORS...");
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AllowFrontend", policy =>
@@ -208,9 +233,9 @@ try
         });
     });
 
-    Console.WriteLine("📦 Configuring JWT...");
 
-    // JWT Configuration
+    Console.WriteLine("🔐 Configuring JWT Authentication for WebSockets...");
+    
     var jwtSettings = builder.Configuration.GetSection("JwtSettings");
     builder.Services.Configure<JwtSettings>(jwtSettings);
 
@@ -234,23 +259,43 @@ try
             ValidateIssuer = false,
             ValidateAudience = false,
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = "nameid",
+            RoleClaimType = "role"
         };
         
+     
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+                {
+                    Console.WriteLine($"🔑 WebSocket token received for path: {path}");
+                    context.Token = accessToken;
+                }
+                
+                return Task.CompletedTask;
+            },
             OnAuthenticationFailed = context =>
             {
-                Console.WriteLine($"Authentication failed: {context.Exception.Message}");
+                Console.WriteLine($"🔒 Authentication failed: {context.Exception.Message}");
                 return Task.CompletedTask;
             },
             OnTokenValidated = context =>
             {
-                Console.WriteLine("Token validated successfully");
+                Console.WriteLine($"✅ Token validated for user: {context.Principal?.Identity?.Name}");
                 return Task.CompletedTask;
             }
         };
     });
+
+
+    builder.Services.AddHttpContextAccessor();
+
 
     Console.WriteLine("🔧 Adding Infrastructure...");
     builder.Services.AddInfrastructure(builder.Configuration);
@@ -258,23 +303,21 @@ try
     Console.WriteLine("📦 Adding Application Services...");
     builder.Services.AddApplication();
 
-    var app = builder.Build();
 
+    var app = builder.Build();
     Console.WriteLine("🔄 Configuring Middleware...");
 
-    // Middleware për CORS preflight - 
+
     app.Use(async (context, next) =>
     {
         if (context.Request.Method == "OPTIONS")
         {
-        
             context.Response.Headers.Append("Access-Control-Allow-Origin", context.Request.Headers["Origin"]);
             context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-          
             context.Response.Headers.Append("Access-Control-Allow-Headers", 
                 "Content-Type, Authorization, X-Requested-With, Origin, Accept, Expires, Pragma, Cache-Control, X-CSRF-TOKEN, Access-Control-Allow-Headers");
             context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
-            context.Response.Headers.Append("Access-Control-Max-Age", "86400"); // 24 hours
+            context.Response.Headers.Append("Access-Control-Max-Age", "86400");
             context.Response.Headers.Append("Access-Control-Expose-Headers", "*");
             context.Response.StatusCode = 200;
             await context.Response.CompleteAsync();
@@ -286,7 +329,7 @@ try
 
     app.UseStaticFiles();
 
-    // Swagger UI
+
     app.UseSwagger();
     app.UseSwaggerUI(c => 
     {
@@ -297,11 +340,11 @@ try
 
     app.UseRouting();
     
-
     app.UseCors("AllowFrontend");
     
     app.UseAuthentication();
     app.UseAuthorization();
+
 
     Console.WriteLine("🗄️ Applying database migrations...");
     using (var scope = app.Services.CreateScope())
@@ -322,6 +365,7 @@ try
         }
     }
 
+
     var webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
     if (!Directory.Exists(webRootPath))
     {
@@ -336,7 +380,9 @@ try
         Console.WriteLine($"✅ Created uploads directory: {uploadsPath}");
     }
 
-    // Endpoint testues për CORS
+  
+    
+    // Test CORS
     app.MapGet("/api/cors-test", (HttpContext context) =>
     {
         return Results.Json(new
@@ -350,6 +396,7 @@ try
         });
     }).AllowAnonymous();
 
+    // Test Headers
     app.MapGet("/api/test-headers", (HttpContext context) =>
     {
         return Results.Json(new
@@ -362,6 +409,82 @@ try
             timestamp = DateTime.UtcNow
         });
     }).AllowAnonymous();
+
+
+    app.MapGet("/api/test-websocket", async () =>
+    {
+        return Results.Json(new
+        {
+            success = true,
+            message = "WebSocket endpoint available",
+            url = "ws://localhost:5224/notificationHub",
+            requiresToken = true,
+            timestamp = DateTime.UtcNow,
+            testCommand = "Connect with: new WebSocket(`ws://localhost:5224/notificationHub?access_token=YOUR_JWT_TOKEN`)"
+        });
+    }).AllowAnonymous();
+
+    app.MapPost("/api/test-notification", async (HttpContext context) =>
+    {
+        try
+        {
+            var notificationService = context.RequestServices.GetRequiredService<INotificationService>();
+            var hubContext = context.RequestServices.GetRequiredService<IHubContext<NotificationHub>>();
+            
+     
+            var userId = context.User.FindFirst("nameid")?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                userId = "fafb6bc2-16db-4e66-a1f6-de4ca9c5f829"; 
+            }
+
+            Console.WriteLine($"🔔 Sending test notification to user: {userId}");
+            
+     
+            var notification = await notificationService.CreateNotificationAsync(
+                Guid.Parse(userId),
+                "Test Notification",
+                "This is a test notification from the API",
+                TourismHub.Domain.Enums.NotificationType.System,
+                null
+            );
+
+   
+            await hubContext.Clients.User(userId)
+                .SendAsync("ReceiveNotification", new
+                {
+                    notification.Id,
+                    notification.Title,
+                    notification.Message,
+                    Type = notification.Type.ToString(),
+                    TypeValue = (int)notification.Type,
+                    notification.RelatedId,
+                    notification.IsRead,
+                    notification.CreatedAt,
+                    TimeAgo = "Just now"
+                });
+
+            return Results.Json(new
+            {
+                success = true,
+                message = "Test notification sent!",
+                notificationId = notification.Id,
+                userId = userId,
+                timestamp = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error sending test notification: {ex.Message}");
+            return Results.Json(new
+            {
+                success = false,
+                error = ex.Message,
+                stackTrace = ex.StackTrace
+            });
+        }
+    }).AllowAnonymous();
+
 
     app.MapPost("/api/test-payment", async (HttpContext context) =>
     {
@@ -424,6 +547,7 @@ try
         }
     }).AllowAnonymous();
 
+  
     app.MapGet("/test-stripe-now", async () =>
     {
         try
@@ -477,6 +601,7 @@ try
             });
         }
     }).AllowAnonymous();
+
 
     app.MapGet("/test-my-new-key", async () =>
     {
@@ -548,6 +673,7 @@ try
         }
     }).AllowAnonymous();
 
+
     app.MapGet("/api/test-stripe", () =>
     {
         return new
@@ -560,6 +686,7 @@ try
             timestamp = DateTime.UtcNow
         };
     }).AllowAnonymous();
+
 
     app.MapPost("/api/payments/simple-test", async () =>
     {
@@ -602,6 +729,7 @@ try
         }
     }).AllowAnonymous();
 
+
     app.MapPost("/api/test-email", async (HttpContext context) =>
     {
         try
@@ -631,6 +759,7 @@ try
         }
     }).AllowAnonymous();
 
+
     app.Use(async (context, next) =>
     {
         try
@@ -649,36 +778,52 @@ try
         }
     });
 
+ 
     app.MapControllers();
+    
 
-    app.MapGet("/", () => "TourismHub API is running with PostgreSQL and Stripe!");
+    app.MapHub<NotificationHub>("/notificationHub");
+    
+    app.MapGet("/", () => "TourismHub API is running with PostgreSQL, Stripe, and Real-time Notifications!");
+    
     app.MapGet("/api/health", () => new { 
         status = "Healthy", 
         database = "PostgreSQL",
         stripe = "Configured with NEW STANDARD KEY",
+        websocket = "SignalR Notifications Enabled",
         email = "Configured for Gmail",
+        timestamp = DateTime.UtcNow,
         testUrls = new {
+            testNotification = "http://localhost:5224/api/test-notification",
+            testWebSocket = "http://localhost:5224/api/test-websocket",
             testNewKey = "http://localhost:5224/test-my-new-key",
             quickTest = "http://localhost:5224/test-stripe-now",
             simpleTest = "http://localhost:5224/api/payments/simple-test",
             testEmail = "http://localhost:5224/api/test-email",
             corsTest = "http://localhost:5224/api/cors-test",
             headersTest = "http://localhost:5224/api/test-headers"
-        },
-        timestamp = DateTime.UtcNow 
+        }
     });
 
-    Console.WriteLine("🎉 TourismHub API is running on http://localhost:5224");
-    Console.WriteLine("📚 Swagger available at http://localhost:5224/swagger");
-    Console.WriteLine("💰 Stripe Payments Configured with NEW STANDARD KEY");
-    Console.WriteLine("📧 Email Service Configured for Gmail");
-    Console.WriteLine("🔗 Test CORS: http://localhost:5224/api/cors-test");
-    Console.WriteLine("🔗 Test Headers: http://localhost:5224/api/test-headers");
-    Console.WriteLine("🔗 Test Your New Key: http://localhost:5224/test-my-new-key");
-    Console.WriteLine("📧 Test Email: http://localhost:5224/api/test-email");
-    Console.WriteLine("🔐 Forgot Password: http://localhost:5224/api/auth/forgot-password (në AuthController)");
-    Console.WriteLine("💳 Test Card: 4242 4242 4242 4242");
+   
+    Console.WriteLine("\n" + new string('=', 60));
+    Console.WriteLine("🎉 TourismHub API STARTED SUCCESSFULLY!");
+    Console.WriteLine(new string('=', 60));
+    Console.WriteLine("🌐 URL: http://localhost:5224");
+    Console.WriteLine("📚 Swagger: http://localhost:5224/swagger");
+    Console.WriteLine("🔔 WebSocket: ws://localhost:5224/notificationHub");
+    Console.WriteLine("💰 Stripe: Configured with NEW STANDARD KEY");
+    Console.WriteLine("📧 Email: Configured for Gmail");
+    Console.WriteLine("\n🔗 Test URLs:");
+    Console.WriteLine("  • Test Notifications: http://localhost:5224/api/test-notification");
+    Console.WriteLine("  • Test WebSocket: http://localhost:5224/api/test-websocket");
+    Console.WriteLine("  • Test CORS: http://localhost:5224/api/cors-test");
+    Console.WriteLine("  • Test Your New Key: http://localhost:5224/test-my-new-key");
+    Console.WriteLine("  • Test Email: http://localhost:5224/api/test-email");
+    Console.WriteLine("\n💳 Test Card: 4242 4242 4242 4242");
+    Console.WriteLine("🔐 Token Claim: 'nameid' must contain user ID for WebSocket auth");
     Console.WriteLine("🛑 Press Ctrl+C to stop the application");
+    Console.WriteLine(new string('=', 60) + "\n");
 
     app.Run();
 }

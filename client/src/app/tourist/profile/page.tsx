@@ -4,6 +4,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ContactButton from '@/components/ContactButton';
+import NotificationBell from '@/components/NotificationBell';
+
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
 
@@ -93,6 +95,7 @@ export default function TouristProfilePage() {
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const router = useRouter();
+
 
   useEffect(() => {
     fetchProfileData();
@@ -523,7 +526,7 @@ export default function TouristProfilePage() {
     router.push(`/chats?providerId=${providerId}`);
   };
 
-  if (loading) {
+ if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -534,7 +537,7 @@ export default function TouristProfilePage() {
     );
   }
 
-  if (!user) {
+   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -554,6 +557,7 @@ export default function TouristProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+     
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
@@ -562,15 +566,20 @@ export default function TouristProfilePage() {
               <p className="text-gray-600">Manage your account and bookings</p>
             </div>
             <div className="flex items-center space-x-4">
+           
+              <div className="relative">
+                <NotificationBell />
+              </div>
+              
               <button
-                onClick={() => router.push('/')}
-                className="px-4 py-2 text-blue-600 hover:text-blue-800"
+                onClick={() => router.push('/tourist/activities')}
+                className="px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
               >
-                ← Back to Home
+                ← Back to Activities
               </button>
               <button
-                onClick={() => router.push('/tourist/profile')}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                onClick={() => router.push('/tourist/dashboard')}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
               >
                 Dashboard
               </button>
@@ -578,6 +587,7 @@ export default function TouristProfilePage() {
           </div>
         </div>
       </header>
+
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">

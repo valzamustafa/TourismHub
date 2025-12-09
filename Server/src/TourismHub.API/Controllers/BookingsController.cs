@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using TourismHub.API.Hubs;
 using TourismHub.Application.Services;
 using TourismHub.Domain.Entities;
 using TourismHub.Application.DTOs.Booking; 
@@ -10,11 +12,22 @@ public class BookingsController : ControllerBase
 {
     private readonly BookingService _bookingService;
     private readonly ActivityService _activityService;
+    private readonly INotificationService _notificationService;
+    private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly UserService _userService;
 
-    public BookingsController(BookingService bookingService, ActivityService activityService)
+    public BookingsController(
+        BookingService bookingService, 
+        ActivityService activityService,
+        INotificationService notificationService,
+        IHubContext<NotificationHub> hubContext,
+        UserService userService)
     {
         _bookingService = bookingService;
         _activityService = activityService;
+        _notificationService = notificationService;
+        _hubContext = hubContext;
+        _userService = userService;
     }
 
     [HttpGet("user/{userId}")]
@@ -135,6 +148,44 @@ public class BookingsController : ControllerBase
             };
 
             var createdBooking = await _bookingService.CreateBookingAsync(booking);
+            
+        
+            await _notificationService.SendRealTimeNotification(
+                _hubContext,
+                createDto.UserId,
+                "Booking Confirmed",
+                $"Your booking for {createdBooking.BookingDate.ToShortDateString()} has been created successfully.",
+                NotificationType.Booking,
+                createdBooking.Id
+            );
+
+
+            var activity = await _activityService.GetActivityByIdAsync(createDto.ActivityId);
+            if (activity?.ProviderId != null)
+            {
+                await _notificationService.SendRealTimeNotification(
+                    _hubContext,
+                    activity.ProviderId.Value,
+                    "New Booking",
+                    $"You have a new booking for '{activity.Name}' on {createdBooking.BookingDate.ToShortDateString()}.",
+                    NotificationType.Booking,
+                    createdBooking.Id
+                );
+            }
+
+            var admins = await _userService.GetUsersByRoleAsync(UserRole.Admin);
+            foreach (var admin in admins)
+            {
+                await _notificationService.SendRealTimeNotification(
+                    _hubContext,
+                    admin.Id,
+                    "New Booking Created",
+                    $"New booking created by user for activity '{activity?.Name ?? "Unknown"}'.",
+                    NotificationType.Booking,
+                    createdBooking.Id
+                );
+            }
+
             return Ok(new { message = "Booking created successfully", bookingId = createdBooking.Id });
         }
         catch (Exception ex)
@@ -142,7 +193,6 @@ public class BookingsController : ControllerBase
             return StatusCode(500, new { message = "An error occurred while creating the booking", error = ex.Message });
         }
     }
-
 
     [HttpPut("{bookingId}/cancel")]
     public async Task<IActionResult> CancelBooking(Guid bookingId)
@@ -154,6 +204,32 @@ public class BookingsController : ControllerBase
             if (!result)
             {
                 return NotFound(new { message = "Booking not found or cannot be cancelled" });
+            }
+
+            var booking = await _bookingService.GetBookingByIdAsync(bookingId);
+            if (booking != null)
+            {
+                await _notificationService.SendRealTimeNotification(
+                    _hubContext,
+                    booking.UserId,
+                    "Booking Cancelled",
+                    $"Your booking has been cancelled successfully.",
+                    NotificationType.Booking,
+                    bookingId
+                );
+
+                var activity = await _activityService.GetActivityByIdAsync(booking.ActivityId);
+                if (activity?.ProviderId != null)
+                {
+                    await _notificationService.SendRealTimeNotification(
+                        _hubContext,
+                        activity.ProviderId.Value,
+                        "Booking Cancelled",
+                        $"Booking #{bookingId} has been cancelled by the user.",
+                        NotificationType.Booking,
+                        bookingId
+                    );
+                }
             }
 
             return Ok(new { message = "Booking cancelled successfully" });
