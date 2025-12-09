@@ -15,6 +15,8 @@ namespace TourismHub.Application.Services
         Task<bool> UnsaveActivityAsync(Guid userId, Guid activityId);
         Task<List<SavedActivityDto>> GetUserSavedActivitiesAsync(Guid userId);
         Task<bool> IsActivitySavedAsync(Guid userId, Guid activityId);
+         Task<IEnumerable<SavedActivity>> GetRecentlySavedActivitiesAsync(Guid userId, int count);
+        Task<int> GetSavedActivitiesCountAsync(Guid userId);
     }
 
     public class SavedActivityService : ISavedActivityService
@@ -110,5 +112,54 @@ namespace TourismHub.Application.Services
             return await _context.SavedActivities
                 .AnyAsync(s => s.UserId == userId && s.ActivityId == activityId);
         }
+        public async Task<IEnumerable<SavedActivity>> GetRecentlySavedActivitiesAsync(Guid userId, int count)
+{
+    try
+    {
+        if (count <= 0) 
+            count = 5; 
+        
+        if (count > 50) 
+            count = 50; 
+
+        var recentlySaved = await _context.SavedActivities
+            .Where(s => s.UserId == userId)
+            .Include(s => s.Activity)
+                .ThenInclude(a => a.Category)
+            .Include(s => s.Activity)
+                .ThenInclude(a => a.Images)
+            .Include(s => s.Activity)
+                .ThenInclude(a => a.Provider)
+            .OrderByDescending(s => s.SavedAt)
+            .Take(count)
+            .ToListAsync();
+
+        return recentlySaved;
+    }
+    catch (Exception ex)
+    {
+ 
+        Console.WriteLine($"Error getting recently saved activities: {ex.Message}");
+        throw;
+    }
+}
+
+public async Task<int> GetSavedActivitiesCountAsync(Guid userId)
+{
+    try
+    {
+        var count = await _context.SavedActivities
+            .Where(s => s.UserId == userId)
+            .CountAsync();
+
+        return count;
+    }
+    catch (Exception ex)
+    {
+  
+        Console.WriteLine($"Error getting saved activities count: {ex.Message}");
+        return 0;
+    }
+}
     }
 }

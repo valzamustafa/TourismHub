@@ -1,10 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
+using TourismHub.API.Hubs;
 using TourismHub.Application.DTOs;
 using TourismHub.Application.Interfaces;
+using TourismHub.Application.Interfaces.Services;
+using TourismHub.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using TourismHub.Infrastructure.Persistence;
+using TourismHub.Application.Services;
 
 namespace TourismHub.API.Controllers
 {
@@ -15,16 +20,25 @@ namespace TourismHub.API.Controllers
     {
         private readonly IChatService _chatService;
         private readonly ILogger<ChatsController> _logger;
-        private readonly TourismHubDbContext _context; 
+        private readonly TourismHubDbContext _context;
+        private readonly INotificationService _notificationService;
+        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly UserService _userService;
 
         public ChatsController(
             IChatService chatService, 
             ILogger<ChatsController> logger,
-            TourismHubDbContext context)
+            TourismHubDbContext context,
+            INotificationService notificationService,
+            IHubContext<NotificationHub> hubContext,
+            UserService userService)
         {
             _chatService = chatService;
             _logger = logger;
             _context = context;
+            _notificationService = notificationService;
+            _hubContext = hubContext;
+            _userService = userService;
         }
 
         private Guid GetUserId()
@@ -37,7 +51,6 @@ namespace TourismHub.API.Controllers
             return Guid.Parse(userIdClaim);
         }
 
-
         [HttpPost("start")]
         public async Task<IActionResult> StartChat([FromBody] StartChatDto dto)
         {
@@ -46,6 +59,16 @@ namespace TourismHub.API.Controllers
                 var userId = GetUserId();
                 var chat = await _chatService.StartChatAsync(userId, dto.OtherUserId);
                 
+                // ✅ Dërgo notifikim për user-in tjetër
+                await _notificationService.SendRealTimeNotification(
+                    _hubContext,
+                    dto.OtherUserId,
+                    "New Chat Started",
+                    $"{User.FindFirst(ClaimTypes.Name)?.Value ?? "Someone"} started a chat with you.",
+                    NotificationType.Message,
+                    chat.Id
+                );
+
                 return Ok(new { 
                     success = true, 
                     chatId = chat.Id,
@@ -58,7 +81,6 @@ namespace TourismHub.API.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-
 
         [HttpGet("my-chats")]
         public async Task<IActionResult> GetMyChats()
@@ -101,7 +123,6 @@ namespace TourismHub.API.Controllers
             }
         }
 
-
         [HttpGet("{chatId}/messages")]
         public async Task<IActionResult> GetMessages(Guid chatId)
         {
@@ -110,7 +131,6 @@ namespace TourismHub.API.Controllers
                 var userId = GetUserId();
                 var messages = await _chatService.GetChatMessagesAsync(chatId, userId);
                 
- 
                 await _chatService.MarkAsReadAsync(chatId, userId);
                 
                 var messageDtos = messages.Select(m => new
@@ -140,7 +160,6 @@ namespace TourismHub.API.Controllers
             }
         }
 
- 
         [HttpPost("{chatId}/send")]
         public async Task<IActionResult> SendMessage(Guid chatId, [FromBody] SendMessageDto dto)
         {
@@ -149,6 +168,23 @@ namespace TourismHub.API.Controllers
                 var userId = GetUserId();
                 var message = await _chatService.SendMessageAsync(chatId, userId, dto.Content);
                 
+        
+                var chat = await _chatService.GetChatByIdAsync(chatId);
+                if (chat != null)
+                {
+                    var recipientId = chat.ProviderId == userId ? chat.TouristId : chat.ProviderId;
+                    
+              
+                    await _notificationService.SendRealTimeNotification(
+                        _hubContext,
+                        recipientId,
+                        "New Message",
+                        $"{User.FindFirst(ClaimTypes.Name)?.Value ?? "Someone"}: {dto.Content}",
+                        NotificationType.Message,
+                        chatId
+                    );
+                }
+
                 return Ok(new { 
                     success = true, 
                     message = new {
@@ -172,7 +208,6 @@ namespace TourismHub.API.Controllers
             }
         }
 
- 
         [HttpPost("{chatId}/read")]
         public async Task<IActionResult> MarkAsRead(Guid chatId)
         {
@@ -193,7 +228,6 @@ namespace TourismHub.API.Controllers
             }
         }
 
-  
         [HttpGet("unread-count")]
         public async Task<IActionResult> GetUnreadCount()
         {
@@ -254,7 +288,6 @@ namespace TourismHub.API.Controllers
             }
         }
 
- 
         [HttpPost("admin/start")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> StartChatAsAdmin([FromBody] StartChatDto dto)
@@ -264,6 +297,16 @@ namespace TourismHub.API.Controllers
                 var adminId = GetUserId();
                 var chat = await _chatService.StartChatAsAdminAsync(adminId, dto.OtherUserId);
                 
+          
+                await _notificationService.SendRealTimeNotification(
+                    _hubContext,
+                    dto.OtherUserId,
+                    "Admin Started Chat",
+                    "An admin has started a chat with you.",
+                    NotificationType.Message,
+                    chat.Id
+                );
+
                 return Ok(new { 
                     success = true, 
                     chatId = chat.Id,
@@ -276,7 +319,6 @@ namespace TourismHub.API.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-
 
         [HttpGet("{chatId}")]
         public async Task<IActionResult> GetChatInfo(Guid chatId)

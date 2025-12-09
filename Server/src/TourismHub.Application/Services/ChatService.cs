@@ -22,6 +22,26 @@ namespace TourismHub.Application.Services
             _context = context;
             _logger = logger;
         }
+        public async Task<Chat?> GetChatByIdAsync(Guid chatId)
+{
+    try
+    {
+        _logger.LogInformation($"Getting chat by ID: {chatId}");
+        
+        var chat = await _context.Chats
+            .Include(c => c.Provider)
+            .Include(c => c.Tourist)
+            .Include(c => c.Messages)
+            .FirstOrDefaultAsync(c => c.Id == chatId);
+
+        return chat;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, $"Error getting chat by ID: {chatId}");
+        throw;
+    }
+}
 
         public async Task<Chat> StartChatAsync(Guid userId, Guid otherUserId)
 {

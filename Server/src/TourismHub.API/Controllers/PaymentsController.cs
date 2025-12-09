@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using TourismHub.API.Hubs;
 using TourismHub.Application.Services;
 using TourismHub.Domain.Entities;
 using TourismHub.Domain.Enums;
 using Microsoft.Extensions.Logging;
+
 namespace TourismHub.API.Controllers
 {
     [Route("api/[controller]")]
@@ -13,11 +16,28 @@ namespace TourismHub.API.Controllers
     {
         private readonly PaymentService _paymentService;
         private readonly ILogger<PaymentsController> _logger;
+        private readonly INotificationService _notificationService;
+        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly BookingService _bookingService;
+        private readonly ActivityService _activityService;
+        private readonly UserService _userService;
 
-        public PaymentsController(PaymentService paymentService, ILogger<PaymentsController> logger)
+        public PaymentsController(
+            PaymentService paymentService, 
+            ILogger<PaymentsController> logger,
+            INotificationService notificationService,
+            IHubContext<NotificationHub> hubContext,
+            BookingService bookingService,
+            ActivityService activityService,
+            UserService userService)
         {
             _paymentService = paymentService;
             _logger = logger;
+            _notificationService = notificationService;
+            _hubContext = hubContext;
+            _bookingService = bookingService;
+            _activityService = activityService;
+            _userService = userService;
         }
 
         [HttpPost("create-payment-intent")]
@@ -71,6 +91,46 @@ namespace TourismHub.API.Controllers
                     request.PaymentIntentId,
                     request.Amount);
 
+               
+                var booking = await _bookingService.GetBookingByIdAsync(request.BookingId);
+                if (booking != null)
+                {
+                    await _notificationService.SendRealTimeNotification(
+                        _hubContext,
+                        booking.UserId,
+                        "Payment Successful",
+                        $"Your payment of {request.Amount:C} has been processed successfully.",
+                        NotificationType.Payment,
+                        payment.Id
+                    );
+
+                    var activity = await _activityService.GetActivityByIdAsync(booking.ActivityId);
+                    if (activity?.ProviderId != null)
+                    {
+                        await _notificationService.SendRealTimeNotification(
+                            _hubContext,
+                            activity.ProviderId.Value,
+                            "Payment Received",
+                            $"You have received a payment of {request.Amount:C} for booking #{request.BookingId}.",
+                            NotificationType.Payment,
+                            payment.Id
+                        );
+                    }
+
+                    var admins = await _userService.GetUsersByRoleAsync(UserRole.Admin);
+                    foreach (var admin in admins)
+                    {
+                        await _notificationService.SendRealTimeNotification(
+                            _hubContext,
+                            admin.Id,
+                            "Payment Processed",
+                            $"Payment of {request.Amount:C} processed for booking #{request.BookingId}.",
+                            NotificationType.Payment,
+                            payment.Id
+                        );
+                    }
+                }
+
                 return Ok(new
                 {
                     success = true,
@@ -90,6 +150,20 @@ namespace TourismHub.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error confirming payment for booking {request.BookingId}");
+    
+                var booking = await _bookingService.GetBookingByIdAsync(request.BookingId);
+                if (booking != null)
+                {
+                    await _notificationService.SendRealTimeNotification(
+                        _hubContext,
+                        booking.UserId,
+                        "Payment Failed",
+                        $"Your payment failed: {ex.Message}",
+                        NotificationType.Payment,
+                        booking.Id
+                    );
+                }
+                
                 return BadRequest(new
                 {
                     success = false,
@@ -295,7 +369,6 @@ namespace TourismHub.API.Controllers
             }
         }
     }
-
 
     public class CreatePaymentIntentRequest
     {

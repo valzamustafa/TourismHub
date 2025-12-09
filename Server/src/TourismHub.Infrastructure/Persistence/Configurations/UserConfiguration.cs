@@ -52,6 +52,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.LastLogin)
             .IsRequired(false);
+            builder.HasMany(u => u.Notifications)
+                .WithOne(n => n.User)
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(u => u.Email)
             .IsUnique();

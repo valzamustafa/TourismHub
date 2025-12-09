@@ -14,6 +14,7 @@ namespace TourismHub.Application.Interfaces
         Task<ChatMessage> SendMessageAsync(Guid chatId, Guid senderId, string content);
         Task MarkAsReadAsync(Guid chatId, Guid userId);
         Task<int> GetUnreadCountAsync(Guid userId);
+        Task<Chat?> GetChatByIdAsync(Guid chatId);
         Task<List<Chat>> GetAllChatsForAdminAsync();
         Task<Chat> StartChatAsAdminAsync(Guid adminId, Guid otherUserId);
         Task<Chat> GetOrCreateChatForActivityAsync(Guid activityId);

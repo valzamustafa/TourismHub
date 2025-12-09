@@ -1,6 +1,10 @@
 // components/AdminDashboard.tsx
 import React, { useState, useEffect } from 'react';
 import AnalyticsReports from './AnalyticsReports';
+
+
+import NotificationBell from './NotificationBell';
+
 interface StatCardProps {
   title: string;
   value: string | number;
@@ -3334,6 +3338,7 @@ const AdminDashboard: React.FC = () => {
   const [pendingActivities, setPendingActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const [notificationsCount, setNotificationsCount] = useState(0);
   
   const menuItems = [
     { text: 'Dashboard', icon: '📊', section: 'dashboard' },
@@ -3379,6 +3384,12 @@ const AdminDashboard: React.FC = () => {
     const userData = localStorage.getItem('user');
     if (userData) {
       setUser(JSON.parse(userData));
+    }
+    
+   
+    const savedCount = localStorage.getItem('notificationCount');
+    if (savedCount) {
+      setNotificationsCount(parseInt(savedCount));
     }
     
     const fetchData = async () => {
@@ -3460,6 +3471,19 @@ const AdminDashboard: React.FC = () => {
       setFilteredBookings(filtered);
     }
   }, [selectedProvider, bookings, activities]);
+
+
+  useEffect(() => {
+    const handleNotificationCountUpdated = (event: CustomEvent) => {
+      setNotificationsCount(event.detail.count);
+    };
+
+    window.addEventListener('notification-count-updated', handleNotificationCountUpdated as EventListener);
+
+    return () => {
+      window.removeEventListener('notification-count-updated', handleNotificationCountUpdated as EventListener);
+    };
+  }, []);
 
   const revenueData = [
     { month: 'Jan', revenue: 4000 },
@@ -3832,25 +3856,8 @@ const AdminDashboard: React.FC = () => {
           {menuItems.find(item => item.section === activeSection)?.text || 'Dashboard'}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ position: 'relative' }}>
-            <span style={{ cursor: 'pointer', fontSize: '24px' }}>🔔</span>
-            <div style={{ 
-              position: 'absolute', 
-              top: '-4px', 
-              right: '-4px', 
-              backgroundColor: '#f44336', 
-              color: 'white', 
-              borderRadius: '50%', 
-              width: '16px', 
-              height: '16px', 
-              fontSize: '10px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center' 
-            }}>
-              {pendingActivities.length}
-            </div>
-          </div>
+
+          <NotificationBell />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ 
               width: '32px', 
