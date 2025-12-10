@@ -23,7 +23,7 @@ namespace TourismHub.Infrastructure.Persistence
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<Chat> Chats { get; set; }
-
+public DbSet<About> About { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

@@ -1,3 +1,7 @@
+'use client';
+
+import React from 'react';
+
 interface TabsNavigationProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -36,17 +40,33 @@ const TabsNavigation = ({ activeTab, setActiveTab }: TabsNavigationProps) => {
       gradient: 'from-purple-500 to-indigo-600',
       bgGradient: 'from-purple-900/30 to-indigo-900/30',
       description: 'Analytics & insights'
+    },
+    { 
+      id: 'reviews', 
+      label: 'Reviews', 
+      icon: '⭐', 
+      gradient: 'from-yellow-500 to-amber-600',
+      bgGradient: 'from-yellow-900/30 to-amber-900/30',
+      description: 'Customer feedback'
+    },
+    { 
+      id: 'chats', 
+      label: 'Chats', 
+      icon: '💬', 
+      gradient: 'from-pink-500 to-rose-600',
+      bgGradient: 'from-pink-900/30 to-rose-900/30',
+      description: 'Message center'
     }
   ];
 
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-2 border border-gray-700 shadow-lg mb-8">
-      <nav className="flex space-x-2">
+      <nav className="flex flex-wrap gap-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 py-4 px-4 rounded-xl transition-all duration-300 group relative overflow-hidden ${
+            className={`flex-1 min-w-[140px] py-4 px-4 rounded-xl transition-all duration-300 group relative overflow-hidden ${
               activeTab === tab.id
                 ? `bg-gradient-to-r ${tab.gradient} text-white shadow-lg transform scale-105`
                 : `bg-gradient-to-br ${tab.bgGradient} text-gray-400 hover:text-white hover:bg-gray-700/50 border border-gray-700`

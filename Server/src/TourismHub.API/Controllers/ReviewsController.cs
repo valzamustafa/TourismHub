@@ -1,63 +1,318 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using TourismHub.Application.Dtos.Review;
+using TourismHub.Application.Services;
 using TourismHub.Domain.Entities;
-using TourismHub.Application.DTOs.Review;
-[ApiController]
-[Route("api/[controller]")]
-public class ReviewsController : ControllerBase
+using System.Security.Claims;
+
+namespace TourismHub.Controllers
 {
-    private static readonly List<Review> _reviews = new();
-
-    [HttpGet]
-    public IActionResult GetReviews([FromQuery] Guid? activityId = null, [FromQuery] Guid? userId = null)
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ReviewsController : ControllerBase
     {
-        var reviews = _reviews.AsEnumerable();
+        private readonly TourismHub.Application.Services.ReviewService _reviewService;
+        private readonly ILogger<ReviewsController> _logger;
 
-        if (activityId.HasValue)
-            reviews = reviews.Where(r => r.ActivityId == activityId.Value);
-
-        if (userId.HasValue)
-            reviews = reviews.Where(r => r.UserId == userId.Value);
-
-        return Ok(reviews.ToList());
-    }
-
-    [HttpGet("{id}")]
-    public IActionResult GetReview(Guid id)
-    {
-        var review = _reviews.FirstOrDefault(r => r.Id == id);
-        if (review == null) return NotFound();
-        return Ok(review);
-    }
-
-    [HttpPost]
-    public IActionResult CreateReview([FromBody] ReviewCreateDto dto)
-    {
-        // Validate rating range
-        if (dto.Rating < 1 || dto.Rating > 5)
-            return BadRequest("Rating must be between 1 and 5");
-
-        var review = new Review
+        public ReviewsController(TourismHub.Application.Services.ReviewService reviewService, ILogger<ReviewsController> logger)
         {
-            Id = Guid.NewGuid(),
-            ActivityId = dto.ActivityId,
-            UserId = dto.UserId,
-            Rating = dto.Rating,
-            Comment = dto.Comment,
-            CreatedAt = DateTime.UtcNow
-        };
+            _reviewService = reviewService;
+            _logger = logger;
+        }
+        [HttpGet("activity/{activityId}")]
+        public async Task<IActionResult> GetActivityReviews(Guid activityId)
+        {
+            try
+            {
+                var reviews = await _reviewService.GetActivityReviewsAsync(activityId);
+                var reviewDtos = reviews.Select(r => new ReviewViewDto
+                {
+                    Id = r.Id,
+                    ActivityId = r.ActivityId,
+                    UserName = r.User?.FullName ?? "Anonymous User",
+                    Rating = r.Rating,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt
+                }).ToList();
 
-        _reviews.Add(review);
-        return CreatedAtAction(nameof(GetReview), new { id = review.Id }, review);
-    }
+                return Ok(new { success = true, data = reviewDtos });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching reviews for activity {ActivityId}", activityId);
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+        [HttpGet("user/{userId}")]
+        [Authorize]
+        public async Task<IActionResult> GetUserReviews(Guid userId)
+        {
+            try
+            {
+                var reviews = await _reviewService.GetUserReviewsAsync(userId);
+                var reviewDtos = reviews.Select(r => new ReviewViewDto
+                {
+                    Id = r.Id,
+                    ActivityId = r.ActivityId,
+                    UserName = r.User?.FullName ?? "Anonymous User",
+                    Rating = r.Rating,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt
+                }).ToList();
 
-    [HttpDelete("{id}")]
-    public IActionResult DeleteReview(Guid id)
-    {
-        var review = _reviews.FirstOrDefault(r => r.Id == id);
-        if (review == null) return NotFound();
+                return Ok(new { success = true, data = reviewDtos });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching reviews for user {UserId}", userId);
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+        [HttpGet("activity/{activityId}/average")]
+        public async Task<IActionResult> GetAverageRating(Guid activityId)
+        {
+            try
+            {
+                var averageRating = await _reviewService.GetActivityAverageRatingAsync(activityId);
+                return Ok(new { success = true, averageRating });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching average rating for activity {ActivityId}", activityId);
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
 
-        _reviews.Remove(review);
-        return NoContent();
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> CreateReview([FromBody] ReviewCreateDto createDto)
+        {
+            try
+            {
+                var review = new Review
+                {
+                    Id = Guid.NewGuid(),
+                    ActivityId = createDto.ActivityId,
+                    UserId = createDto.UserId,
+                    Rating = createDto.Rating,
+                    Comment = createDto.Comment,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _reviewService.CreateReviewAsync(review);
+
+                return Ok(new { 
+                    success = true, 
+                    message = "Review created successfully",
+                    reviewId = review.Id
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating review");
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+        [HttpPut("{id}")]
+        [Authorize]
+        public async Task<IActionResult> UpdateReview(Guid id, [FromBody] ReviewUpdateDto updateDto)
+        {
+            try
+            {
+                var review = await _reviewService.GetReviewByIdAsync(id);
+                if (review == null)
+                {
+                    return NotFound(new { success = false, message = "Review not found" });
+                }
+                var currentUserId = GetCurrentUserId();
+                if (review.UserId.ToString() != currentUserId && !User.IsInRole("Admin"))
+                {
+                    return Forbid();
+                }
+
+                review.Rating = updateDto.Rating;
+                review.Comment = updateDto.Comment;
+
+                await _reviewService.UpdateReviewAsync(review);
+
+                return Ok(new { success = true, message = "Review updated successfully" });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating review {ReviewId}", id);
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<IActionResult> DeleteReview(Guid id)
+        {
+            try
+            {
+                var review = await _reviewService.GetReviewByIdAsync(id);
+                if (review == null)
+                {
+                    return NotFound(new { success = false, message = "Review not found" });
+                }
+                var currentUserId = GetCurrentUserId();
+                if (review.UserId.ToString() != currentUserId && !User.IsInRole("Admin"))
+                {
+                    return Forbid();
+                }
+
+                await _reviewService.DeleteReviewAsync(id);
+
+                return Ok(new { success = true, message = "Review deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting review {ReviewId}", id);
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetReview(Guid id)
+        {
+            try
+            {
+                var review = await _reviewService.GetReviewByIdAsync(id);
+                if (review == null)
+                {
+                    return NotFound(new { success = false, message = "Review not found" });
+                }
+
+                var reviewDto = new ReviewViewDto
+                {
+                    Id = review.Id,
+                    ActivityId = review.ActivityId,
+                    UserName = review.User?.FullName ?? "Anonymous User",
+                    Rating = review.Rating,
+                    Comment = review.Comment,
+                    CreatedAt = review.CreatedAt
+                };
+
+                return Ok(new { success = true, data = reviewDto });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching review {ReviewId}", id);
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+        [HttpGet]
+        [Authorize] 
+        public async Task<IActionResult> GetAllReviews()
+        {
+            try
+            {
+                var reviews = await _reviewService.GetAllReviewsAsync();
+                var reviewDtos = reviews.Select(r => new ReviewViewDto
+                {
+                    Id = r.Id,
+                    ActivityId = r.ActivityId,
+                    UserName = r.User?.FullName ?? "Anonymous User",
+                    Rating = r.Rating,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt
+                }).ToList();
+
+                return Ok(new { success = true, data = reviewDtos });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all reviews");
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+        [HttpGet("admin")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAllReviewsAdmin()
+        {
+            try
+            {
+                var reviews = await _reviewService.GetAllReviewsAsync();
+                var reviewDtos = reviews.Select(r => new ReviewViewDto
+                {
+                    Id = r.Id,
+                    ActivityId = r.ActivityId,
+                    UserName = r.User?.FullName ?? "Anonymous User",
+                    Rating = r.Rating,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt
+                }).ToList();
+
+                return Ok(new { success = true, data = reviewDtos });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all reviews for admin");
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+        [HttpGet("public")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPublicReviews()
+        {
+            try
+            {
+                var reviews = await _reviewService.GetAllReviewsAsync();
+                var reviewDtos = reviews.Select(r => new ReviewViewDto
+                {
+                    Id = r.Id,
+                    ActivityId = r.ActivityId,
+                    UserName = "User", 
+                    Rating = r.Rating,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt
+                }).ToList();
+
+                return Ok(new { success = true, data = reviewDtos });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching public reviews");
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+        [HttpGet("all")]
+        [Authorize] 
+        public async Task<IActionResult> GetAllReviewsForUsers()
+        {
+            try
+            {
+                var reviews = await _reviewService.GetAllReviewsAsync();
+                var reviewDtos = reviews.Select(r => new ReviewViewDto
+                {
+                    Id = r.Id,
+                    ActivityId = r.ActivityId,
+                    UserName = r.User?.FullName ?? "Anonymous User",
+                    Rating = r.Rating,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt
+                }).ToList();
+
+                return Ok(new { success = true, data = reviewDtos });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all reviews for users");
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+
+        private string GetCurrentUserId()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return userId ?? string.Empty;
+        }
     }
 }
-

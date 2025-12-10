@@ -1,8 +1,9 @@
 // components/Header.tsx
 'use client';
-
-import { Plus, Bell, User, MapPin, Compass, Lock } from "lucide-react";
+import React from 'react';
+import { Plus, Bell, User, MapPin, Compass, Lock, LogOut } from "lucide-react";
 import NotificationBell from "../NotificationBell";
+import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
   onAddActivity: () => void;
@@ -13,6 +14,16 @@ interface HeaderProps {
 }
 
 const Header = ({ onAddActivity, onChangePassword, showAddButton = true, userName, userLocation = "Mountain Region" }: HeaderProps) => {
+  const router = useRouter();
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('notificationCount');
+    localStorage.removeItem('selectedSection');
+    router.push('/');
+  };
+
   return (
     <header className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 shadow-2xl border-b border-amber-500/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -41,9 +52,7 @@ const Header = ({ onAddActivity, onChangePassword, showAddButton = true, userNam
               <span className="text-gray-300 text-sm">{userLocation}</span>
             </div>
 
-        
             <NotificationBell />
-            
 
             {onChangePassword && (
               <button
@@ -75,6 +84,13 @@ const Header = ({ onAddActivity, onChangePassword, showAddButton = true, userNam
                 <div className="w-2 h-2 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </button>
             )}
+             <button
+              onClick={handleLogout}
+              className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
       </div>

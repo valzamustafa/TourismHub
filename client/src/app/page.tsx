@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { Home } from '@/components/Home';
+import Home from '@/components/Home';
 import { useRouter } from 'next/navigation';
 
 export default function LandingPage() {
@@ -16,7 +16,7 @@ export default function LandingPage() {
       router.push('/booking');
     } else if (page === 'activity-detail') {
       router.push(`/tourist/activities/${data.activityId}`);
-    } else if (page === 'provider-registration') {
+    } else if (page === 'login') {
       router.push('/provider/register');
     }
   };
