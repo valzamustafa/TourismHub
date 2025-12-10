@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import StatsCards from "@/components/provider/StatsCards";
 import TabsNavigation from "@/components/provider/TabsNavigation";
 import ActivitiesTable from "@/components/provider/ActivitiesTable";
+import ReviewsSection from "@/components/provider/ReviewsSection";
 import BookingsTable from "@/components/provider/BookingsTable";
 import AddActivityModal from "@/components/provider/AddActivityModal";
 import EditActivityModal from "@/components/provider/EditActivityModal";
 import ChangePasswordModal from "@/components/provider/ChangePasswordModal";
 import ChatList from "@/components/provider/ChatList";
 import Header from "@/components/provider/Header";
-import { MessageSquare, Activity, Calendar, TrendingUp, Compass } from "lucide-react";
+import { MessageSquare, Activity, Calendar, TrendingUp, Compass, Star } from "lucide-react";
 
 interface Category {
   id: string;
@@ -55,9 +56,20 @@ interface Booking {
   status: string;
 }
 
+interface Review {
+  id: string;
+  activityId: string;
+  activityName: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
 const ProviderDashboard = () => {
   const [activities, setActivities] = useState<ActivityType[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -76,7 +88,12 @@ const ProviderDashboard = () => {
     pendingBookings: 0,
     activeAdventurers: 0,
     popularLocation: "",
-    unreadMessages: 0
+    unreadMessages: 0,
+    activeActivities: 0,
+    upcomingActivities: 0,
+    expiredActivities: 0,
+    totalReviews: 0,
+    averageRating: 0
   });
 
   const [newActivity, setNewActivity] = useState({
@@ -109,6 +126,15 @@ const ProviderDashboard = () => {
     endDate: ''
   });
 
+  const getToken = (): string => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/');
+      throw new Error('No token found');
+    }
+    return token;
+  };
+
   useEffect(() => {
     const userData = localStorage.getItem('user');
     const token = localStorage.getItem('token');
@@ -118,26 +144,30 @@ const ProviderDashboard = () => {
       return;
     }
 
-    const parsedUser = JSON.parse(userData);
-    
-    if (parsedUser.role !== 'Provider') {
-      if (parsedUser.role === 'Admin') {
-        router.push('/admin');
-      } else {
-        router.push('/tourist/dashboard');
+    try {
+      const parsedUser = JSON.parse(userData);
+      
+      if (parsedUser.role !== 'Provider') {
+        if (parsedUser.role === 'Admin') {
+          router.push('/admin');
+        } else {
+          router.push('/tourist/dashboard');
+        }
+        return;
       }
-      return;
-    }
 
-    setUser(parsedUser);
-    fetchProviderData(parsedUser);
-    fetchCategories();
-    fetchUnreadCount();
+      setUser(parsedUser);
+      fetchProviderData(parsedUser, token);
+      fetchCategories(token);
+      fetchUnreadCount(token);
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      router.push('/');
+    }
   }, [router]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (token: string) => {
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5224/api/categories', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -154,11 +184,9 @@ const ProviderDashboard = () => {
     }
   };
 
-  const fetchProviderData = async (userData: any) => {
+  const fetchProviderData = async (userData: any, token: string) => {
     try {
-      const token = localStorage.getItem('token');
-      
-      // Fetch activities
+   
       const activitiesResponse = await fetch(`http://localhost:5224/api/activities/provider/${userData.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -169,15 +197,28 @@ const ProviderDashboard = () => {
       if (activitiesResponse.ok) {
         const activitiesData = await activitiesResponse.json();
         
-        const processedActivities = activitiesData.map((activity: any) => ({
-          ...activity,
-          startDate: activity.startDate || activity.createdAt,
-          endDate: activity.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          status: activity.status || 'Pending',
-          included: Array.isArray(activity.included) ? activity.included : [],
-          requirements: Array.isArray(activity.requirements) ? activity.requirements : [],
-          quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts : []
-        }));
+        const now = new Date();
+        const processedActivities = activitiesData.map((activity: any) => {
+          const startDate = new Date(activity.startDate || activity.createdAt);
+          const endDate = new Date(activity.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+          
+          const isExpired = endDate < now;
+          const isUpcoming = startDate > now;
+          const isActive = !isExpired && !isUpcoming;
+          
+          return {
+            ...activity,
+            startDate: activity.startDate || activity.createdAt,
+            endDate: activity.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            status: activity.status || 'Pending',
+            included: Array.isArray(activity.included) ? activity.included : [],
+            requirements: Array.isArray(activity.requirements) ? activity.requirements : [],
+            quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts : [],
+            isExpired,
+            isUpcoming,
+            isActive
+          };
+        });
         
         setActivities(processedActivities);
         
@@ -189,15 +230,21 @@ const ProviderDashboard = () => {
         const popularLocation = Object.keys(locationCounts).reduce((a, b) => 
           locationCounts[a] > locationCounts[b] ? a : "No locations", "No locations"
         );
+        const activeActivities = processedActivities.filter((a: ActivityType) => a.isActive).length;
+        const upcomingActivities = processedActivities.filter((a: ActivityType) => a.isUpcoming).length;
+        const expiredActivities = processedActivities.filter((a: ActivityType) => a.isExpired).length;
 
         setStats(prev => ({ 
           ...prev, 
           totalActivities: processedActivities.length,
-          popularLocation 
+          popularLocation,
+          activeActivities,
+          upcomingActivities,
+          expiredActivities
         }));
+        await fetchReviewsForActivities(processedActivities, token);
       }
 
-      // Fetch bookings
       const bookingsResponse = await fetch(`http://localhost:5224/api/bookings/provider/${userData.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -233,9 +280,75 @@ const ProviderDashboard = () => {
     }
   };
 
-  const fetchUnreadCount = async () => {
+  const fetchReviewsForActivities = async (activities: ActivityType[], token: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const allReviews: Review[] = [];
+      
+  
+      const reviewsPromises = activities.map(async (activity) => {
+        try {
+          const response = await fetch(`http://localhost:5224/api/reviews/activity/${activity.id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const reviewsData = await response.json();
+            if (reviewsData.success && reviewsData.data && reviewsData.data.length > 0) {
+          
+              return reviewsData.data.map((review: any) => ({
+                id: review.id,
+                activityId: review.activityId,
+                activityName: activity.name,
+                userName: review.userName,
+                rating: review.rating,
+                comment: review.comment,
+                createdAt: review.createdAt
+              }));
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching reviews for activity ${activity.id}:`, error);
+        }
+        return [];
+      });
+
+      const reviewsResults = await Promise.all(reviewsPromises);
+      const flattenedReviews = reviewsResults.flat();
+      
+      setReviews(flattenedReviews);
+      
+      if (flattenedReviews.length > 0) {
+        const totalReviews = flattenedReviews.length;
+        const averageRating = flattenedReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews;
+        
+        setStats(prev => ({
+          ...prev,
+          totalReviews,
+          averageRating: Number(averageRating.toFixed(1))
+        }));
+      } else {
+        setStats(prev => ({
+          ...prev,
+          totalReviews: 0,
+          averageRating: 0
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+      setReviews([]);
+      setStats(prev => ({
+        ...prev,
+        totalReviews: 0,
+        averageRating: 0
+      }));
+    }
+  };
+
+  const fetchUnreadCount = async (token: string) => {
+    try {
       const response = await fetch('http://localhost:5224/api/chats/unread-count', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -253,7 +366,7 @@ const ProviderDashboard = () => {
 
   const handleUpdateStatus = async (activityId: string, status: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       
       const statusMap: Record<string, number> = {
         'Pending': 0,
@@ -285,12 +398,60 @@ const ProviderDashboard = () => {
       
       if (response.ok) {
         setActivities(prevActivities => 
-          prevActivities.map(activity => 
-            activity.id === activityId 
-              ? { ...activity, status: status }
-              : activity
-          )
+          prevActivities.map(activity => {
+            if (activity.id === activityId) {
+              const now = new Date();
+              const startDate = new Date(activity.startDate);
+              const endDate = new Date(activity.endDate);
+              
+              const isExpired = endDate < now;
+              const isUpcoming = startDate > now;
+              const isActive = !isExpired && !isUpcoming && status === 'Active';
+              
+              return { 
+                ...activity, 
+                status: status,
+                isActive,
+                isExpired,
+                isUpcoming 
+              };
+            }
+            return activity;
+          })
         );
+        
+        const updatedActivities = activities.map(activity => {
+          if (activity.id === activityId) {
+            const now = new Date();
+            const startDate = new Date(activity.startDate);
+            const endDate = new Date(activity.endDate);
+            
+            const isExpired = endDate < now;
+            const isUpcoming = startDate > now;
+            const isActive = !isExpired && !isUpcoming && status === 'Active';
+            
+            return { 
+              ...activity, 
+              status: status,
+              isActive,
+              isExpired,
+              isUpcoming 
+            };
+          }
+          return activity;
+        });
+        
+        const activeActivities = updatedActivities.filter(a => a.isActive).length;
+        const upcomingActivities = updatedActivities.filter(a => a.isUpcoming).length;
+        const expiredActivities = updatedActivities.filter(a => a.isExpired).length;
+        
+        setStats(prev => ({
+          ...prev,
+          activeActivities,
+          upcomingActivities,
+          expiredActivities
+        }));
+        
         alert('Status updated successfully!');
       } else {
         const errorText = await response.text();
@@ -304,67 +465,66 @@ const ProviderDashboard = () => {
   };
 
   const handleAddActivity = async (e: React.FormEvent, images: File[]) => {
-    e.preventDefault();
-    if (!user) return;
+  e.preventDefault();
+  if (!user) return;
 
-    try {
-      const token = localStorage.getItem('token');
-      
-      const formData = new FormData();
-      formData.append('providerId', user.id);
-      formData.append('name', newActivity.name);
-      formData.append('description', newActivity.description);
-      formData.append('price', newActivity.price.toString());
-      formData.append('availableSlots', newActivity.availableSlots.toString());
-      formData.append('location', newActivity.location);
-      formData.append('categoryId', newActivity.categoryId);
-      formData.append('duration', newActivity.duration);
-      formData.append('included', newActivity.included);
-      formData.append('requirements', newActivity.requirements);
-      formData.append('quickFacts', newActivity.quickFacts);
-      formData.append('startDate', new Date(newActivity.startDate).toISOString());
-      formData.append('endDate', new Date(newActivity.endDate).toISOString());
-      
-      images.forEach(image => {
-        formData.append('images', image);
+  try {
+    const token = getToken();
+    
+    const formData = new FormData();
+    formData.append('providerId', user.id);
+    formData.append('name', newActivity.name);
+    formData.append('description', newActivity.description);
+    formData.append('price', newActivity.price.toString());
+    formData.append('availableSlots', newActivity.availableSlots.toString());
+    formData.append('location', newActivity.location);
+    formData.append('categoryId', newActivity.categoryId);
+    formData.append('duration', newActivity.duration);
+    formData.append('included', newActivity.included);
+    formData.append('requirements', newActivity.requirements);
+    formData.append('quickFacts', newActivity.quickFacts);
+    formData.append('startDate', new Date(newActivity.startDate).toISOString());
+    formData.append('endDate', new Date(newActivity.endDate).toISOString());
+    
+    images.forEach(image => {
+      formData.append('images', image);
+    });
+
+    const activityResponse = await fetch('http://localhost:5224/api/activities', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (activityResponse.ok) {
+      setShowAddActivity(false);
+      setNewActivity({
+        name: '',
+        description: '',
+        price: 0,
+        availableSlots: 0,
+        location: '',
+        categoryId: '',
+        duration: '',
+        included: '',
+        requirements: '',
+        quickFacts: '',
+        startDate: '',
+        endDate: ''
       });
-
-      const activityResponse = await fetch('http://localhost:5224/api/activities', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (activityResponse.ok) {
-        setShowAddActivity(false);
-        setNewActivity({
-          name: '',
-          description: '',
-          price: 0,
-          availableSlots: 0,
-          location: '',
-          categoryId: '',
-          duration: '',
-          included: '',
-          requirements: '',
-          quickFacts: '',
-          startDate: '',
-          endDate: ''
-        });
-        fetchProviderData(user);
-        alert('Activity created successfully!');
-      } else {
-        const errorText = await activityResponse.text();
-        alert('Failed to create activity: ' + errorText);
-      }
-    } catch (error) {
-      console.error('Error adding activity:', error);
-      alert('Error creating activity. Please try again.');
+      fetchProviderData(user, token); 
+      alert('Activity created successfully!');
+    } else {
+      const errorText = await activityResponse.text();
+      alert('Failed to create activity: ' + errorText);
     }
-  };
-
+  } catch (error) {
+    console.error('Error adding activity:', error);
+    alert('Error creating activity. Please try again.');
+  }
+};
   const handleEditActivity = (activity: ActivityType) => {
     setEditingActivity(activity);
     setEditActivityData({
@@ -384,89 +544,89 @@ const ProviderDashboard = () => {
     setShowEditActivity(true);
   };
 
-  const handleUpdateActivity = async (e: React.FormEvent, images: File[] = []) => {
-    e.preventDefault();
-    if (!editingActivity || !user) return;
+const handleUpdateActivity = async (e: React.FormEvent, images: File[] = []) => {
+  e.preventDefault();
+  if (!editingActivity || !user) return;
 
-    try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`http://localhost:5224/api/activities/${editingActivity.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: editActivityData.name,
-          description: editActivityData.description,
-          price: Number(editActivityData.price),
-          availableSlots: Number(editActivityData.availableSlots),
-          location: editActivityData.location,
-          categoryId: editActivityData.categoryId,
-          duration: editActivityData.duration,
-          included: editActivityData.included,
-          requirements: editActivityData.requirements,
-          quickFacts: editActivityData.quickFacts,
-          startDate: new Date(editActivityData.startDate),
-          endDate: new Date(editActivityData.endDate)
-        })
-      });
-
-      if (response.ok) {
-        if (images.length > 0) {
-          const formData = new FormData();
-          images.forEach(image => {
-            formData.append('images', image);
-          });
-
-          await fetch(`http://localhost:5224/api/activityimages/upload/${editingActivity.id}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            },
-            body: formData
-          });
-        }
-
-        setShowEditActivity(false);
-        setEditingActivity(null);
-        fetchProviderData(user);
-        alert('Activity updated successfully!');
-      } else {
-        const errorData = await response.json();
-        alert('Failed to update activity: ' + (errorData.message || 'Unknown error'));
-      }
-    } catch (error) {
-      console.error('Error updating activity:', error);
-      alert('Error updating activity. Please try again.');
-    }
-  };
-
-  const handleDeleteActivity = async (activityId: string) => {
-    if (!confirm('Are you sure you want to delete this activity?')) return;
+  try {
+    const token = getToken(); 
     
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5224/api/activities/${activityId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+    const response = await fetch(`http://localhost:5224/api/activities/${editingActivity.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        name: editActivityData.name,
+        description: editActivityData.description,
+        price: Number(editActivityData.price),
+        availableSlots: Number(editActivityData.availableSlots),
+        location: editActivityData.location,
+        categoryId: editActivityData.categoryId,
+        duration: editActivityData.duration,
+        included: editActivityData.included,
+        requirements: editActivityData.requirements,
+        quickFacts: editActivityData.quickFacts,
+        startDate: new Date(editActivityData.startDate),
+        endDate: new Date(editActivityData.endDate)
+      })
+    });
 
-      if (response.ok) {
-        fetchProviderData(user);
-        alert('Activity deleted successfully!');
-      } else {
-        const errorText = await response.text();
-        alert('Failed to delete activity: ' + errorText);
+    if (response.ok) {
+      if (images.length > 0) {
+        const formData = new FormData();
+        images.forEach(image => {
+          formData.append('images', image);
+        });
+
+        await fetch(`http://localhost:5224/api/activityimages/upload/${editingActivity.id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
       }
-    } catch (error) {
-      console.error('Error deleting activity:', error);
-      alert('Error deleting activity. Please try again.');
+
+      setShowEditActivity(false);
+      setEditingActivity(null);
+      fetchProviderData(user, token); 
+      alert('Activity updated successfully!');
+    } else {
+      const errorData = await response.json();
+      alert('Failed to update activity: ' + (errorData.message || 'Unknown error'));
     }
-  };
+  } catch (error) {
+    console.error('Error updating activity:', error);
+    alert('Error updating activity. Please try again.');
+  }
+};
+
+const handleDeleteActivity = async (activityId: string) => {
+  if (!confirm('Are you sure you want to delete this activity?')) return;
+  
+  try {
+    const token = getToken(); 
+    const response = await fetch(`http://localhost:5224/api/activities/${activityId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (response.ok) {
+      fetchProviderData(user, token); 
+      alert('Activity deleted successfully!');
+    } else {
+      const errorText = await response.text();
+      alert('Failed to delete activity: ' + errorText);
+    }
+  } catch (error) {
+    console.error('Error deleting activity:', error);
+    alert('Error deleting activity. Please try again.');
+  }
+};
 
   const handleDataChange = (field: string, value: string | number) => {
     setNewActivity(prev => ({
@@ -480,6 +640,22 @@ const ProviderDashboard = () => {
       ...prev,
       [field]: value
     }));
+  };
+  const reviewStats = {
+    totalReviews: reviews.length,
+    averageRating: reviews.length > 0 
+      ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
+      : 0,
+    ratingDistribution: reviews.reduce((acc, review) => {
+      const roundedRating = Math.round(review.rating);
+      acc[roundedRating] = (acc[roundedRating] || 0) + 1;
+      return acc;
+    }, {} as { [key: number]: number }),
+    recentReviews: reviews.slice(0, 10)
+  };
+
+  const handleRespond = (reviewId: string, response: string) => {
+    alert(`Response functionality coming soon for review: ${reviewId}`);
   };
 
   if (loading || !user) {
@@ -538,7 +714,7 @@ const ProviderDashboard = () => {
           <div className="p-6">
             {activeTab === 'overview' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column - Quick Stats */}
+            
                 <div className="lg:col-span-2">
                   <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700 mb-6">
                     <h2 className="text-xl font-bold text-white mb-4 flex items-center">
@@ -567,10 +743,18 @@ const ProviderDashboard = () => {
 
                   {/* Recent Activities */}
                   <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
-                    <h2 className="text-xl font-bold text-white mb-4 flex items-center">
-                      <Activity className="w-5 h-5 mr-2 text-emerald-400" />
-                      Recent Activities
-                    </h2>
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-xl font-bold text-white flex items-center">
+                        <Activity className="w-5 h-5 mr-2 text-emerald-400" />
+                        Recent Activities
+                      </h2>
+                      <button
+                        onClick={() => setActiveTab('activities')}
+                        className="text-amber-400 hover:text-amber-300 text-sm font-medium"
+                      >
+                        View All →
+                      </button>
+                    </div>
                     {activities.length === 0 ? (
                       <div className="text-center py-8">
                         <p className="text-gray-400">No activities found. Create your first activity!</p>
@@ -578,20 +762,16 @@ const ProviderDashboard = () => {
                     ) : (
                       <div className="space-y-4">
                         {activities.slice(0, 3).map((activity) => {
-                          const now = new Date();
-                          const startDate = new Date(activity.startDate);
-                          const endDate = new Date(activity.endDate);
-                          
                           let statusColor = 'bg-gray-500';
                           let statusText = activity.status;
                           
-                          if (endDate < now) {
+                          if (activity.isExpired) {
                             statusColor = 'bg-red-500';
                             statusText = 'Expired';
-                          } else if (startDate <= now && endDate >= now) {
+                          } else if (activity.isActive) {
                             statusColor = 'bg-emerald-500';
                             statusText = 'Active';
-                          } else if (startDate > now) {
+                          } else if (activity.isUpcoming) {
                             statusColor = 'bg-amber-500';
                             statusText = 'Upcoming';
                           }
@@ -630,7 +810,7 @@ const ProviderDashboard = () => {
                     </div>
                     <div className="p-4 border-t border-gray-700">
                       <button
-                        onClick={() => router.push('/chats')}
+                        onClick={() => setActiveTab('chats')}
                         className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-700 text-white rounded-xl hover:from-amber-700 hover:to-orange-800 transition-all duration-300 font-semibold"
                       >
                         View All Chats
@@ -655,7 +835,28 @@ const ProviderDashboard = () => {
                   </div>
                 ) : (
                   <ActivitiesTable 
-                    activities={activities} 
+                    activities={activities.map(activity => ({
+                      id: activity.id,
+                      name: activity.name,
+                      description: activity.description,
+                      price: activity.price,
+                      availableSlots: activity.availableSlots,
+                      location: activity.location,
+                      category: activity.category,
+                      categoryId: activity.categoryId,
+                      duration: activity.duration,
+                      included: activity.included,
+                      requirements: activity.requirements,
+                      quickFacts: activity.quickFacts,
+                      status: activity.status,
+                      createdAt: activity.createdAt,
+                      images: activity.images,
+                      startDate: activity.startDate,
+                      endDate: activity.endDate,
+                      isActive: activity.isActive,
+                      isExpired: activity.isExpired,
+                      isUpcoming: activity.isUpcoming
+                    }))} 
                     onDeleteActivity={handleDeleteActivity}
                     onEditActivity={handleEditActivity}
                     onStatusChange={handleUpdateStatus} 
@@ -677,17 +878,156 @@ const ProviderDashboard = () => {
             )}
 
             {activeTab === 'performance' && (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">📊</div>
-                <h3 className="text-2xl font-bold text-white mb-2">Performance Analytics</h3>
-                <p className="text-gray-400">Coming soon - Detailed analytics and insights</p>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-white">Performance Analytics</h2>
+                  <div className="text-gray-400">
+                    Showing data for {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </div>
+                </div>
+                
+                {/* Stats Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-400">Total Revenue</p>
+                        <h3 className="text-2xl font-bold text-white mt-1">${stats.totalRevenue}</h3>
+                      </div>
+                      <div className="p-3 bg-emerald-500/20 rounded-lg">
+                        <TrendingUp className="w-6 h-6 text-emerald-400" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-400">Active Activities</p>
+                        <h3 className="text-2xl font-bold text-white mt-1">{stats.activeActivities}</h3>
+                      </div>
+                      <div className="p-3 bg-blue-500/20 rounded-lg">
+                        <Activity className="w-6 h-6 text-blue-400" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-400">Pending Bookings</p>
+                        <h3 className="text-2xl font-bold text-white mt-1">{stats.pendingBookings}</h3>
+                      </div>
+                      <div className="p-3 bg-amber-500/20 rounded-lg">
+                        <Calendar className="w-6 h-6 text-amber-400" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-400">Avg. Rating</p>
+                        <h3 className="text-2xl font-bold text-white mt-1">{stats.averageRating || 0}</h3>
+                      </div>
+                      <div className="p-3 bg-purple-500/20 rounded-lg">
+                        <Star className="w-6 h-6 text-purple-400" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Activity Status Distribution */}
+                <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                  <h3 className="text-lg font-semibold text-white mb-4">Activity Status Distribution</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-gray-300">Active Activities</span>
+                        <span className="text-emerald-400 font-semibold">{stats.activeActivities}</span>
+                      </div>
+                      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-emerald-500 rounded-full"
+                          style={{ width: `${(stats.activeActivities / (stats.totalActivities || 1)) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-gray-300">Upcoming Activities</span>
+                        <span className="text-blue-400 font-semibold">{stats.upcomingActivities}</span>
+                      </div>
+                      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-blue-500 rounded-full"
+                          style={{ width: `${(stats.upcomingActivities / (stats.totalActivities || 1)) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-gray-300">Expired Activities</span>
+                        <span className="text-red-400 font-semibold">{stats.expiredActivities}</span>
+                      </div>
+                      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-red-500 rounded-full"
+                          style={{ width: `${(stats.expiredActivities / (stats.totalActivities || 1)) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Booking Stats */}
+                <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                  <h3 className="text-lg font-semibold text-white mb-4">Booking Statistics</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-300">Total Bookings</span>
+                      <span className="font-semibold text-white">{stats.totalBookings}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-300">Avg. Booking Value</span>
+                      <span className="font-semibold text-white">
+                        ${stats.totalBookings > 0 ? (stats.totalRevenue / stats.totalBookings).toFixed(2) : '0.00'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-300">Conversion Rate</span>
+                      <span className="font-semibold text-white">
+                        {stats.totalActivities > 0 
+                          ? `${((stats.totalBookings / stats.totalActivities) * 100).toFixed(1)}%` 
+                          : '0%'
+                        }
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
             {activeTab === 'chats' && (
               <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-white">Chats</h2>
+                  <div className="text-gray-400">
+                    {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
+                  </div>
+                </div>
                 <ChatList providerId={user.id} compact={false} />
               </div>
+            )}
+
+            {activeTab === 'reviews' && (
+              <ReviewsSection 
+                reviews={reviews}
+                reviewStats={reviewStats}
+                onRespond={handleRespond}
+              />
             )}
           </div>
         </div>

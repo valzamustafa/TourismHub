@@ -103,7 +103,7 @@ try
     builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
     builder.Services.AddScoped<TourismHub.Domain.Interfaces.INotificationRepository, 
                               TourismHub.Infrastructure.Repositories.NotificationRepository>();
-    
+      builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 
     Console.WriteLine("⏰ Adding Background Services...");
     builder.Services.AddHostedService<ActivityStatusUpdaterService>();
@@ -116,7 +116,7 @@ try
     builder.Services.AddScoped<CategoryService>();
     builder.Services.AddScoped<ActivityService>();
     builder.Services.AddScoped<IChatService, ChatService>();
-    
+    builder.Services.AddScoped<TourismHub.Application.Services.ReviewService>();
 
     builder.Services.AddScoped<INotificationService, NotificationService>();
     builder.Services.AddScoped<NotificationHelper>();

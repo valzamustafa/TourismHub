@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ContactButton from '@/components/ContactButton';
-
+import ReviewSection from '@/components/ReviewSection';
 interface Activity {
   id: string;
   name: string;
@@ -356,7 +356,13 @@ export default function ActivityDetailPage() {
                     </div>
                   </div>
                 )}
-
+              {activeTab === 'reviews' && (
+                <ReviewSection 
+                  activityId={activity.id}
+                  userId={user?.id}
+                  userRole={user?.role}
+                />
+              )}
                 {activeTab === 'requirements' && (
                   <div className="space-y-4">
                     <h2 className="text-2xl font-bold text-green-800">Requirements</h2>
@@ -401,31 +407,6 @@ export default function ActivityDetailPage() {
                   </div>
                 )}
 
-                {activeTab === 'reviews' && (
-                  <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-green-800">Customer Reviews</h2>
-                    <div className="flex items-center space-x-4 p-6 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <div className="text-4xl font-bold text-yellow-700">{activity.rating}</div>
-                      <div>
-                        <div className="flex text-yellow-600 text-lg">
-                          {'★'.repeat(5)}
-                        </div>
-                        <div className="text-yellow-700">Based on {activity.reviews} reviews</div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <div className="p-4 bg-white border border-green-200 rounded-lg">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <div className="text-yellow-600">★★★★★</div>
-                          <span className="font-semibold text-green-800">Amazing Experience!</span>
-                        </div>
-                        <p className="text-green-700">"This was one of the best activities I've ever done. The guides were professional and the views were breathtaking!"</p>
-                        <div className="text-sm text-green-600 mt-2">- Sarah M.</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -444,18 +425,18 @@ export default function ActivityDetailPage() {
                   </div>
                 </div>
               {user && activity.providerId && activity.providerId !== 'DEBUG_NO_PROVIDER_ID' && activity.providerName !== 'Unknown Provider' && (
-  <ContactButton
-    currentUserId={user.id}
-    otherUserId={activity.providerId}
-    currentUserName={user.fullName}
-    otherUserName={activity.providerName}
-    activityId={activity.id}
-    activityName={activity.name}
-    variant="button"
-    size="md"
-  />
-)}
-              </div>
+              <ContactButton
+                currentUserId={user.id}
+                otherUserId={activity.providerId}
+                currentUserName={user.fullName}
+                otherUserName={activity.providerName}
+                activityId={activity.id}
+                activityName={activity.name}
+                variant="button"
+                size="md"
+              />
+            )}
+                          </div>
             </div>
           </div>
 

@@ -1,8 +1,6 @@
 namespace TourismHub.Application.Dtos.Review
 {
-    public record ReviewCreateDto(
-        Guid ActivityId,
-        Guid UserId,
+    public record ReviewUpdateDto(
         int Rating,
         string Comment
     );

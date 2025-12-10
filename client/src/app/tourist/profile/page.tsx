@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import ContactButton from '@/components/ContactButton';
 import NotificationBell from '@/components/NotificationBell';
 
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
 
 interface User {
@@ -95,7 +94,37 @@ export default function TouristProfilePage() {
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const router = useRouter();
-
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const toggleDarkMode = () => {
+    const newDarkMode = !isDarkMode;
+    setIsDarkMode(newDarkMode);
+    localStorage.setItem('darkMode', newDarkMode.toString());
+    if (newDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+  useEffect(() => {
+    const savedDarkMode = localStorage.getItem('darkMode');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    let shouldBeDark = false;
+    
+    if (savedDarkMode !== null) {
+      shouldBeDark = savedDarkMode === 'true';
+    } else {
+      shouldBeDark = prefersDark;
+    }
+    
+    setIsDarkMode(shouldBeDark);
+    
+    if (shouldBeDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
 
   useEffect(() => {
     fetchProfileData();
@@ -194,7 +223,6 @@ export default function TouristProfilePage() {
         }));
         setSavedItems(savedItems);
       }
-
 
       await fetchChats();
 
@@ -516,35 +544,47 @@ export default function TouristProfilePage() {
   const handleContactProvider = (providerId: string, providerName: string, activityId?: string, activityName?: string) => {
     if (!user) return;
     
-
     if (user.id === providerId) {
       alert('You cannot chat with yourself');
       return;
     }
-
-   
+    
     router.push(`/chats?providerId=${providerId}`);
   };
 
- if (loading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
+        isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading profile...</p>
+          <div className={`animate-spin rounded-full h-12 w-12 border-b-2 mx-auto ${
+            isDarkMode ? 'border-blue-400' : 'border-blue-500'
+          }`}></div>
+          <p className={`mt-4 transition-colors duration-300 ${
+            isDarkMode ? 'text-gray-300' : 'text-gray-600'
+          }`}>Loading profile...</p>
         </div>
       </div>
     );
   }
 
-   if (!user) {
+  if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
+        isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">User not found</h2>
+          <h2 className={`text-2xl font-bold mb-4 transition-colors duration-300 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>User not found</h2>
           <button
             onClick={() => router.push('/')}
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            className={`px-6 py-3 rounded-lg hover:opacity-90 transition-opacity ${
+              isDarkMode 
+                ? 'bg-blue-600 hover:bg-blue-700' 
+                : 'bg-blue-500 hover:bg-blue-600'
+            } text-white`}
           >
             Go to Home
           </button>
@@ -556,30 +596,69 @@ export default function TouristProfilePage() {
   const totalUnreadMessages = chats.reduce((sum, chat) => sum + chat.unreadCount, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-     
-      <header className="bg-white shadow-sm border-b">
+    <div className={`min-h-screen transition-colors duration-300 ${
+      isDarkMode 
+        ? 'bg-gradient-to-b from-gray-900 to-gray-800 text-gray-100' 
+        : 'bg-gray-50 text-gray-900'
+    }`}>
+      <header className={`shadow-sm border-b transition-colors duration-300 ${
+        isDarkMode 
+          ? 'bg-gray-900 border-gray-700' 
+          : 'bg-white border-gray-200'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
-              <p className="text-gray-600">Manage your account and bookings</p>
+              <h1 className={`text-2xl font-bold transition-colors duration-300 ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>My Profile</h1>
+              <p className={`transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>Manage your account and bookings</p>
             </div>
             <div className="flex items-center space-x-4">
-           
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={toggleDarkMode}
+                className={`p-2 rounded-full ${
+                  isDarkMode 
+                    ? 'bg-gray-800 text-yellow-300 hover:bg-gray-700' 
+                    : 'bg-gray-100 text-blue-600 hover:bg-gray-200'
+                } transition-all duration-300`}
+                aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {isDarkMode ? (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                  </svg>
+                )}
+              </button>
+              
               <div className="relative">
                 <NotificationBell />
               </div>
               
               <button
                 onClick={() => router.push('/tourist/activities')}
-                className="px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  isDarkMode 
+                    ? 'text-blue-400 hover:text-blue-300 hover:bg-gray-800' 
+                    : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                }`}
               >
                 ← Back to Activities
               </button>
               <button
                 onClick={() => router.push('/tourist/dashboard')}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className={`px-4 py-2 rounded-lg hover:opacity-90 transition-opacity ${
+                  isDarkMode 
+                    ? 'bg-blue-600 hover:bg-blue-700' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                } text-white`}
               >
                 Dashboard
               </button>
@@ -588,25 +667,39 @@ export default function TouristProfilePage() {
         </div>
       </header>
 
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border p-6">
+            <div className={`rounded-xl shadow-sm border p-6 transition-colors duration-300 ${
+              isDarkMode 
+                ? 'bg-gray-800 border-gray-700' 
+                : 'bg-white border-gray-200'
+            }`}>
               <div className="text-center mb-6">
                 <div className="relative inline-block">
                   {getProfileImageUrl(user.profileImage) ? (
                     <img
                       src={getProfileImageUrl(user.profileImage)}
                       alt={user.fullName}
-                      className="w-24 h-24 rounded-full mx-auto border-4 border-white shadow-lg object-cover"
+                      className="w-24 h-24 rounded-full mx-auto border-4 shadow-lg object-cover transition-colors duration-300"
+                      style={{
+                        borderColor: isDarkMode ? '#374151' : '#ffffff'
+                      }}
                     />
                   ) : (
-                    <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold mx-auto border-4 border-white shadow-lg">
+                    <div className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold mx-auto border-4 shadow-lg transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 border-gray-700' 
+                        : 'bg-gradient-to-r from-blue-500 to-blue-600 border-white'
+                    }`}>
                       {user.fullName.charAt(0)}
                     </div>
                   )}
-                  <label className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full cursor-pointer hover:bg-blue-600 transition-colors">
+                  <label className={`absolute bottom-0 right-0 p-2 rounded-full cursor-pointer hover:opacity-90 transition-opacity ${
+                    isDarkMode 
+                      ? 'bg-blue-600 hover:bg-blue-700' 
+                      : 'bg-blue-500 hover:bg-blue-600'
+                  } text-white`}>
                     <input
                       type="file"
                       accept="image/*"
@@ -628,40 +721,66 @@ export default function TouristProfilePage() {
                     )}
                   </label>
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mt-4">{user.fullName}</h2>
-                <p className="text-gray-600 text-sm">{user.email}</p>
-                <p className="text-gray-500 text-sm mt-1">
+                <h2 className={`text-xl font-bold mt-4 transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>{user.fullName}</h2>
+                <p className={`transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                } text-sm`}>{user.email}</p>
+                <p className={`transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                } text-sm mt-1`}>
                   Member since {new Date(user.createdAt).toLocaleDateString()}
                 </p>
               </div>
 
-              <div className="pt-6 border-t">
-                <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
-                  <p className="text-sm font-semibold text-gray-900">Activity Stats</p>
+              <div className="pt-6 border-t border-gray-700">
+                <div className={`px-4 py-3 rounded-lg transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-gradient-to-r from-blue-900/30 to-blue-800/30' 
+                    : 'bg-gradient-to-r from-blue-50 to-indigo-50'
+                }`}>
+                  <p className={`text-sm font-semibold transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-200' : 'text-gray-900'
+                  }`}>Activity Stats</p>
                   <div className="mt-2 space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Total Bookings:</span>
-                      <span className="font-semibold">{stats.totalBookings}</span>
+                      <span className={`transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>Total Bookings:</span>
+                      <span className={`font-semibold transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>{stats.totalBookings}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Completed:</span>
+                      <span className={`transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>Completed:</span>
                       <span className="font-semibold text-green-600">{stats.completedBookings}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Total Spent:</span>
+                      <span className={`transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>Total Spent:</span>
                       <span className="font-semibold text-blue-600">${stats.totalSpent.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Saved Items:</span>
+                      <span className={`transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>Saved Items:</span>
                       <span className="font-semibold text-purple-600">{savedItems.length}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Active Chats:</span>
+                      <span className={`transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>Active Chats:</span>
                       <span className="font-semibold text-amber-600">{chats.length}</span>
                     </div>
                     {totalUnreadMessages > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Unread Messages:</span>
+                        <span className={`transition-colors duration-300 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>Unread Messages:</span>
                         <span className="font-semibold text-red-600">{totalUnreadMessages}</span>
                       </div>
                     )}
@@ -670,14 +789,26 @@ export default function TouristProfilePage() {
               </div>
             </div>
 
-            <div className="mt-4 bg-white rounded-xl shadow-sm border p-6">
+            <div className={`mt-4 rounded-xl shadow-sm border p-6 transition-colors duration-300 ${
+              isDarkMode 
+                ? 'bg-gray-800 border-gray-700' 
+                : 'bg-white border-gray-200'
+            }`}>
               <nav className="space-y-2">
                 <button
                   onClick={() => setActiveTab('profile')}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors duration-300 ${
                     activeTab === 'profile'
-                      ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
-                      : 'text-gray-700 hover:bg-gray-50'
+                      ? `${
+                          isDarkMode 
+                            ? 'bg-blue-900/30 text-blue-400 border-l-4 border-blue-500' 
+                            : 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
+                        }`
+                      : `${
+                          isDarkMode 
+                            ? 'text-gray-300 hover:bg-gray-700' 
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`
                   }`}
                 >
                   <div className="flex items-center">
@@ -690,10 +821,18 @@ export default function TouristProfilePage() {
 
                 <button
                   onClick={() => setActiveTab('bookings')}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors duration-300 ${
                     activeTab === 'bookings'
-                      ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
-                      : 'text-gray-700 hover:bg-gray-50'
+                      ? `${
+                          isDarkMode 
+                            ? 'bg-blue-900/30 text-blue-400 border-l-4 border-blue-500' 
+                            : 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
+                        }`
+                      : `${
+                          isDarkMode 
+                            ? 'text-gray-300 hover:bg-gray-700' 
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`
                   }`}
                 >
                   <div className="flex items-center">
@@ -702,7 +841,11 @@ export default function TouristProfilePage() {
                     </svg>
                     My Bookings
                     {stats.pendingBookings > 0 && (
-                      <span className="ml-auto text-xs font-semibold px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                      <span className={`ml-auto text-xs font-semibold px-2 py-1 rounded-full ${
+                        isDarkMode 
+                          ? 'bg-yellow-900/50 text-yellow-300' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
                         {stats.pendingBookings}
                       </span>
                     )}
@@ -711,10 +854,18 @@ export default function TouristProfilePage() {
 
                 <button
                   onClick={() => setActiveTab('saved')}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors duration-300 ${
                     activeTab === 'saved'
-                      ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
-                      : 'text-gray-700 hover:bg-gray-50'
+                      ? `${
+                          isDarkMode 
+                            ? 'bg-blue-900/30 text-blue-400 border-l-4 border-blue-500' 
+                            : 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
+                        }`
+                      : `${
+                          isDarkMode 
+                            ? 'text-gray-300 hover:bg-gray-700' 
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`
                   }`}
                 >
                   <div className="flex items-center">
@@ -723,7 +874,11 @@ export default function TouristProfilePage() {
                     </svg>
                     Saved Items
                     {savedItems.length > 0 && (
-                      <span className="ml-auto text-xs font-semibold px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                      <span className={`ml-auto text-xs font-semibold px-2 py-1 rounded-full ${
+                        isDarkMode 
+                          ? 'bg-blue-900/50 text-blue-300' 
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
                         {savedItems.length}
                       </span>
                     )}
@@ -732,10 +887,18 @@ export default function TouristProfilePage() {
 
                 <button
                   onClick={() => setActiveTab('chats')}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors duration-300 ${
                     activeTab === 'chats'
-                      ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
-                      : 'text-gray-700 hover:bg-gray-50'
+                      ? `${
+                          isDarkMode 
+                            ? 'bg-blue-900/30 text-blue-400 border-l-4 border-blue-500' 
+                            : 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
+                        }`
+                      : `${
+                          isDarkMode 
+                            ? 'text-gray-300 hover:bg-gray-700' 
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`
                   }`}
                 >
                   <div className="flex items-center">
@@ -744,7 +907,11 @@ export default function TouristProfilePage() {
                     </svg>
                     My Chats
                     {totalUnreadMessages > 0 && (
-                      <span className="ml-auto text-xs font-semibold px-2 py-1 rounded-full bg-red-100 text-red-800">
+                      <span className={`ml-auto text-xs font-semibold px-2 py-1 rounded-full ${
+                        isDarkMode 
+                          ? 'bg-red-900/50 text-red-300' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
                         {totalUnreadMessages}
                       </span>
                     )}
@@ -753,10 +920,18 @@ export default function TouristProfilePage() {
 
                 <button
                   onClick={() => setActiveTab('settings')}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors duration-300 ${
                     activeTab === 'settings'
-                      ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
-                      : 'text-gray-700 hover:bg-gray-50'
+                      ? `${
+                          isDarkMode 
+                            ? 'bg-blue-900/30 text-blue-400 border-l-4 border-blue-500' 
+                            : 'bg-blue-50 text-blue-600 border-l-4 border-blue-500'
+                        }`
+                      : `${
+                          isDarkMode 
+                            ? 'text-gray-300 hover:bg-gray-700' 
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`
                   }`}
                 >
                   <div className="flex items-center">
@@ -772,15 +947,25 @@ export default function TouristProfilePage() {
           </div>
 
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-xl shadow-sm border p-6">
+            <div className={`rounded-xl shadow-sm border p-6 transition-colors duration-300 ${
+              isDarkMode 
+                ? 'bg-gray-800 border-gray-700' 
+                : 'bg-white border-gray-200'
+            }`}>
               {activeTab === 'profile' && (
                 <>
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Profile Information</h2>
+                    <h2 className={`text-2xl font-bold transition-colors duration-300 ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>Profile Information</h2>
                     {!editing && (
                       <button
                         onClick={handleEditProfile}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center"
+                        className={`px-4 py-2 rounded-lg hover:opacity-90 transition-opacity flex items-center ${
+                          isDarkMode 
+                            ? 'bg-blue-600 hover:bg-blue-700' 
+                            : 'bg-blue-500 hover:bg-blue-600'
+                        } text-white`}
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -794,54 +979,86 @@ export default function TouristProfilePage() {
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>Full Name</label>
                           <input
                             type="text"
                             value={formData.fullName}
                             onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                              isDarkMode 
+                                ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500' 
+                                : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500'
+                            }`}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>Email</label>
                           <input
                             type="email"
                             value={formData.email}
                             onChange={(e) => setFormData({...formData, email: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                              isDarkMode 
+                                ? 'bg-gray-700 border-gray-600 text-gray-400 focus:ring-blue-500' 
+                                : 'bg-gray-50 border-gray-300 text-gray-500 focus:ring-blue-500'
+                            }`}
                             disabled
                           />
-                          <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                          <p className={`text-xs mt-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                          }`}>Email cannot be changed</p>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>Phone Number</label>
                           <input
                             type="tel"
                             value={formData.phone}
                             onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                              isDarkMode 
+                                ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500' 
+                                : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500'
+                            }`}
                             placeholder="Enter your phone number"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>Address</label>
                           <input
                             type="text"
                             value={formData.address}
                             onChange={(e) => setFormData({...formData, address: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                              isDarkMode 
+                                ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500' 
+                                : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500'
+                            }`}
                             placeholder="Enter your address"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+                        <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                          isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                        }`}>Bio</label>
                         <textarea
                           value={formData.bio}
                           onChange={(e) => setFormData({...formData, bio: e.target.value})}
                           rows={3}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                            isDarkMode 
+                              ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500' 
+                              : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500'
+                          }`}
                           placeholder="Tell us about yourself..."
                         />
                       </div>
@@ -849,13 +1066,21 @@ export default function TouristProfilePage() {
                       <div className="flex space-x-2 pt-4">
                         <button
                           onClick={handleSaveProfile}
-                          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                          className={`px-4 py-2 rounded-lg hover:opacity-90 transition-opacity ${
+                            isDarkMode 
+                              ? 'bg-green-600 hover:bg-green-700' 
+                              : 'bg-green-500 hover:bg-green-600'
+                          } text-white`}
                         >
                           Save Changes
                         </button>
                         <button
                           onClick={handleCancelEdit}
-                          className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                          className={`px-4 py-2 rounded-lg hover:opacity-90 transition-opacity ${
+                            isDarkMode 
+                              ? 'bg-gray-700 hover:bg-gray-600' 
+                              : 'bg-gray-300 hover:bg-gray-400'
+                          } ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}
                         >
                           Cancel
                         </button>
@@ -864,28 +1089,68 @@ export default function TouristProfilePage() {
                   ) : (
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <label className="block text-sm font-medium text-gray-500 mb-1">Full Name</label>
-                          <p className="text-gray-900 font-semibold">{user.fullName}</p>
+                        <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700/50' 
+                            : 'bg-gray-50'
+                        }`}>
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                          }`}>Full Name</label>
+                          <p className={`font-semibold transition-colors duration-300 ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>{user.fullName}</p>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
-                          <p className="text-gray-900 font-semibold">{user.email}</p>
+                        <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700/50' 
+                            : 'bg-gray-50'
+                        }`}>
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                          }`}>Email</label>
+                          <p className={`font-semibold transition-colors duration-300 ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>{user.email}</p>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <label className="block text-sm font-medium text-gray-500 mb-1">Phone</label>
-                          <p className="text-gray-900 font-semibold">{user.phone || 'Not provided'}</p>
+                        <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700/50' 
+                            : 'bg-gray-50'
+                        }`}>
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                          }`}>Phone</label>
+                          <p className={`font-semibold transition-colors duration-300 ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>{user.phone || 'Not provided'}</p>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <label className="block text-sm font-medium text-gray-500 mb-1">Address</label>
-                          <p className="text-gray-900 font-semibold">{user.address || 'Not provided'}</p>
+                        <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700/50' 
+                            : 'bg-gray-50'
+                        }`}>
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                          }`}>Address</label>
+                          <p className={`font-semibold transition-colors duration-300 ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>{user.address || 'Not provided'}</p>
                         </div>
                       </div>
 
                       {user.bio && (
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <label className="block text-sm font-medium text-gray-500 mb-1">Bio</label>
-                          <p className="text-gray-900 whitespace-pre-line">{user.bio}</p>
+                        <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700/50' 
+                            : 'bg-gray-50'
+                        }`}>
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                          }`}>Bio</label>
+                          <p className={`whitespace-pre-line transition-colors duration-300 ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>{user.bio}</p>
                         </div>
                       )}
                     </div>
@@ -897,26 +1162,46 @@ export default function TouristProfilePage() {
                 <>
                   <div className="flex justify-between items-center mb-6">
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
-                      <p className="text-gray-600 mt-1">Manage and view all your bookings</p>
+                      <h2 className={`text-2xl font-bold transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>My Bookings</h2>
+                      <p className={`mt-1 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>Manage and view all your bookings</p>
                     </div>
                     <div className="flex items-center space-x-4">
-                      <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-semibold">
+                      <span className={`px-4 py-2 rounded-full font-semibold transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'bg-blue-900/50 text-blue-300' 
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
                         {bookings.length} booking{bookings.length !== 1 ? 's' : ''}
                       </span>
                     </div>
                   </div>
 
                   {bookings.length === 0 ? (
-                    <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                    <div className={`text-center py-16 rounded-xl border-2 border-dashed transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-800/50 border-gray-600' 
+                        : 'bg-gray-50 border-gray-300'
+                    }`}>
                       <div className="text-6xl mb-6">📅</div>
-                      <h3 className="text-2xl font-bold text-gray-700 mb-3">No Bookings Yet</h3>
-                      <p className="text-gray-600 max-w-md mx-auto mb-8">
+                      <h3 className={`text-2xl font-bold mb-3 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>No Bookings Yet</h3>
+                      <p className={`max-w-md mx-auto mb-8 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
                         You haven't made any bookings yet. Explore activities and book your next adventure!
                       </p>
                       <button
                         onClick={() => router.push('/tourist/activities')}
-                        className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+                        className={`px-6 py-3 rounded-lg hover:opacity-90 transition-opacity font-semibold ${
+                          isDarkMode 
+                            ? 'bg-blue-600 hover:bg-blue-700' 
+                            : 'bg-blue-500 hover:bg-blue-600'
+                        } text-white`}
                       >
                         Browse Activities
                       </button>
@@ -926,11 +1211,15 @@ export default function TouristProfilePage() {
                       {bookings.map((booking) => (
                         <div 
                           key={booking.id}
-                          className="bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all"
+                          className={`border rounded-lg p-4 hover:shadow-md transition-all ${
+                            isDarkMode 
+                              ? 'bg-gray-800/50 border-gray-700 hover:border-blue-500' 
+                              : 'bg-white border-gray-200 hover:border-blue-500'
+                          }`}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex items-start space-x-4">
-                              <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                              <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 transition-colors duration-300">
                                 <img
                                   src={getFullImageUrl(booking.activityImage || '')}
                                   alt={booking.activityName}
@@ -942,29 +1231,59 @@ export default function TouristProfilePage() {
                               </div>
                               
                               <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-gray-900 text-lg mb-1">
+                                <h3 className={`font-semibold text-lg mb-1 transition-colors duration-300 ${
+                                  isDarkMode ? 'text-white' : 'text-gray-900'
+                                }`}>
                                   {booking.activityName}
                                 </h3>
                                 
                                 <div className="flex flex-wrap gap-3 mb-3">
                                   <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
                                     booking.status === 'Confirmed' 
-                                      ? 'bg-green-100 text-green-800'
+                                      ? `${
+                                          isDarkMode 
+                                            ? 'bg-green-900/50 text-green-300' 
+                                            : 'bg-green-100 text-green-800'
+                                        }`
                                       : booking.status === 'Pending'
-                                      ? 'bg-yellow-100 text-yellow-800'
+                                      ? `${
+                                          isDarkMode 
+                                            ? 'bg-yellow-900/50 text-yellow-300' 
+                                            : 'bg-yellow-100 text-yellow-800'
+                                        }`
                                       : booking.status === 'Cancelled'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-blue-100 text-blue-800'
+                                      ? `${
+                                          isDarkMode 
+                                            ? 'bg-red-900/50 text-red-300' 
+                                            : 'bg-red-100 text-red-800'
+                                        }`
+                                      : `${
+                                          isDarkMode 
+                                            ? 'bg-blue-900/50 text-blue-300' 
+                                            : 'bg-blue-100 text-blue-800'
+                                        }`
                                   }`}>
                                     {booking.status}
                                   </span>
                                   
                                   <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
                                     booking.paymentStatus === 'Paid'
-                                      ? 'bg-green-100 text-green-800'
+                                      ? `${
+                                          isDarkMode 
+                                            ? 'bg-green-900/50 text-green-300' 
+                                            : 'bg-green-100 text-green-800'
+                                        }`
                                       : booking.paymentStatus === 'Pending'
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : 'bg-red-100 text-red-800'
+                                      ? `${
+                                          isDarkMode 
+                                            ? 'bg-yellow-900/50 text-yellow-300' 
+                                            : 'bg-yellow-100 text-yellow-800'
+                                        }`
+                                      : `${
+                                          isDarkMode 
+                                            ? 'bg-red-900/50 text-red-300' 
+                                            : 'bg-red-100 text-red-800'
+                                        }`
                                   }`}>
                                     {booking.paymentStatus}
                                   </span>
@@ -972,26 +1291,42 @@ export default function TouristProfilePage() {
                                 
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                   <div>
-                                    <p className="text-gray-600">Date</p>
-                                    <p className="font-semibold text-gray-900">
+                                    <p className={`transition-colors duration-300 ${
+                                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                                    }`}>Date</p>
+                                    <p className={`font-semibold transition-colors duration-300 ${
+                                      isDarkMode ? 'text-white' : 'text-gray-900'
+                                    }`}>
                                       {new Date(booking.selectedDate).toLocaleDateString()}
                                     </p>
                                   </div>
                                   <div>
-                                    <p className="text-gray-600">People</p>
-                                    <p className="font-semibold text-gray-900">
+                                    <p className={`transition-colors duration-300 ${
+                                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                                    }`}>People</p>
+                                    <p className={`font-semibold transition-colors duration-300 ${
+                                      isDarkMode ? 'text-white' : 'text-gray-900'
+                                    }`}>
                                       {booking.numberOfPeople}
                                     </p>
                                   </div>
                                   <div>
-                                    <p className="text-gray-600">Amount</p>
-                                    <p className="font-semibold text-gray-900">
+                                    <p className={`transition-colors duration-300 ${
+                                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                                    }`}>Amount</p>
+                                    <p className={`font-semibold transition-colors duration-300 ${
+                                      isDarkMode ? 'text-white' : 'text-gray-900'
+                                    }`}>
                                       ${booking.totalAmount.toFixed(2)}
                                     </p>
                                   </div>
                                   <div>
-                                    <p className="text-gray-600">Booked On</p>
-                                    <p className="font-semibold text-gray-900">
+                                    <p className={`transition-colors duration-300 ${
+                                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                                    }`}>Booked On</p>
+                                    <p className={`font-semibold transition-colors duration-300 ${
+                                      isDarkMode ? 'text-white' : 'text-gray-900'
+                                    }`}>
                                       {new Date(booking.bookingDate).toLocaleDateString()}
                                     </p>
                                   </div>
@@ -1000,8 +1335,12 @@ export default function TouristProfilePage() {
                                 {booking.providerName && (
                                   <div className="mt-4 flex items-center justify-between">
                                     <div className="flex items-center">
-                                      <span className="text-gray-600 mr-2">Provider:</span>
-                                      <span className="font-medium text-gray-900">{booking.providerName}</span>
+                                      <span className={`mr-2 transition-colors duration-300 ${
+                                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                                      }`}>Provider:</span>
+                                      <span className={`font-medium transition-colors duration-300 ${
+                                        isDarkMode ? 'text-white' : 'text-gray-900'
+                                      }`}>{booking.providerName}</span>
                                     </div>
                                     {booking.providerId && user && (
                                       <div className="ml-4">
@@ -1025,7 +1364,11 @@ export default function TouristProfilePage() {
                             <div className="flex flex-col space-y-2">
                               <button
                                 onClick={() => router.push(`/tourist/activities/${booking.activityId}`)}
-                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-semibold"
+                                className={`px-4 py-2 rounded-lg hover:opacity-90 transition-opacity text-sm font-semibold ${
+                                  isDarkMode 
+                                    ? 'bg-blue-600 hover:bg-blue-700' 
+                                    : 'bg-blue-500 hover:bg-blue-600'
+                                } text-white`}
                               >
                                 View Activity
                               </button>
@@ -1033,7 +1376,11 @@ export default function TouristProfilePage() {
                               {booking.status === 'Pending' && (
                                 <button
                                   onClick={() => handleCancelBooking(booking.id)}
-                                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-semibold"
+                                  className={`px-4 py-2 rounded-lg hover:opacity-90 transition-opacity text-sm font-semibold ${
+                                    isDarkMode 
+                                      ? 'bg-red-600 hover:bg-red-700' 
+                                      : 'bg-red-500 hover:bg-red-600'
+                                  } text-white`}
                                 >
                                   Cancel Booking
                                 </button>
@@ -1046,23 +1393,53 @@ export default function TouristProfilePage() {
                   )}
 
                   {bookings.length > 0 && (
-                    <div className="mt-8 pt-6 border-t">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Booking Statistics</h3>
+                    <div className={`mt-8 pt-6 border-t ${
+                      isDarkMode ? 'border-gray-700' : 'border-gray-200'
+                    }`}>
+                      <h3 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>Booking Statistics</h3>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <p className="text-sm text-gray-600">Total Bookings</p>
-                          <p className="text-xl font-bold text-gray-900 mt-1">{stats.totalBookings}</p>
+                        <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700/50' 
+                            : 'bg-gray-50'
+                        }`}>
+                          <p className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                          }`}>Total Bookings</p>
+                          <p className={`text-xl font-bold mt-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>{stats.totalBookings}</p>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <p className="text-sm text-gray-600">Completed</p>
+                        <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700/50' 
+                            : 'bg-gray-50'
+                        }`}>
+                          <p className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                          }`}>Completed</p>
                           <p className="text-xl font-bold text-green-600 mt-1">{stats.completedBookings}</p>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <p className="text-sm text-gray-600">Pending</p>
+                        <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700/50' 
+                            : 'bg-gray-50'
+                        }`}>
+                          <p className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                          }`}>Pending</p>
                           <p className="text-xl font-bold text-yellow-600 mt-1">{stats.pendingBookings}</p>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <p className="text-sm text-gray-600">Total Spent</p>
+                        <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700/50' 
+                            : 'bg-gray-50'
+                        }`}>
+                          <p className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                          }`}>Total Spent</p>
                           <p className="text-xl font-bold text-blue-600 mt-1">${stats.totalSpent.toFixed(2)}</p>
                         </div>
                       </div>
@@ -1075,26 +1452,46 @@ export default function TouristProfilePage() {
                 <>
                   <div className="flex justify-between items-center mb-6">
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900">Saved Items</h2>
-                      <p className="text-gray-600 mt-1">Activities you've saved for later</p>
+                      <h2 className={`text-2xl font-bold transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>Saved Items</h2>
+                      <p className={`mt-1 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>Activities you've saved for later</p>
                     </div>
                     <div className="flex items-center space-x-4">
-                      <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-semibold">
+                      <span className={`px-4 py-2 rounded-full font-semibold transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'bg-blue-900/50 text-blue-300' 
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
                         {savedItems.length} items
                       </span>
                     </div>
                   </div>
 
                   {savedItems.length === 0 ? (
-                    <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                    <div className={`text-center py-16 rounded-xl border-2 border-dashed transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-800/50 border-gray-600' 
+                        : 'bg-gray-50 border-gray-300'
+                    }`}>
                       <div className="text-6xl mb-6">❤️</div>
-                      <h3 className="text-2xl font-bold text-gray-700 mb-3">No Saved Items Yet</h3>
-                      <p className="text-gray-600 max-w-md mx-auto mb-8">
+                      <h3 className={`text-2xl font-bold mb-3 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>No Saved Items Yet</h3>
+                      <p className={`max-w-md mx-auto mb-8 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
                         Save activities you're interested in by clicking the heart icon on any activity.
                       </p>
                       <button
                         onClick={() => router.push('/tourist/activities')}
-                        className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+                        className={`px-6 py-3 rounded-lg hover:opacity-90 transition-opacity font-semibold ${
+                          isDarkMode 
+                            ? 'bg-blue-600 hover:bg-blue-700' 
+                            : 'bg-blue-500 hover:bg-blue-600'
+                        } text-white`}
                       >
                         Browse Activities
                       </button>
@@ -1104,7 +1501,11 @@ export default function TouristProfilePage() {
                       {savedItems.map((item) => (
                         <div 
                           key={item.id} 
-                          className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-300 hover:-translate-y-1"
+                          className={`rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-all duration-300 hover:-translate-y-1 ${
+                            isDarkMode 
+                              ? 'bg-gray-800/50 border-gray-700 hover:border-blue-500' 
+                              : 'bg-white border-gray-200 hover:border-blue-500'
+                          }`}
                         >
                           <div className="relative h-48">
                             <img
@@ -1118,7 +1519,11 @@ export default function TouristProfilePage() {
                             <div className="absolute top-3 right-3 flex space-x-1">
                               <button
                                 onClick={() => removeSavedItem(item.id)}
-                                className="bg-white p-2 rounded-full shadow-lg hover:bg-red-50 hover:text-red-500 transition-colors"
+                                className={`p-2 rounded-full shadow-lg hover:opacity-90 transition-opacity ${
+                                  isDarkMode 
+                                    ? 'bg-gray-700 hover:bg-red-900/50 text-red-400' 
+                                    : 'bg-white hover:bg-red-50 hover:text-red-500'
+                                }`}
                                 title="Remove from saved"
                               >
                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -1138,23 +1543,33 @@ export default function TouristProfilePage() {
                                 />
                               )}
                             </div>
-                            <div className="absolute bottom-3 left-3 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            <div className={`absolute bottom-3 left-3 ${
+                              isDarkMode ? 'bg-black/70' : 'bg-black/70'
+                            } text-white px-3 py-1 rounded-full text-sm font-semibold`}>
                               ${item.price}
                             </div>
                             <div className="absolute top-3 left-3">
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                isDarkMode 
+                                  ? 'bg-blue-900/50 text-blue-300' 
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}>
                                 {item.category}
                               </span>
                             </div>
                           </div>
                           
                           <div className="p-5">
-                            <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 h-14">
+                            <h3 className={`font-bold text-lg mb-2 line-clamp-2 h-14 transition-colors duration-300 ${
+                              isDarkMode ? 'text-white' : 'text-gray-900'
+                            }`}>
                               {item.activityName}
                             </h3>
                             
                             {item.providerName && (
-                              <div className="flex items-center text-gray-600 text-sm mb-2">
+                              <div className={`flex items-center text-sm mb-2 transition-colors duration-300 ${
+                                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                              }`}>
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
@@ -1162,7 +1577,9 @@ export default function TouristProfilePage() {
                               </div>
                             )}
                             
-                            <div className="flex items-center text-gray-600 text-sm mb-4">
+                            <div className={`flex items-center text-sm mb-4 transition-colors duration-300 ${
+                              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
                               <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1170,8 +1587,12 @@ export default function TouristProfilePage() {
                               <span className="truncate">{item.location}</span>
                             </div>
                             
-                            <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                              <span className="text-xs text-gray-500">
+                            <div className={`flex justify-between items-center pt-4 border-t ${
+                              isDarkMode ? 'border-gray-700' : 'border-gray-100'
+                            }`}>
+                              <span className={`text-xs transition-colors duration-300 ${
+                                isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                              }`}>
                                 Saved {new Date(item.savedAt).toLocaleDateString('en-US', { 
                                   month: 'short', 
                                   day: 'numeric',
@@ -1180,7 +1601,11 @@ export default function TouristProfilePage() {
                               </span>
                               <button
                                 onClick={() => router.push(`/tourist/activities/${item.activityId}`)}
-                                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all font-semibold"
+                                className={`px-4 py-2 text-sm rounded-lg hover:opacity-90 transition-opacity font-semibold ${
+                                  isDarkMode 
+                                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600' 
+                                    : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
+                                } text-white`}
                               >
                                 View Details
                               </button>
@@ -1197,15 +1622,27 @@ export default function TouristProfilePage() {
                 <>
                   <div className="flex justify-between items-center mb-6">
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900">My Chats</h2>
-                      <p className="text-gray-600 mt-1">Connect with activity providers</p>
+                      <h2 className={`text-2xl font-bold transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>My Chats</h2>
+                      <p className={`mt-1 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>Connect with activity providers</p>
                     </div>
                     <div className="flex items-center space-x-4">
-                      <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-semibold">
+                      <span className={`px-4 py-2 rounded-full font-semibold transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'bg-blue-900/50 text-blue-300' 
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
                         {chats.length} chat{chats.length !== 1 ? 's' : ''}
                       </span>
                       {totalUnreadMessages > 0 && (
-                        <span className="px-4 py-2 bg-red-100 text-red-800 rounded-full font-semibold">
+                        <span className={`px-4 py-2 rounded-full font-semibold transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-red-900/50 text-red-300' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
                           {totalUnreadMessages} unread
                         </span>
                       )}
@@ -1213,15 +1650,27 @@ export default function TouristProfilePage() {
                   </div>
 
                   {chats.length === 0 ? (
-                    <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                    <div className={`text-center py-16 rounded-xl border-2 border-dashed transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-800/50 border-gray-600' 
+                        : 'bg-gray-50 border-gray-300'
+                    }`}>
                       <div className="text-6xl mb-6">💬</div>
-                      <h3 className="text-2xl font-bold text-gray-700 mb-3">No Chats Yet</h3>
-                      <p className="text-gray-600 max-w-md mx-auto mb-8">
+                      <h3 className={`text-2xl font-bold mb-3 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>No Chats Yet</h3>
+                      <p className={`max-w-md mx-auto mb-8 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
                         Start a conversation with an activity provider by clicking the contact button on their activity page.
                       </p>
                       <button
                         onClick={() => router.push('/tourist/activities')}
-                        className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+                        className={`px-6 py-3 rounded-lg hover:opacity-90 transition-opacity font-semibold ${
+                          isDarkMode 
+                            ? 'bg-blue-600 hover:bg-blue-700' 
+                            : 'bg-blue-500 hover:bg-blue-600'
+                        } text-white`}
                       >
                         Browse Activities
                       </button>
@@ -1231,11 +1680,19 @@ export default function TouristProfilePage() {
                       {chats.map((chat) => (
                         <div 
                           key={chat.id}
-                          className="bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
+                          className={`border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${
+                            isDarkMode 
+                              ? 'bg-gray-800/50 border-gray-700 hover:border-blue-500' 
+                              : 'bg-white border-gray-200 hover:border-blue-500'
+                          }`}
                         >
                           <div className="flex items-center space-x-4">
                             <div className="relative">
-                              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
+                                isDarkMode 
+                                  ? 'bg-gradient-to-r from-blue-600 to-blue-700' 
+                                  : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                              }`}>
                                 {chat.otherUser.fullName?.charAt(0) || 'U'}
                               </div>
                               {chat.unreadCount > 0 && (
@@ -1248,24 +1705,38 @@ export default function TouristProfilePage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <h3 className="font-semibold text-gray-900 truncate">
+                                  <h3 className={`font-semibold truncate transition-colors duration-300 ${
+                                    isDarkMode ? 'text-white' : 'text-gray-900'
+                                  }`}>
                                     {chat.otherUser.fullName}
                                   </h3>
-                                  <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                                  <span className={`text-xs px-2 py-1 rounded-full ${
+                                    isDarkMode 
+                                      ? 'bg-gray-700 text-gray-300' 
+                                      : 'bg-gray-100 text-gray-600'
+                                  }`}>
                                     {chat.otherUser.role}
                                   </span>
                                 </div>
-                                <span className="text-sm text-gray-500 whitespace-nowrap">
+                                <span className={`text-sm whitespace-nowrap transition-colors duration-300 ${
+                                  isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                                }`}>
                                   {new Date(chat.lastMessageAt).toLocaleDateString()}
                                 </span>
                               </div>
                               
                               <div className="flex justify-between items-center mt-2">
-                                <p className="text-gray-600 text-sm truncate">
+                                <p className={`text-sm truncate transition-colors duration-300 ${
+                                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                                }`}>
                                   {chat.lastMessage}
                                 </p>
                                 {chat.unreadCount > 0 && (
-                                  <span className="flex-shrink-0 ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                  <span className={`flex-shrink-0 ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
+                                    isDarkMode 
+                                      ? 'bg-blue-900/50 text-blue-300' 
+                                      : 'bg-blue-100 text-blue-800'
+                                  }`}>
                                     {chat.unreadCount} new
                                   </span>
                                 )}
@@ -1278,7 +1749,11 @@ export default function TouristProfilePage() {
                                   e.stopPropagation();
                                   router.push(`/chats/${chat.id}`);
                                 }}
-                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-semibold"
+                                className={`px-4 py-2 rounded-lg hover:opacity-90 transition-opacity text-sm font-semibold ${
+                                  isDarkMode 
+                                    ? 'bg-blue-600 hover:bg-blue-700' 
+                                    : 'bg-blue-500 hover:bg-blue-600'
+                                } text-white`}
                               >
                                 Open Chat
                               </button>
@@ -1299,21 +1774,45 @@ export default function TouristProfilePage() {
                     </div>
                   )}
 
-                  <div className="mt-8 pt-6 border-t">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Chat Statistics</h3>
+                  <div className={`mt-8 pt-6 border-t ${
+                    isDarkMode ? 'border-gray-700' : 'border-gray-200'
+                  }`}>
+                    <h3 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>Chat Statistics</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600">Active Conversations</p>
-                        <p className="text-xl font-bold text-gray-900 mt-1">{chats.length}</p>
+                      <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'bg-gray-700/50' 
+                          : 'bg-gray-50'
+                      }`}>
+                        <p className={`text-sm transition-colors duration-300 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>Active Conversations</p>
+                        <p className={`text-xl font-bold mt-1 transition-colors duration-300 ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>{chats.length}</p>
                       </div>
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600">Providers Contacted</p>
+                      <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'bg-gray-700/50' 
+                          : 'bg-gray-50'
+                      }`}>
+                        <p className={`text-sm transition-colors duration-300 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>Providers Contacted</p>
                         <p className="text-xl font-bold text-blue-600 mt-1">
                           {new Set(chats.map(chat => chat.otherUser.id)).size}
                         </p>
                       </div>
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-600">Unread Messages</p>
+                      <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'bg-gray-700/50' 
+                          : 'bg-gray-50'
+                      }`}>
+                        <p className={`text-sm transition-colors duration-300 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>Unread Messages</p>
                         <p className="text-xl font-bold text-red-600 mt-1">{totalUnreadMessages}</p>
                       </div>
                     </div>
@@ -1323,77 +1822,97 @@ export default function TouristProfilePage() {
 
               {activeTab === 'settings' && (
                 <>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Account Settings</h2>
+                  <h2 className={`text-2xl font-bold mb-6 transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>Account Settings</h2>
                   <div className="space-y-6">
-                    <div className="border border-gray-200 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h3>
+                    <div className={`border rounded-lg p-6 transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-800/50 border-gray-700' 
+                        : 'bg-white border-gray-200'
+                    }`}>
+                      <h3 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>Change Password</h3>
                       <form className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>
                             Current Password
                           </label>
                           <input
                             type="password"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                              isDarkMode 
+                                ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500' 
+                                : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500'
+                            }`}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>
                             New Password
                           </label>
                           <input
                             type="password"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                              isDarkMode 
+                                ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500' 
+                                : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500'
+                            }`}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>
                             Confirm New Password
                           </label>
                           <input
                             type="password"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-300 ${
+                              isDarkMode 
+                                ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500' 
+                                : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500'
+                            }`}
                           />
                         </div>
                         <button
                           type="button"
-                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                          className={`px-4 py-2 rounded-lg hover:opacity-90 transition-opacity ${
+                            isDarkMode 
+                              ? 'bg-blue-600 hover:bg-blue-700' 
+                              : 'bg-blue-500 hover:bg-blue-600'
+                          } text-white`}
                         >
                           Update Password
                         </button>
                       </form>
                     </div>
 
-                    <div className="border border-gray-200 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Notification Preferences</h3>
-                      <div className="space-y-3">
-                        <label className="flex items-center">
-                          <input type="checkbox" className="mr-3" defaultChecked />
-                          <span className="text-gray-700">Email notifications for new activities</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input type="checkbox" className="mr-3" defaultChecked />
-                          <span className="text-gray-700">Booking confirmations and updates</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input type="checkbox" className="mr-3" />
-                          <span className="text-gray-700">Marketing emails and promotions</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input type="checkbox" className="mr-3" defaultChecked />
-                          <span className="text-gray-700">Activity reminders</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="border border-red-200 rounded-lg p-6 bg-red-50">
-                      <h3 className="text-lg font-semibold text-red-900 mb-4">Danger Zone</h3>
-                      <p className="text-red-700 mb-4">
+                    <div className={`border rounded-lg p-6 transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'border-red-900/50 bg-red-900/10' 
+                        : 'border-red-200 bg-red-50'
+                    }`}>
+                      <h3 className={`text-lg font-semibold mb-4 ${
+                        isDarkMode ? 'text-red-300' : 'text-red-900'
+                      }`}>Danger Zone</h3>
+                      <p className={`mb-4 ${
+                        isDarkMode ? 'text-red-400' : 'text-red-700'
+                      }`}>
                         Once you delete your account, there is no going back. Please be certain.
                       </p>
                       <button
                         onClick={handleDeleteAccount}
-                        className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                        className={`px-6 py-2 rounded-lg hover:opacity-90 transition-opacity ${
+                          isDarkMode 
+                            ? 'bg-red-600 hover:bg-red-700' 
+                            : 'bg-red-500 hover:bg-red-600'
+                        } text-white`}
                       >
                         Delete Account
                       </button>

@@ -39,7 +39,6 @@ namespace TourismHub.Application.Services
 
         public async Task<Review> CreateReviewAsync(Review review)
         {
-        
             if (review.Rating < 1 || review.Rating > 5)
             {
                 throw new ArgumentException("Rating must be between 1 and 5");
