@@ -1,5 +1,5 @@
 // components/AdminDashboard.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AnalyticsReports from './AnalyticsReports';
 import { useRouter } from 'next/navigation';
 import { LogOut } from "lucide-react";
@@ -443,7 +443,7 @@ const CategoryModal: React.FC<{ onClose: () => void; onSave: (data: any) => void
 
 const ActivityModal: React.FC<{ 
   onClose: () => void; 
-  onSave: (data: any) => void; 
+  onSave: (data: any, images: File[]) => void; 
   categories: Category[];
 }> = ({ onClose, onSave, categories }) => {
   const [formData, setFormData] = useState<NewActivity>({
@@ -463,6 +463,66 @@ const ActivityModal: React.FC<{
     requirements: '',
     quickFacts: ''
   });
+
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImages, setUploadingImages] = useState(false);
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    
+    if (files.length > 0) {
+      const validFiles = files.filter(file => {
+        if (!file.type.startsWith('image/')) {
+          alert(`File ${file.name} is not an image`);
+          return false;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          alert(`Image ${file.name} is too large (max 5MB)`);
+          return false;
+        }
+        return true;
+      });
+
+      setSelectedImages(prev => [...prev, ...validFiles]);
+
+      validFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImagePreviews(prev => [...prev, e.target?.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const files = Array.from(event.dataTransfer.files);
+    
+    if (files.length > 0) {
+      const dataTransfer = new DataTransfer();
+      files.forEach(file => dataTransfer.items.add(file));
+      
+      const fakeEvent = {
+        target: {
+          files: dataTransfer.files
+        }
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+      
+      handleImageUpload(fakeEvent);
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -512,7 +572,7 @@ const ActivityModal: React.FC<{
     }
     
     console.log('Form data is valid, submitting...');
-    onSave(formData);
+    onSave(formData, selectedImages);
   };
 
   return (
@@ -532,8 +592,8 @@ const ActivityModal: React.FC<{
         backgroundColor: '#1e1e1e',
         padding: '24px',
         borderRadius: '12px',
-        width: '700px',
-        maxHeight: '90vh',
+        width: '800px',
+        maxHeight: '95vh',
         overflowY: 'auto',
         border: '1px solid #333333'
       }}>
@@ -542,6 +602,94 @@ const ActivityModal: React.FC<{
         </h3>
         
         <form onSubmit={handleSubmit}>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Activity Images (Optional)</label>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+            />
+            
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              style={{
+                border: '2px dashed #666666',
+                borderRadius: '8px',
+                padding: '20px',
+                textAlign: 'center',
+                backgroundColor: '#2a2a2a',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {imagePreviews.length > 0 ? (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '10px' }}>
+                    {imagePreviews.map((preview, index) => (
+                      <div key={index} style={{ position: 'relative' }}>
+                        <img 
+                          src={preview} 
+                          alt={`Preview ${index + 1}`}
+                          style={{
+                            width: '100%',
+                            height: '80px',
+                            objectFit: 'cover',
+                            borderRadius: '6px',
+                            border: '1px solid #444444'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveImage(index);
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: '-5px',
+                            right: '-5px',
+                            backgroundColor: '#f44336',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ color: '#4CAF50', fontSize: '14px' }}>
+                    {selectedImages.length} images selected
+                  </p>
+                  <p style={{ color: '#b0b0b0', fontSize: '12px' }}>
+                    Click or drag to add more images
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: '48px', marginBottom: '10px' }}>📁</div>
+                  <p style={{ color: '#b0b0b0', marginBottom: '5px' }}>
+                    Click to upload or drag and drop images
+                  </p>
+                  <p style={{ color: '#666666', fontSize: '11px' }}>
+                    PNG, JPG, JPEG up to 5MB each
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
           <div style={{ marginBottom: '16px' }}>
             <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>Activity Name *</label>
             <input
@@ -2649,107 +2797,112 @@ const ActivitiesManagement: React.FC = () => {
     }
   };
 
-  const handleAddActivity = async (activityData: NewActivity) => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        alert('You need to login first!');
-        return;
-      }
-      
-      const formData = new FormData();
-      
-      formData.append('Name', activityData.name.trim());
-      formData.append('Description', activityData.description.trim());
-      formData.append('Price', activityData.price.toString());
-      formData.append('AvailableSlots', activityData.availableSlots.toString());
-      formData.append('Location', activityData.location.trim());
-      formData.append('CategoryId', activityData.categoryId);
-      formData.append('Duration', activityData.duration);
-      formData.append('ProviderName', activityData.providerName?.trim() || 'Unknown Provider');
-      
-      if (activityData.providerId && activityData.providerId.trim()) {
-        formData.append('ProviderId', activityData.providerId.trim());
-      }
-      
-      formData.append('StartDate', new Date(activityData.startDate).toISOString());
-      formData.append('EndDate', new Date(activityData.endDate).toISOString());
-      
-      if (activityData.included && activityData.included.trim()) {
-        formData.append('Included', activityData.included.trim());
-      } else {
-        formData.append('Included', '');
-      }
-      
-      if (activityData.requirements && activityData.requirements.trim()) {
-        formData.append('Requirements', activityData.requirements.trim());
-      } else {
-        formData.append('Requirements', '');
-      }
-      
-      if (activityData.quickFacts && activityData.quickFacts.trim()) {
-        formData.append('QuickFacts', activityData.quickFacts.trim());
-      } else {
-        formData.append('QuickFacts', '');
-      }
-      
-      console.log('=== FORM DATA ===');
-      const formDataObj: Record<string, string> = {};
-      for (const [key, value] of formData.entries()) {
-        formDataObj[key] = value.toString();
-      }
-      console.table(formDataObj);
-      
-      const response = await fetch(`${API_BASE_URL}/activities`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-      
-      console.log('Response status:', response.status);
-      const responseText = await response.text();
-      console.log('Response text:', responseText);
-      
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: Failed to create activity`;
-        try {
-          const errorData = JSON.parse(responseText);
-          console.error('Error details:', errorData);
-          
-          if (errorData.errors) {
-            const validationErrors = Object.entries(errorData.errors)
-              .flatMap(([key, errors]: [string, any]) => 
-                Array.isArray(errors) 
-                  ? errors.map(err => `• ${key}: ${err}`)
-                  : `• ${key}: ${errors}`
-              );
-            errorMessage = `Validation failed:\n${validationErrors.join('\n')}`;
-          } else if (errorData.message) {
-            errorMessage = errorData.message;
-          }
-        } catch {
-          if (responseText.includes('Validation failed')) {
-            errorMessage = responseText;
-          }
-        }
-        throw new Error(errorMessage);
-      }
-      
-      const result = JSON.parse(responseText);
-      console.log('✅ Success:', result);
-      
-      await fetchActivities();
-      setShowAddModal(false);
-      alert('✅ Activity created successfully!');
-      
-    } catch (error) {
-      console.error('❌ Full error:', error);
-      alert(`❌ Failed to create activity:\n\n${error instanceof Error ? error.message : 'Unknown error'}`);
+const handleAddActivity = async (activityData: NewActivity, images: File[]) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      alert('You need to login first!');
+      return;
     }
-  };
+    
+    const formData = new FormData();
+    
+    formData.append('Name', activityData.name.trim());
+    formData.append('Description', activityData.description.trim());
+    formData.append('Price', activityData.price.toString());
+    formData.append('AvailableSlots', activityData.availableSlots.toString());
+    formData.append('Location', activityData.location.trim());
+    formData.append('CategoryId', activityData.categoryId);
+    formData.append('Duration', activityData.duration);
+    formData.append('ProviderName', activityData.providerName?.trim() || 'Unknown Provider');
+    
+    if (activityData.providerId && activityData.providerId.trim()) {
+      formData.append('ProviderId', activityData.providerId.trim());
+    }
+    
+    formData.append('StartDate', new Date(activityData.startDate).toISOString());
+    formData.append('EndDate', new Date(activityData.endDate).toISOString());
+    
+    if (activityData.included && activityData.included.trim()) {
+      formData.append('Included', activityData.included.trim());
+    } else {
+      formData.append('Included', '');
+    }
+    
+    if (activityData.requirements && activityData.requirements.trim()) {
+      formData.append('Requirements', activityData.requirements.trim());
+    } else {
+      formData.append('Requirements', '');
+    }
+    
+    if (activityData.quickFacts && activityData.quickFacts.trim()) {
+      formData.append('QuickFacts', activityData.quickFacts.trim());
+    } else {
+      formData.append('QuickFacts', '');
+    }
+    
+   
+    images.forEach((image, index) => {
+      formData.append(`Images[${index}]`, image);
+    });
+    
+    console.log('=== FORM DATA ===');
+    const formDataObj: Record<string, any> = {};
+    for (const [key, value] of formData.entries()) {
+      formDataObj[key] = value instanceof File ? value.name : value.toString();
+    }
+    console.table(formDataObj);
+    
+    const response = await fetch(`${API_BASE_URL}/activities`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+    
+    console.log('Response status:', response.status);
+    const responseText = await response.text();
+    console.log('Response text:', responseText);
+    
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}: Failed to create activity`;
+      try {
+        const errorData = JSON.parse(responseText);
+        console.error('Error details:', errorData);
+        
+        if (errorData.errors) {
+          const validationErrors = Object.entries(errorData.errors)
+            .flatMap(([key, errors]: [string, any]) => 
+              Array.isArray(errors) 
+                ? errors.map(err => `• ${key}: ${err}`)
+                : `• ${key}: ${errors}`
+            );
+          errorMessage = `Validation failed:\n${validationErrors.join('\n')}`;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch {
+        if (responseText.includes('Validation failed')) {
+          errorMessage = responseText;
+        }
+      }
+      throw new Error(errorMessage);
+    }
+    
+    const result = JSON.parse(responseText);
+    console.log('✅ Success:', result);
+    
+    await fetchActivities();
+    setShowAddModal(false);
+    alert('✅ Activity created successfully!');
+    
+  } catch (error) {
+    console.error('❌ Full error:', error);
+    alert(`❌ Failed to create activity:\n\n${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
 
   const handleEditActivity = async (activityData: any) => {
     if (!editingActivity) return;
@@ -3292,13 +3445,13 @@ const handleUpdateActivityStatus = async (activityId: string, status: string) =>
         </div>
       )}
 
-      {showAddModal && (
-        <ActivityModal
-          onClose={() => setShowAddModal(false)}
-          onSave={handleAddActivity}
-          categories={categories}
-        />
-      )}
+{showAddModal && (
+  <ActivityModal
+    onClose={() => setShowAddModal(false)}
+    onSave={handleAddActivity}
+    categories={categories}
+  />
+)}
 
       {showEditModal && editingActivity && (
         <ActivityEditModal

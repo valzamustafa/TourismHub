@@ -22,7 +22,6 @@ interface AddActivityModalProps {
     availableSlots: number;
     location: string;
     categoryId: string;
-    duration: string;
     included: string;
     requirements: string;
     quickFacts: string;
@@ -115,15 +114,16 @@ const AddActivityModal = ({
     }
     
     setUploading(true);
+   
     onSubmit(e, selectedImages);
     setTimeout(() => setUploading(false), 2000);
   };
 
-  const calculateDuration = () => {
-    if (!activityData.startDate || !activityData.endDate) return '';
+  const calculateDisplayDuration = (startDate: string, endDate: string): string => {
+    if (!startDate || !endDate) return '0 minutes';
     
-    const start = new Date(activityData.startDate);
-    const end = new Date(activityData.endDate);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
     const diffMs = end.getTime() - start.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -317,36 +317,24 @@ const AddActivityModal = ({
                 </div>
               </div>
               
-              {/* Auto-calculated Duration */}
+
               {activityData.startDate && activityData.endDate && (
                 <div className="mt-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-300">Activity Duration:</span>
                     <span className="text-amber-400 font-bold">
-                      {calculateDuration()}
+                      {calculateDisplayDuration(activityData.startDate, activityData.endDate)}
                     </span>
                   </div>
+                  <p className="text-gray-400 text-xs mt-2">
+                    Duration is automatically calculated from start and end dates
+                  </p>
                 </div>
               )}
             </div>
 
             {/* Details Grid */}
             <div className="grid grid-cols-4 gap-4">
-              <div>
-                <label className="block text-gray-300 font-semibold mb-2">
-                  <Clock className="w-4 h-4 inline mr-2 text-amber-400" />
-                  Duration Text *
-                </label>
-                <input
-                  type="text"
-                  value={activityData.duration}
-                  onChange={(e) => onDataChange('duration', e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white placeholder-gray-500 transition-all"
-                  placeholder="e.g., 4 hours"
-                  required
-                />
-              </div>
-
               <div>
                 <label className="block text-gray-300 font-semibold mb-2">
                   <DollarSign className="w-4 h-4 inline mr-2 text-amber-400" />

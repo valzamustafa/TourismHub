@@ -143,12 +143,17 @@ export default function ActivityDetailPage() {
     }
   };
 
-  const handleBookNow = () => {
-    if (activity) {
-      localStorage.setItem('selectedActivity', JSON.stringify(activity));
-      router.push('/booking');
-    }
-  };
+const handleBookNow = () => {
+  if (activity) {
+
+    const activityToSave = {
+      ...activity,
+      images: activity.images || [] 
+    };
+    localStorage.setItem('selectedActivity', JSON.stringify(activityToSave));
+    router.push('/booking');
+  }
+};
 
   if (loading) {
     return (

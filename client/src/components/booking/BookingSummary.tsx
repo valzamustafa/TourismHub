@@ -1,3 +1,4 @@
+// components/booking/BookingSummary.tsx
 import React from 'react';
 
 interface BookingSummaryProps {
@@ -18,8 +19,26 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
   bookingData 
 }) => {
   const subtotal = activity.price * bookingData.numberOfPeople;
-  const tax = subtotal * 0.1; // 10% tax
+  const tax = subtotal * 0.1;
   const total = subtotal + tax;
+
+  const getFullImageUrl = (imagePath: string): string => {
+    if (!imagePath || imagePath === 'string' || imagePath.includes('unsplash')) {
+      return '/images/default-activity.jpg';
+    }
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    if (imagePath.startsWith('/uploads/')) {
+      return `http://localhost:5224${imagePath}`;
+    }
+    return `http://localhost:5224${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`;
+  };
+
+
+  const mainImage = activity.images && activity.images.length > 0 
+    ? getFullImageUrl(activity.images[0])
+    : '/images/default-activity.jpg';
 
   return (
     <div className="space-y-4">
@@ -27,13 +46,14 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
       
       <div className="border border-gray-200 rounded-lg p-4">
         <div className="flex items-start space-x-4">
-          {activity.images && activity.images[0] && (
-            <img 
-              src={activity.images[0]} 
-              alt={activity.name}
-              className="w-20 h-20 object-cover rounded-md"
-            />
-          )}
+          <img 
+            src={mainImage} 
+            alt={activity.name}
+            className="w-20 h-20 object-cover rounded-md"
+            onError={(e) => {
+              e.currentTarget.src = '/images/default-activity.jpg';
+            }}
+          />
           <div className="flex-1">
             <h4 className="font-semibold text-gray-900">{activity.name}</h4>
             <p className="text-sm text-gray-600">{activity.location}</p>

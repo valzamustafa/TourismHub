@@ -26,6 +26,7 @@ interface Booking {
   activityId: string;
   activityName: string;
   activityImage?: string;
+  activityImages?: string[]; 
   bookingDate: string;
   selectedDate: string;
   numberOfPeople: number;
@@ -129,110 +130,158 @@ export default function TouristProfilePage() {
   useEffect(() => {
     fetchProfileData();
   }, []);
-
-  const getFullImageUrl = (imagePath: string): string => {
-    if (!imagePath || imagePath === 'string' || imagePath === 'null') {
-      return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500';
-    }
-
-    if (imagePath.startsWith('http')) {
-      return imagePath;
-    }
-    
-    const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:5224';
-    
-    if (imagePath.startsWith('/uploads/')) {
-      const fullUrl = `${BACKEND_BASE_URL}${imagePath}`;
-      return fullUrl;
-    }
-    
-    if (imagePath.includes('.')) {
-      const fullUrl = `${BACKEND_BASE_URL}/uploads/activity-images/${imagePath}`;
-      return fullUrl;
-    }
-    
+const getFullImageUrl = (imagePath: string | undefined): string => {
+  if (!imagePath || imagePath === 'string' || imagePath === 'null') {
     return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500';
-  };
+  }
 
-  const fetchProfileData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const userData = localStorage.getItem('user');
-      
-      if (!token || !userData) {
-        router.push('/');
-        return;
-      }
-
-      const parsedUser = JSON.parse(userData);
-
-      const userResponse = await fetch(`${API_BASE_URL}/users/${parsedUser.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (userResponse.ok) {
-        const userDataFromApi = await userResponse.json();
-        setUser(userDataFromApi);
-        setFormData({
-          fullName: userDataFromApi.fullName || userDataFromApi.name || '',
-          email: userDataFromApi.email || '',
-          phone: userDataFromApi.phone || '',
-          address: userDataFromApi.address || '',
-          bio: userDataFromApi.bio || ''
-        });
-
-        localStorage.setItem('user', JSON.stringify(userDataFromApi));
-      }
-
-      const bookingsResponse = await fetch(`${API_BASE_URL}/bookings/user/${parsedUser.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (bookingsResponse.ok) {
-        const bookingsData = await bookingsResponse.json();
-        setBookings(bookingsData);
-        calculateStats(bookingsData);
-      }
-
-      const savedResponse = await fetch(`${API_BASE_URL}/savedactivities/user/${parsedUser.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (savedResponse.ok) {
-        const savedData = await savedResponse.json();
-        const savedItems: SavedItem[] = savedData.map((item: any) => ({
-          id: item.id,
-          activityId: item.activityId,
-          activityName: item.activityName,
-          activityImage: item.activityImage,
-          price: item.activityPrice,
-          location: item.activityLocation,
-          category: item.activityCategory,
-          savedAt: item.savedAt,
-          providerId: item.providerId, 
-          providerName: item.providerName 
-        }));
-        setSavedItems(savedItems);
-      }
-
-      await fetchChats();
-
-    } catch (error) {
-      console.error('Error fetching profile data:', error);
-    } finally {
-      setLoading(false);
+  if (imagePath.startsWith('http')) {
+    return imagePath;
+  }
+  
+  const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:5224';
+  
+  if (imagePath.startsWith('/uploads/')) {
+    const fullUrl = `${BACKEND_BASE_URL}${imagePath}`;
+    return fullUrl;
+  }
+  
+  if (imagePath.includes('.')) {
+    const fullUrl = `${BACKEND_BASE_URL}/uploads/activity-images/${imagePath}`;
+    return fullUrl;
+  }
+  
+  return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500';
+};
+const fetchProfileData = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    if (!token || !userData) {
+      router.push('/');
+      return;
     }
-  };
 
+    const parsedUser = JSON.parse(userData);
+
+    const userResponse = await fetch(`${API_BASE_URL}/users/${parsedUser.id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (userResponse.ok) {
+      const userDataFromApi = await userResponse.json();
+      setUser(userDataFromApi);
+      setFormData({
+        fullName: userDataFromApi.fullName || userDataFromApi.name || '',
+        email: userDataFromApi.email || '',
+        phone: userDataFromApi.phone || '',
+        address: userDataFromApi.address || '',
+        bio: userDataFromApi.bio || ''
+      });
+
+      localStorage.setItem('user', JSON.stringify(userDataFromApi));
+    }
+
+    const bookingsResponse = await fetch(`${API_BASE_URL}/bookings/user/${parsedUser.id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (bookingsResponse.ok) {
+      const bookingsData = await bookingsResponse.json();
+      
+    
+      const bookingsWithImages = await Promise.all(
+        bookingsData.map(async (booking: any) => {
+          try {
+
+            const imagesResponse = await fetch(
+              `${API_BASE_URL}/activityimages/activity/${booking.activityId}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+
+            let activityImages: string[] = [];
+            let activityImage: string | undefined = undefined;
+            
+            if (imagesResponse.ok) {
+              const imagesData = await imagesResponse.json();
+              if (imagesData.data && imagesData.data.length > 0) {
+           
+                activityImages = imagesData.data.map((img: any) => {
+                  const imageUrl = img.imageUrl;
+                  return getFullImageUrl(imageUrl);
+                });
+                
+   
+                activityImage = activityImages[0];
+              }
+            }
+
+            return {
+              ...booking,
+              activityImages: activityImages,
+              activityImage: activityImage,
+              activityName: booking.activityName || 'Unknown Activity'
+            };
+          } catch (error) {
+            console.error(`Error fetching activity images for booking ${booking.id}:`, error);
+            return {
+              ...booking,
+              activityImages: [],
+              activityImage: undefined,
+              activityName: booking.activityName || 'Unknown Activity'
+            };
+          }
+        })
+      );
+      
+      setBookings(bookingsWithImages);
+      calculateStats(bookingsWithImages);
+    }
+
+    const savedResponse = await fetch(`${API_BASE_URL}/savedactivities/user/${parsedUser.id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (savedResponse.ok) {
+      const savedData = await savedResponse.json();
+      const savedItems: SavedItem[] = savedData.map((item: any) => ({
+        id: item.id,
+        activityId: item.activityId,
+        activityName: item.activityName,
+        activityImage: item.activityImage,
+        price: item.activityPrice,
+        location: item.activityLocation,
+        category: item.activityCategory,
+        savedAt: item.savedAt,
+        providerId: item.providerId, 
+        providerName: item.providerName 
+      }));
+      setSavedItems(savedItems);
+    }
+
+    await fetchChats();
+
+  } catch (error) {
+    console.error('Error fetching profile data:', error);
+  } finally {
+    setLoading(false);
+  }
+};
   const fetchChats = async () => {
     try {
       const token = localStorage.getItem('token');

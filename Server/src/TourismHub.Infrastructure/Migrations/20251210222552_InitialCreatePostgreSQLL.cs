@@ -6,13 +6,35 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace TourismHub.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialsSCreatessPostgreSQL : Migration
+    public partial class InitialCreatePostgreSQLL : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AlterDatabase()
                 .Annotation("Npgsql:PostgresExtension:uuid-ossp", ",,");
+
+            migrationBuilder.CreateTable(
+                name: "About",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Title = table.Column<string>(type: "text", nullable: false),
+                    Subtitle = table.Column<string>(type: "text", nullable: true),
+                    Description = table.Column<string>(type: "text", nullable: false),
+                    Mission = table.Column<string>(type: "text", nullable: false),
+                    Vision = table.Column<string>(type: "text", nullable: true),
+                    Values = table.Column<string>(type: "text", nullable: true),
+                    ContactEmail = table.Column<string>(type: "text", nullable: false),
+                    ContactPhone = table.Column<string>(type: "text", nullable: false),
+                    Address = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_About", x => x.Id);
+                });
 
             migrationBuilder.CreateTable(
                 name: "Categories",
@@ -543,6 +565,9 @@ namespace TourismHub.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "About");
+
             migrationBuilder.DropTable(
                 name: "ActivityImages");
 

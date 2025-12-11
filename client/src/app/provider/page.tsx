@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import StatsCards from "@/components/provider/StatsCards";
-import TabsNavigation from "@/components/provider/TabsNavigation";
 import ActivitiesTable from "@/components/provider/ActivitiesTable";
 import ReviewsSection from "@/components/provider/ReviewsSection";
 import BookingsTable from "@/components/provider/BookingsTable";
@@ -11,8 +10,9 @@ import AddActivityModal from "@/components/provider/AddActivityModal";
 import EditActivityModal from "@/components/provider/EditActivityModal";
 import ChangePasswordModal from "@/components/provider/ChangePasswordModal";
 import ChatList from "@/components/provider/ChatList";
-import Header from "@/components/provider/Header";
-import { MessageSquare, Activity, Calendar, TrendingUp, Compass, Star } from "lucide-react";
+
+import NotificationBell from "@/components/NotificationBell";
+import { MessageSquare, Activity, Calendar, TrendingUp, Compass, Star, LogOut, Users, DollarSign, Mountain, MapPin, Home, Settings, Bell, User } from "lucide-react";
 
 interface Category {
   id: string;
@@ -72,7 +72,7 @@ const ProviderDashboard = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeSection, setActiveSection] = useState('dashboard');
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [showEditActivity, setShowEditActivity] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -126,6 +126,17 @@ const ProviderDashboard = () => {
     endDate: ''
   });
 
+
+  const menuItems = [
+    { text: 'Dashboard', icon: '📊', section: 'dashboard' },
+    { text: 'My Activities', icon: '🏔️', section: 'activities' },
+   
+    { text: 'Bookings', icon: '📅', section: 'bookings' },
+    { text: 'Reviews', icon: '⭐', section: 'reviews' },
+    { text: 'Chats', icon: '💬', section: 'chats' },
+    { text: 'Analytics', icon: '📈', section: 'analytics' },
+  ];
+
   const getToken = (): string => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -134,6 +145,7 @@ const ProviderDashboard = () => {
     }
     return token;
   };
+
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -186,7 +198,6 @@ const ProviderDashboard = () => {
 
   const fetchProviderData = async (userData: any, token: string) => {
     try {
-   
       const activitiesResponse = await fetch(`http://localhost:5224/api/activities/provider/${userData.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -284,7 +295,6 @@ const ProviderDashboard = () => {
     try {
       const allReviews: Review[] = [];
       
-  
       const reviewsPromises = activities.map(async (activity) => {
         try {
           const response = await fetch(`http://localhost:5224/api/reviews/activity/${activity.id}`, {
@@ -297,7 +307,6 @@ const ProviderDashboard = () => {
           if (response.ok) {
             const reviewsData = await response.json();
             if (reviewsData.success && reviewsData.data && reviewsData.data.length > 0) {
-          
               return reviewsData.data.map((review: any) => ({
                 id: review.id,
                 activityId: review.activityId,
@@ -465,66 +474,67 @@ const ProviderDashboard = () => {
   };
 
   const handleAddActivity = async (e: React.FormEvent, images: File[]) => {
-  e.preventDefault();
-  if (!user) return;
+    e.preventDefault();
+    if (!user) return;
 
-  try {
-    const token = getToken();
-    
-    const formData = new FormData();
-    formData.append('providerId', user.id);
-    formData.append('name', newActivity.name);
-    formData.append('description', newActivity.description);
-    formData.append('price', newActivity.price.toString());
-    formData.append('availableSlots', newActivity.availableSlots.toString());
-    formData.append('location', newActivity.location);
-    formData.append('categoryId', newActivity.categoryId);
-    formData.append('duration', newActivity.duration);
-    formData.append('included', newActivity.included);
-    formData.append('requirements', newActivity.requirements);
-    formData.append('quickFacts', newActivity.quickFacts);
-    formData.append('startDate', new Date(newActivity.startDate).toISOString());
-    formData.append('endDate', new Date(newActivity.endDate).toISOString());
-    
-    images.forEach(image => {
-      formData.append('images', image);
-    });
-
-    const activityResponse = await fetch('http://localhost:5224/api/activities', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      body: formData
-    });
-
-    if (activityResponse.ok) {
-      setShowAddActivity(false);
-      setNewActivity({
-        name: '',
-        description: '',
-        price: 0,
-        availableSlots: 0,
-        location: '',
-        categoryId: '',
-        duration: '',
-        included: '',
-        requirements: '',
-        quickFacts: '',
-        startDate: '',
-        endDate: ''
+    try {
+      const token = getToken();
+      
+      const formData = new FormData();
+      formData.append('providerId', user.id);
+      formData.append('name', newActivity.name);
+      formData.append('description', newActivity.description);
+      formData.append('price', newActivity.price.toString());
+      formData.append('availableSlots', newActivity.availableSlots.toString());
+      formData.append('location', newActivity.location);
+      formData.append('categoryId', newActivity.categoryId);
+      formData.append('duration', newActivity.duration);
+      formData.append('included', newActivity.included);
+      formData.append('requirements', newActivity.requirements);
+      formData.append('quickFacts', newActivity.quickFacts);
+      formData.append('startDate', new Date(newActivity.startDate).toISOString());
+      formData.append('endDate', new Date(newActivity.endDate).toISOString());
+      
+      images.forEach(image => {
+        formData.append('images', image);
       });
-      fetchProviderData(user, token); 
-      alert('Activity created successfully!');
-    } else {
-      const errorText = await activityResponse.text();
-      alert('Failed to create activity: ' + errorText);
+
+      const activityResponse = await fetch('http://localhost:5224/api/activities', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (activityResponse.ok) {
+        setShowAddActivity(false);
+        setNewActivity({
+          name: '',
+          description: '',
+          price: 0,
+          availableSlots: 0,
+          location: '',
+          categoryId: '',
+          duration: '',
+          included: '',
+          requirements: '',
+          quickFacts: '',
+          startDate: '',
+          endDate: ''
+        });
+        fetchProviderData(user, token); 
+        alert('Activity created successfully!');
+      } else {
+        const errorText = await activityResponse.text();
+        alert('Failed to create activity: ' + errorText);
+      }
+    } catch (error) {
+      console.error('Error adding activity:', error);
+      alert('Error creating activity. Please try again.');
     }
-  } catch (error) {
-    console.error('Error adding activity:', error);
-    alert('Error creating activity. Please try again.');
-  }
-};
+  };
+
   const handleEditActivity = (activity: ActivityType) => {
     setEditingActivity(activity);
     setEditActivityData({
@@ -544,89 +554,89 @@ const ProviderDashboard = () => {
     setShowEditActivity(true);
   };
 
-const handleUpdateActivity = async (e: React.FormEvent, images: File[] = []) => {
-  e.preventDefault();
-  if (!editingActivity || !user) return;
+  const handleUpdateActivity = async (e: React.FormEvent, images: File[] = []) => {
+    e.preventDefault();
+    if (!editingActivity || !user) return;
 
-  try {
-    const token = getToken(); 
+    try {
+      const token = getToken(); 
+      
+      const response = await fetch(`http://localhost:5224/api/activities/${editingActivity.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: editActivityData.name,
+          description: editActivityData.description,
+          price: Number(editActivityData.price),
+          availableSlots: Number(editActivityData.availableSlots),
+          location: editActivityData.location,
+          categoryId: editActivityData.categoryId,
+          duration: editActivityData.duration,
+          included: editActivityData.included,
+          requirements: editActivityData.requirements,
+          quickFacts: editActivityData.quickFacts,
+          startDate: new Date(editActivityData.startDate),
+          endDate: new Date(editActivityData.endDate)
+        })
+      });
+
+      if (response.ok) {
+        if (images.length > 0) {
+          const formData = new FormData();
+          images.forEach(image => {
+            formData.append('images', image);
+          });
+
+          await fetch(`http://localhost:5224/api/activityimages/upload/${editingActivity.id}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+        }
+
+        setShowEditActivity(false);
+        setEditingActivity(null);
+        fetchProviderData(user, token); 
+        alert('Activity updated successfully!');
+      } else {
+        const errorData = await response.json();
+        alert('Failed to update activity: ' + (errorData.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error updating activity:', error);
+      alert('Error updating activity. Please try again.');
+    }
+  };
+
+  const handleDeleteActivity = async (activityId: string) => {
+    if (!confirm('Are you sure you want to delete this activity?')) return;
     
-    const response = await fetch(`http://localhost:5224/api/activities/${editingActivity.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        name: editActivityData.name,
-        description: editActivityData.description,
-        price: Number(editActivityData.price),
-        availableSlots: Number(editActivityData.availableSlots),
-        location: editActivityData.location,
-        categoryId: editActivityData.categoryId,
-        duration: editActivityData.duration,
-        included: editActivityData.included,
-        requirements: editActivityData.requirements,
-        quickFacts: editActivityData.quickFacts,
-        startDate: new Date(editActivityData.startDate),
-        endDate: new Date(editActivityData.endDate)
-      })
-    });
+    try {
+      const token = getToken(); 
+      const response = await fetch(`http://localhost:5224/api/activities/${activityId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-    if (response.ok) {
-      if (images.length > 0) {
-        const formData = new FormData();
-        images.forEach(image => {
-          formData.append('images', image);
-        });
-
-        await fetch(`http://localhost:5224/api/activityimages/upload/${editingActivity.id}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        });
+      if (response.ok) {
+        fetchProviderData(user, token); 
+        alert('Activity deleted successfully!');
+      } else {
+        const errorText = await response.text();
+        alert('Failed to delete activity: ' + errorText);
       }
-
-      setShowEditActivity(false);
-      setEditingActivity(null);
-      fetchProviderData(user, token); 
-      alert('Activity updated successfully!');
-    } else {
-      const errorData = await response.json();
-      alert('Failed to update activity: ' + (errorData.message || 'Unknown error'));
+    } catch (error) {
+      console.error('Error deleting activity:', error);
+      alert('Error deleting activity. Please try again.');
     }
-  } catch (error) {
-    console.error('Error updating activity:', error);
-    alert('Error updating activity. Please try again.');
-  }
-};
-
-const handleDeleteActivity = async (activityId: string) => {
-  if (!confirm('Are you sure you want to delete this activity?')) return;
-  
-  try {
-    const token = getToken(); 
-    const response = await fetch(`http://localhost:5224/api/activities/${activityId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    if (response.ok) {
-      fetchProviderData(user, token); 
-      alert('Activity deleted successfully!');
-    } else {
-      const errorText = await response.text();
-      alert('Failed to delete activity: ' + errorText);
-    }
-  } catch (error) {
-    console.error('Error deleting activity:', error);
-    alert('Error deleting activity. Please try again.');
-  }
-};
+  };
 
   const handleDataChange = (field: string, value: string | number) => {
     setNewActivity(prev => ({
@@ -641,6 +651,7 @@ const handleDeleteActivity = async (activityId: string) => {
       [field]: value
     }));
   };
+
   const reviewStats = {
     totalReviews: reviews.length,
     averageRating: reviews.length > 0 
@@ -658,6 +669,14 @@ const handleDeleteActivity = async (activityId: string) => {
     alert(`Response functionality coming soon for review: ${reviewId}`);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('notificationCount');
+    localStorage.removeItem('selectedSection');
+    router.push('/');
+  };
+
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -666,370 +685,625 @@ const handleDeleteActivity = async (activityId: string) => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      <Header 
-        onAddActivity={() => setShowAddActivity(true)} 
-        onChangePassword={() => setShowChangePassword(true)}
-        userName={user.fullName || user.name}
-        userLocation={stats.popularLocation}
-        showAddButton={true}
-      />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white">
-                Welcome back, <span className="text-amber-400">{user.fullName || user.name}!</span>
-              </h1>
-              <p className="text-gray-400 mt-2">Manage your activities, bookings, and chats</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              {unreadCount > 0 && (
-                <div className="relative">
-                  <button
-                    onClick={() => setActiveTab('chats')}
-                    className="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl hover:from-red-600 hover:to-pink-700 transition-all duration-300 font-semibold flex items-center"
-                  >
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    {unreadCount} Unread Messages
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <StatsCards stats={stats} />
-
-        {/* Tabs Navigation */}
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 mb-6 mt-8">
-          <div className="px-6 pt-4">
-            <TabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
-          </div>
-
-          <div className="p-6">
-            {activeTab === 'overview' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-                <div className="lg:col-span-2">
-                  <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700 mb-6">
-                    <h2 className="text-xl font-bold text-white mb-4 flex items-center">
-                      <Compass className="w-5 h-5 mr-2 text-amber-400" />
-                      Quick Overview
-                    </h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
-                        <div className="text-2xl font-bold text-amber-400 mb-1">{stats.totalActivities}</div>
-                        <div className="text-sm text-gray-400">Total Activities</div>
-                      </div>
-                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
-                        <div className="text-2xl font-bold text-emerald-400 mb-1">{stats.totalBookings}</div>
-                        <div className="text-sm text-gray-400">Total Bookings</div>
-                      </div>
-                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
-                        <div className="text-2xl font-bold text-blue-400 mb-1">${stats.totalRevenue}</div>
-                        <div className="text-sm text-gray-400">Total Revenue</div>
-                      </div>
-                      <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
-                        <div className="text-2xl font-bold text-red-400 mb-1">{stats.unreadMessages}</div>
-                        <div className="text-sm text-gray-400">Unread Messages</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Recent Activities */}
-                  <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
-                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-xl font-bold text-white flex items-center">
-                        <Activity className="w-5 h-5 mr-2 text-emerald-400" />
-                        Recent Activities
-                      </h2>
-                      <button
-                        onClick={() => setActiveTab('activities')}
-                        className="text-amber-400 hover:text-amber-300 text-sm font-medium"
-                      >
-                        View All →
-                      </button>
-                    </div>
-                    {activities.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-gray-400">No activities found. Create your first activity!</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {activities.slice(0, 3).map((activity) => {
-                          let statusColor = 'bg-gray-500';
-                          let statusText = activity.status;
-                          
-                          if (activity.isExpired) {
-                            statusColor = 'bg-red-500';
-                            statusText = 'Expired';
-                          } else if (activity.isActive) {
-                            statusColor = 'bg-emerald-500';
-                            statusText = 'Active';
-                          } else if (activity.isUpcoming) {
-                            statusColor = 'bg-amber-500';
-                            statusText = 'Upcoming';
-                          }
-                          
-                          return (
-                            <div key={activity.id} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-700 hover:border-amber-500/30 transition-colors">
-                              <div>
-                                <h3 className="font-semibold text-white">{activity.name}</h3>
-                                <p className="text-sm text-gray-400">{activity.location}</p>
-                              </div>
-                              <div className="flex items-center space-x-4">
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor} text-white`}>
-                                  {statusText}
-                                </span>
-                                <span className="text-lg font-bold text-amber-400">${activity.price}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Right Column - Chats */}
-                <div className="lg:col-span-1">
-                  <div className="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden">
-                    <div className="p-4 border-b border-gray-700">
-                      <h2 className="text-xl font-bold text-white flex items-center">
-                        <MessageSquare className="w-5 h-5 mr-2 text-amber-400" />
-                        Recent Chats
-                      </h2>
-                    </div>
-                    <div className="p-4">
-                      <ChatList providerId={user.id} compact={true} />
-                    </div>
-                    <div className="p-4 border-t border-gray-700">
-                      <button
-                        onClick={() => setActiveTab('chats')}
-                        className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-700 text-white rounded-xl hover:from-amber-700 hover:to-orange-800 transition-all duration-300 font-semibold"
-                      >
-                        View All Chats
-                      </button>
-                    </div>
-                  </div>
-                </div>
+  const renderMainContent = () => {
+    switch (activeSection) {
+      
+      case 'activities':
+        return (
+          <div>
+            {activities.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400">No activities found. Create your first activity!</p>
+                <button
+                  onClick={() => setShowAddActivity(true)}
+                  className="mt-4 px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-700 text-white rounded-xl hover:from-amber-700 hover:to-orange-800 transition-all duration-300 font-semibold"
+                >
+                  Create Your First Activity
+                </button>
               </div>
-            )}
-
-            {activeTab === 'activities' && (
-              <div>
-                {activities.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-400">No activities found. Create your first activity!</p>
-                    <button
-                      onClick={() => setShowAddActivity(true)}
-                      className="mt-4 px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-700 text-white rounded-xl hover:from-amber-700 hover:to-orange-800 transition-all duration-300 font-semibold"
-                    >
-                      Create Your First Activity
-                    </button>
-                  </div>
-                ) : (
-                  <ActivitiesTable 
-                    activities={activities.map(activity => ({
-                      id: activity.id,
-                      name: activity.name,
-                      description: activity.description,
-                      price: activity.price,
-                      availableSlots: activity.availableSlots,
-                      location: activity.location,
-                      category: activity.category,
-                      categoryId: activity.categoryId,
-                      duration: activity.duration,
-                      included: activity.included,
-                      requirements: activity.requirements,
-                      quickFacts: activity.quickFacts,
-                      status: activity.status,
-                      createdAt: activity.createdAt,
-                      images: activity.images,
-                      startDate: activity.startDate,
-                      endDate: activity.endDate,
-                      isActive: activity.isActive,
-                      isExpired: activity.isExpired,
-                      isUpcoming: activity.isUpcoming
-                    }))} 
-                    onDeleteActivity={handleDeleteActivity}
-                    onEditActivity={handleEditActivity}
-                    onStatusChange={handleUpdateStatus} 
-                  />
-                )}
-              </div>
-            )}
-
-            {activeTab === 'bookings' && (
-              <div>
-                {bookings.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-400">No bookings yet</p>
-                  </div>
-                ) : (
-                  <BookingsTable bookings={bookings} />
-                )}
-              </div>
-            )}
-
-            {activeTab === 'performance' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-white">Performance Analytics</h2>
-                  <div className="text-gray-400">
-                    Showing data for {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                  </div>
-                </div>
-                
-                {/* Stats Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-400">Total Revenue</p>
-                        <h3 className="text-2xl font-bold text-white mt-1">${stats.totalRevenue}</h3>
-                      </div>
-                      <div className="p-3 bg-emerald-500/20 rounded-lg">
-                        <TrendingUp className="w-6 h-6 text-emerald-400" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-400">Active Activities</p>
-                        <h3 className="text-2xl font-bold text-white mt-1">{stats.activeActivities}</h3>
-                      </div>
-                      <div className="p-3 bg-blue-500/20 rounded-lg">
-                        <Activity className="w-6 h-6 text-blue-400" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-400">Pending Bookings</p>
-                        <h3 className="text-2xl font-bold text-white mt-1">{stats.pendingBookings}</h3>
-                      </div>
-                      <div className="p-3 bg-amber-500/20 rounded-lg">
-                        <Calendar className="w-6 h-6 text-amber-400" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-400">Avg. Rating</p>
-                        <h3 className="text-2xl font-bold text-white mt-1">{stats.averageRating || 0}</h3>
-                      </div>
-                      <div className="p-3 bg-purple-500/20 rounded-lg">
-                        <Star className="w-6 h-6 text-purple-400" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Activity Status Distribution */}
-                <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                  <h3 className="text-lg font-semibold text-white mb-4">Activity Status Distribution</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <span className="text-gray-300">Active Activities</span>
-                        <span className="text-emerald-400 font-semibold">{stats.activeActivities}</span>
-                      </div>
-                      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-emerald-500 rounded-full"
-                          style={{ width: `${(stats.activeActivities / (stats.totalActivities || 1)) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <span className="text-gray-300">Upcoming Activities</span>
-                        <span className="text-blue-400 font-semibold">{stats.upcomingActivities}</span>
-                      </div>
-                      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-blue-500 rounded-full"
-                          style={{ width: `${(stats.upcomingActivities / (stats.totalActivities || 1)) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <span className="text-gray-300">Expired Activities</span>
-                        <span className="text-red-400 font-semibold">{stats.expiredActivities}</span>
-                      </div>
-                      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-red-500 rounded-full"
-                          style={{ width: `${(stats.expiredActivities / (stats.totalActivities || 1)) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Booking Stats */}
-                <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                  <h3 className="text-lg font-semibold text-white mb-4">Booking Statistics</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-300">Total Bookings</span>
-                      <span className="font-semibold text-white">{stats.totalBookings}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-300">Avg. Booking Value</span>
-                      <span className="font-semibold text-white">
-                        ${stats.totalBookings > 0 ? (stats.totalRevenue / stats.totalBookings).toFixed(2) : '0.00'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-300">Conversion Rate</span>
-                      <span className="font-semibold text-white">
-                        {stats.totalActivities > 0 
-                          ? `${((stats.totalBookings / stats.totalActivities) * 100).toFixed(1)}%` 
-                          : '0%'
-                        }
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'chats' && (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-white">Chats</h2>
-                  <div className="text-gray-400">
-                    {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
-                  </div>
-                </div>
-                <ChatList providerId={user.id} compact={false} />
-              </div>
-            )}
-
-            {activeTab === 'reviews' && (
-              <ReviewsSection 
-                reviews={reviews}
-                reviewStats={reviewStats}
-                onRespond={handleRespond}
+            ) : (
+              <ActivitiesTable 
+                activities={activities.map(activity => ({
+                  id: activity.id,
+                  name: activity.name,
+                  description: activity.description,
+                  price: activity.price,
+                  availableSlots: activity.availableSlots,
+                  location: activity.location,
+                  category: activity.category,
+                  categoryId: activity.categoryId,
+                  duration: activity.duration,
+                  included: activity.included,
+                  requirements: activity.requirements,
+                  quickFacts: activity.quickFacts,
+                  status: activity.status,
+                  createdAt: activity.createdAt,
+                  images: activity.images,
+                  startDate: activity.startDate,
+                  endDate: activity.endDate,
+                  isActive: activity.isActive,
+                  isExpired: activity.isExpired,
+                  isUpcoming: activity.isUpcoming
+                }))} 
+                onDeleteActivity={handleDeleteActivity}
+                onEditActivity={handleEditActivity}
+                onStatusChange={handleUpdateStatus} 
               />
             )}
           </div>
+        );
+      case 'bookings':
+        return (
+          <div>
+            {bookings.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400">No bookings yet</p>
+              </div>
+            ) : (
+              <BookingsTable bookings={bookings} />
+            )}
+          </div>
+        );
+      case 'reviews':
+        return (
+          <ReviewsSection 
+            reviews={reviews}
+            reviewStats={reviewStats}
+            onRespond={handleRespond}
+          />
+        );
+      case 'chats':
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-white">Chats</h2>
+              <div className="text-gray-400">
+                {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
+              </div>
+            </div>
+            <ChatList providerId={user.id} compact={false} />
+          </div>
+        );
+      case 'analytics':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white">Performance Analytics</h2>
+              <div className="text-gray-400">
+                Showing data for {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </div>
+            </div>
+            
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Total Revenue</p>
+                    <h3 className="text-2xl font-bold text-white mt-1">${stats.totalRevenue}</h3>
+                  </div>
+                  <div className="p-3 bg-emerald-500/20 rounded-lg">
+                    <TrendingUp className="w-6 h-6 text-emerald-400" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Active Activities</p>
+                    <h3 className="text-2xl font-bold text-white mt-1">{stats.activeActivities}</h3>
+                  </div>
+                  <div className="p-3 bg-blue-500/20 rounded-lg">
+                    <Activity className="w-6 h-6 text-blue-400" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Pending Bookings</p>
+                    <h3 className="text-2xl font-bold text-white mt-1">{stats.pendingBookings}</h3>
+                  </div>
+                  <div className="p-3 bg-amber-500/20 rounded-lg">
+                    <Calendar className="w-6 h-6 text-amber-400" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Avg. Rating</p>
+                    <h3 className="text-2xl font-bold text-white mt-1">{stats.averageRating || 0}</h3>
+                  </div>
+                  <div className="p-3 bg-purple-500/20 rounded-lg">
+                    <Star className="w-6 h-6 text-purple-400" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Activity Status Distribution */}
+            <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+              <h3 className="text-lg font-semibold text-white mb-4">Activity Status Distribution</h3>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-gray-300">Active Activities</span>
+                    <span className="text-emerald-400 font-semibold">{stats.activeActivities}</span>
+                  </div>
+                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-emerald-500 rounded-full"
+                      style={{ width: `${(stats.activeActivities / (stats.totalActivities || 1)) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-gray-300">Upcoming Activities</span>
+                    <span className="text-blue-400 font-semibold">{stats.upcomingActivities}</span>
+                  </div>
+                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-500 rounded-full"
+                      style={{ width: `${(stats.upcomingActivities / (stats.totalActivities || 1)) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-gray-300">Expired Activities</span>
+                    <span className="text-red-400 font-semibold">{stats.expiredActivities}</span>
+                  </div>
+                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-red-500 rounded-full"
+                      style={{ width: `${(stats.expiredActivities / (stats.totalActivities || 1)) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Booking Stats */}
+            <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+              <h3 className="text-lg font-semibold text-white mb-4">Booking Statistics</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Total Bookings</span>
+                  <span className="font-semibold text-white">{stats.totalBookings}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Avg. Booking Value</span>
+                  <span className="font-semibold text-white">
+                    ${stats.totalBookings > 0 ? (stats.totalRevenue / stats.totalBookings).toFixed(2) : '0.00'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Conversion Rate</span>
+                  <span className="font-semibold text-white">
+                    {stats.totalActivities > 0 
+                      ? `${((stats.totalBookings / stats.totalActivities) * 100).toFixed(1)}%` 
+                      : '0%'
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'dashboard':
+      default:
+        return (
+          <>
+            <div className="mb-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold text-white">
+                    Welcome back, <span className="text-amber-400">{user.fullName || user.name}!</span>
+                  </h1>
+                  <p className="text-gray-400 mt-2">Manage your activities, bookings, and chats</p>
+                </div>
+                <div className="flex items-center space-x-3">
+                  {unreadCount > 0 && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setActiveSection('chats')}
+                        className="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl hover:from-red-600 hover:to-pink-700 transition-all duration-300 font-semibold flex items-center"
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        {unreadCount} Unread Messages
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+       
+            <StatsCards stats={stats} />
+
+      
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-white flex items-center">
+                      <Activity className="w-5 h-5 mr-2 text-emerald-400" />
+                      Recent Activities
+                    </h2>
+                    <button
+                      onClick={() => setActiveSection('activities')}
+                      className="text-amber-400 hover:text-amber-300 text-sm font-medium"
+                    >
+                      View All →
+                    </button>
+                  </div>
+                  {activities.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-400">No activities found. Create your first activity!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {activities.slice(0, 3).map((activity) => {
+                        let statusColor = 'bg-gray-500';
+                        let statusText = activity.status;
+                        
+                        if (activity.isExpired) {
+                          statusColor = 'bg-red-500';
+                          statusText = 'Expired';
+                        } else if (activity.isActive) {
+                          statusColor = 'bg-emerald-500';
+                          statusText = 'Active';
+                        } else if (activity.isUpcoming) {
+                          statusColor = 'bg-amber-500';
+                          statusText = 'Upcoming';
+                        }
+                        
+                        return (
+                          <div key={activity.id} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-700 hover:border-amber-500/30 transition-colors">
+                            <div>
+                              <h3 className="font-semibold text-white">{activity.name}</h3>
+                              <p className="text-sm text-gray-400">{activity.location}</p>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor} text-white`}>
+                                {statusText}
+                              </span>
+                              <span className="text-lg font-bold text-amber-400">${activity.price}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+        
+                <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-white flex items-center">
+                      <Calendar className="w-5 h-5 mr-2 text-blue-400" />
+                      Recent Bookings
+                    </h2>
+                    <button
+                      onClick={() => setActiveSection('bookings')}
+                      className="text-amber-400 hover:text-amber-300 text-sm font-medium"
+                    >
+                      View All →
+                    </button>
+                  </div>
+                  {bookings.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-400">No bookings yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {bookings.slice(0, 3).map((booking) => (
+                        <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-700 hover:border-amber-500/30 transition-colors">
+                          <div>
+                            <h3 className="font-semibold text-white">{booking.activityName}</h3>
+                            <p className="text-sm text-gray-400">by {booking.userName}</p>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              booking.status === 'Confirmed' ? 'bg-emerald-500' :
+                              booking.status === 'Pending' ? 'bg-amber-500' : 'bg-red-500'
+                            } text-white`}>
+                              {booking.status}
+                            </span>
+                            <span className="text-lg font-bold text-emerald-400">${booking.totalAmount}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+       
+              <div className="space-y-6">
+                <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center">
+                    <TrendingUp className="w-5 h-5 mr-2 text-amber-400" />
+                    Quick Stats
+                  </h2>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-300">Popular Location</span>
+                      <span className="font-semibold text-white">{stats.popularLocation}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-300">Avg. Rating</span>
+                      <span className="font-semibold text-yellow-400">{stats.averageRating.toFixed(1)}/5</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-300">Total Reviews</span>
+                      <span className="font-semibold text-white">{stats.totalReviews}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-300">Adventurers Today</span>
+                      <span className="font-semibold text-emerald-400">{stats.activeAdventurers}</span>
+                    </div>
+                  </div>
+                </div>
+
+     
+                <div className="bg-gray-800/50 rounded-xl border border-gray-700">
+                  <div className="p-4 border-b border-gray-700">
+                    <h2 className="text-xl font-bold text-white flex items-center">
+                      <MessageSquare className="w-5 h-5 mr-2 text-amber-400" />
+                      Recent Chats
+                    </h2>
+                  </div>
+                  <div className="p-4">
+                    <ChatList providerId={user.id} compact={true} />
+                  </div>
+                  <div className="p-4 border-t border-gray-700">
+                    <button
+                      onClick={() => setActiveSection('chats')}
+                      className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-700 text-white rounded-xl hover:from-amber-700 hover:to-orange-800 transition-all duration-300 font-semibold"
+                    >
+                      View All Chats
+                    </button>
+                  </div>
+                </div>
+
+          
+                <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center">
+                    <Settings className="w-5 h-5 mr-2 text-amber-400" />
+                    Quick Actions
+                  </h2>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => setShowAddActivity(true)}
+                      className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-700 text-white rounded-xl hover:from-emerald-700 hover:to-green-800 transition-all duration-300 font-semibold"
+                    >
+                      Add New Activity
+                    </button>
+                    <button
+                      onClick={() => setShowChangePassword(true)}
+                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-700 text-white rounded-xl hover:from-blue-700 hover:to-cyan-800 transition-all duration-300 font-semibold"
+                    >
+                      Change Password
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#121212' }}>
+
+      <div style={{ 
+        position: 'fixed', 
+        left: 0, 
+        top: 0, 
+        bottom: 0, 
+        width: '250px', 
+        backgroundColor: '#1e1e1e', 
+        borderRight: '1px solid #333333', 
+        padding: '24px',
+        overflowY: 'auto'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px', 
+          marginBottom: '32px',
+          paddingBottom: '16px',
+          borderBottom: '1px solid #333333'
+        }}>
+          <div style={{ 
+            width: '40px', 
+            height: '40px', 
+            background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)', 
+            borderRadius: '12px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            color: 'white',
+            fontWeight: 'bold'
+          }}>
+            <Mountain size={20} />
+          </div>
+          <div>
+            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#ffffff' }}>
+              TrailGuide Pro
+            </div>
+            <div style={{ color: '#b0b0b0', fontSize: '12px' }}>
+              Provider Dashboard
+            </div>
+          </div>
+        </div>
+        
+        {menuItems.map((item) => (
+          <div 
+            key={item.text} 
+            style={{ 
+              borderLeft: activeSection === item.section ? '4px solid #f59e0b' : 'none',
+              margin: '4px 8px',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              color: '#ffffff',
+              backgroundColor: activeSection === item.section ? '#2a2a2a' : 'transparent',
+              transition: 'all 0.3s ease'
+            }}
+            onClick={() => setActiveSection(item.section)}
+          >
+            <span style={{ fontSize: '18px' }}>{item.icon}</span>
+            <span style={{ 
+              fontWeight: activeSection === item.section ? 'bold' : 'normal',
+              fontSize: '14px'
+            }}>
+              {item.text}
+            </span>
+          </div>
+        ))}
+
+  
+        <div style={{ 
+          marginTop: 'auto', 
+          paddingTop: '24px',
+          borderTop: '1px solid #333333'
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px',
+            padding: '12px',
+            backgroundColor: '#2a2a2a',
+            borderRadius: '8px'
+          }}>
+            <div style={{ 
+              width: '40px', 
+              height: '40px', 
+              background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)', 
+              borderRadius: '50%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              color: 'white',
+              fontWeight: 'bold'
+            }}>
+              {user?.fullName?.charAt(0) || user?.name?.charAt(0) || 'P'}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: '#ffffff', fontSize: '14px', fontWeight: 'bold' }}>
+                {user?.fullName || user?.name || 'Provider'}
+              </div>
+              <div style={{ color: '#b0b0b0', fontSize: '12px' }}>
+                Trail Expert
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+ 
+      <div style={{ 
+        position: 'fixed', 
+        top: 0, 
+        left: '250px', 
+        right: 0, 
+        height: '64px', 
+        backgroundColor: '#1e1e1e', 
+        borderBottom: '1px solid #333333', 
+        padding: '0 24px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        zIndex: 10
+      }}>
+        <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#ffffff' }}>
+          {menuItems.find(item => item.section === activeSection)?.text || 'Dashboard'}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button
+            onClick={() => setShowAddActivity(true)}
+            style={{
+              padding: '10px 20px',
+              background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <Mountain size={16} />
+            Add Activity
+          </button>
+
+
+          <NotificationBell />
+
+   
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ 
+              width: '36px', 
+              height: '36px', 
+              background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)', 
+              borderRadius: '50%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              color: 'white',
+              fontWeight: 'bold'
+            }}>
+              {user?.fullName?.charAt(0) || user?.name?.charAt(0) || 'P'}
+            </div>
+            <button
+              onClick={handleLogout}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '14px'
+              }}
+            >
+              <LogOut size={14} />
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+
+ 
+      <div style={{ 
+        flexGrow: 1, 
+        padding: '24px', 
+        marginTop: '64px', 
+        marginLeft: '250px',
+        overflowY: 'auto',
+        maxHeight: 'calc(100vh - 64px)',
+        backgroundColor: '#121212'
+      }}>
+        <div className="max-w-7xl mx-auto">
+          {renderMainContent()}
         </div>
       </div>
 

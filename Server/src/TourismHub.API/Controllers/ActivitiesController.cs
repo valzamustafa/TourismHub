@@ -154,6 +154,9 @@ namespace TourismHub.API.Controllers
                     });
                 }
 
+           
+                var duration = CalculateDuration(createDto.StartDate, createDto.EndDate);
+                
                 var activity = new Activity
                 {
                     Id = Guid.NewGuid(),
@@ -163,12 +166,15 @@ namespace TourismHub.API.Controllers
                     AvailableSlots = createDto.AvailableSlots,
                     Location = createDto.Location,
                     CategoryId = createDto.CategoryId,
-                    Duration = createDto.Duration,
+                    
+                   
+                    Duration = duration,
+                    
                     Included = createDto.Included ?? string.Empty,
                     Requirements = createDto.Requirements ?? string.Empty,
                     QuickFacts = createDto.QuickFacts ?? string.Empty,
-                    ProviderId = (createDto.ProviderId == null || createDto.ProviderId == Guid.Empty) ? 
-                        null : createDto.ProviderId,
+                    ProviderId = (createDto.ProviderId == null || createDto.ProviderId == Guid.Empty) 
+                        ? null : createDto.ProviderId,
                     ProviderName = createDto.ProviderName ?? string.Empty,
                     StartDate = createDto.StartDate,
                     EndDate = createDto.EndDate,
@@ -190,6 +196,7 @@ namespace TourismHub.API.Controllers
                 }
 
                 _logger.LogInformation("Calling CreateActivityAsync...");
+                _logger.LogInformation($"Duration calculated: {duration}");
                 
                 var createdActivity = await _activityService.CreateActivityAsync(activity);
                 
@@ -314,6 +321,13 @@ namespace TourismHub.API.Controllers
                 existingActivity.Requirements = updateDto.Requirements ?? existingActivity.Requirements;
                 existingActivity.QuickFacts = updateDto.QuickFacts ?? existingActivity.QuickFacts;
                 existingActivity.ProviderName = updateDto.ProviderName ?? existingActivity.ProviderName;
+                
+                if (updateDto.StartDate.HasValue || updateDto.EndDate.HasValue)
+                {
+                  var startDate = updateDto.StartDate ?? existingActivity.StartDate;
+                    var endDate = updateDto.EndDate ?? existingActivity.EndDate;
+                    existingActivity.Duration = CalculateDuration(startDate, endDate);
+                }
                 
                 if (updateDto.StartDate.HasValue)
                     existingActivity.StartDate = updateDto.StartDate.Value;
@@ -641,6 +655,40 @@ namespace TourismHub.API.Controllers
             {
                 _logger.LogError(ex, "Error in DeleteActivity");
                 return StatusCode(500, new { message = "An error occurred while deleting the activity" });
+            }
+        }
+
+       
+        private string CalculateDuration(DateTime startDate, DateTime endDate)
+        {
+            var timeSpan = endDate - startDate;
+            
+            if (timeSpan.TotalDays >= 1)
+            {
+                var days = (int)timeSpan.TotalDays;
+                var hours = timeSpan.Hours;
+                
+                if (hours > 0)
+                {
+                    return $"{days} day{(days > 1 ? "s" : "")} {hours} hour{(hours > 1 ? "s" : "")}";
+                }
+                return $"{days} day{(days > 1 ? "s" : "")}";
+            }
+            else if (timeSpan.TotalHours >= 1)
+            {
+                var hours = (int)timeSpan.TotalHours;
+                var minutes = timeSpan.Minutes;
+                
+                if (minutes > 0)
+                {
+                    return $"{hours} hour{(hours > 1 ? "s" : "")} {minutes} minute{(minutes > 1 ? "s" : "")}";
+                }
+                return $"{hours} hour{(hours > 1 ? "s" : "")}";
+            }
+            else
+            {
+                var minutes = timeSpan.Minutes;
+                return $"{minutes} minute{(minutes > 1 ? "s" : "")}";
             }
         }
     }
