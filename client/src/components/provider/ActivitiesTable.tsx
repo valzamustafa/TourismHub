@@ -40,53 +40,26 @@ const ActivitiesTable = ({
   
 
 const getStatusInfo = (activity: Activity) => {
-
+  const statusColors: Record<string, any> = {
+    'Pending': { color: 'bg-amber-500/20', text: 'Pending', border: 'border-amber-500/30', textColor: 'text-amber-400' },
+    'Active': { color: 'bg-emerald-500/20', text: 'Active', border: 'border-emerald-500/30', textColor: 'text-emerald-400' },
+    'Inactive': { color: 'bg-gray-500/20', text: 'Inactive', border: 'border-gray-500/30', textColor: 'text-gray-400' },
+    'Rejected': { color: 'bg-red-500/20', text: 'Rejected', border: 'border-red-500/30', textColor: 'text-red-400' },
+    'Completed': { color: 'bg-blue-500/20', text: 'Completed', border: 'border-blue-500/30', textColor: 'text-blue-400' },
+    'Expired': { color: 'bg-red-500/20', text: 'Expired', border: 'border-red-500/30', textColor: 'text-red-400' },
+    'Cancelled': { color: 'bg-red-500/20', text: 'Cancelled', border: 'border-red-500/30', textColor: 'text-red-400' }
+  };
+  
+  
   const now = new Date();
-  const startDate = new Date(activity.startDate);
   const endDate = new Date(activity.endDate);
+  const isExpired = endDate < now;
   
-  if (activity.status && ['Pending', 'Active', 'Inactive', 'Completed', 'Cancelled', 'Expired'].includes(activity.status)) {
-    const statusColors: Record<string, any> = {
-      'Pending': { color: 'bg-amber-500/20', text: 'Pending', border: 'border-amber-500/30', textColor: 'text-amber-400' },
-      'Active': { color: 'bg-emerald-500/20', text: 'Active', border: 'border-emerald-500/30', textColor: 'text-emerald-400' },
-      'Inactive': { color: 'bg-gray-500/20', text: 'Inactive', border: 'border-gray-500/30', textColor: 'text-gray-400' },
-      'Completed': { color: 'bg-blue-500/20', text: 'Completed', border: 'border-blue-500/30', textColor: 'text-blue-400' },
-      'Cancelled': { color: 'bg-red-500/20', text: 'Cancelled', border: 'border-red-500/30', textColor: 'text-red-400' },
-      'Expired': { color: 'bg-red-500/20', text: 'Expired', border: 'border-red-500/30', textColor: 'text-red-400' }
-    };
-    
-    return statusColors[activity.status] || statusColors['Pending'];
+  if (isExpired) {
+    return statusColors['Expired'];
   }
   
-  if (endDate < now) {
-    return {
-      color: 'bg-red-500/20',
-      text: 'Expired',
-      border: 'border-red-500/30',
-      textColor: 'text-red-400'
-    };
-  } else if (startDate <= now && endDate >= now) {
-    return {
-      color: 'bg-emerald-500/20',
-      text: 'Active',
-      border: 'border-emerald-500/30',
-      textColor: 'text-emerald-400'
-    };
-  } else if (startDate > now) {
-    return {
-      color: 'bg-amber-500/20',
-      text: 'Upcoming',
-      border: 'border-amber-500/30',
-      textColor: 'text-amber-400'
-    };
-  } else {
-    return {
-      color: 'bg-gray-500/20',
-      text: activity.status || 'Unknown',
-      border: 'border-gray-500/30',
-      textColor: 'text-gray-400'
-    };
-  }
+  return statusColors[activity.status] || statusColors['Pending'];
 };
 
   return (
@@ -192,17 +165,18 @@ const getStatusInfo = (activity: Activity) => {
 
                   <div className="flex flex-col items-end ml-6 space-y-4">
                     <div className="flex flex-col items-end space-y-2">
-                  <select
-                    value={activity.status}
-                    onChange={(e) => onStatusChange(activity.id, e.target.value)} 
-                    className="px-3 py-1 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Cancelled">Cancelled</option>
-                  </select>
+                 <select
+  value={activity.status}
+  onChange={(e) => onStatusChange(activity.id, e.target.value)} 
+  className="px-3 py-1 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+>
+  <option value="Pending">Pending</option>
+  <option value="Active">Active</option>
+  <option value="Inactive">Inactive</option>
+  <option value="Rejected">Rejected</option>
+  <option value="Completed">Completed</option>
+  <option value="Cancelled">Cancelled</option>
+</select>
                   
                   <span className={`px-4 py-2 rounded-full text-sm font-semibold ${statusInfo.color} ${statusInfo.border} ${statusInfo.textColor}`}>
                     {statusInfo.text}

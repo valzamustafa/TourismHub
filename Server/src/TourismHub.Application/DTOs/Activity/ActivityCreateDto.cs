@@ -1,3 +1,4 @@
+// ActivityCreateDto.cs
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
@@ -22,7 +23,8 @@ namespace TourismHub.Application.DTOs.Activity
         [Range(1, int.MaxValue, ErrorMessage = "Available slots must be at least 1")]
         public int AvailableSlots { get; set; }
         
-        public string Duration { get; set; } = "2 hours";
+       
+        public string? Duration { get; set; }
    
         public string? Included { get; set; }
         public string? Requirements { get; set; }

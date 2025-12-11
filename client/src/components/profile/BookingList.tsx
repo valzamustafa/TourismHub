@@ -8,6 +8,7 @@ interface Booking {
   activityId: string;
   activityName: string;
   activityImage?: string;
+  activityImages?: string[];
   bookingDate: string;
   selectedDate: string;
   numberOfPeople: number;
@@ -42,6 +43,23 @@ export const BookingList: React.FC<BookingListProps> = ({
     );
   }
 
+
+  const getFullImageUrl = (imagePath: string | undefined): string => {
+    if (!imagePath || imagePath === 'string' || imagePath === 'null') {
+      return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=200&fit=crop';
+    }
+    
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    
+    if (imagePath.startsWith('/uploads/')) {
+      return `http://localhost:5224${imagePath}`;
+    }
+    
+    return `http://localhost:5224${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`;
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-6">
@@ -56,104 +74,103 @@ export const BookingList: React.FC<BookingListProps> = ({
         </span>
       </div>
 
-      {displayedBookings.map((booking) => (
-        <BookingCard
-          key={booking.id}
-          booking={booking}
-          onCancelBooking={onCancelBooking}
-          onViewActivity={onViewActivity}
-        />
-      ))}
-    </div>
-  );
-};
+      {displayedBookings.map((booking) => {
+        const mainImage = booking.activityImages && booking.activityImages.length > 0 
+          ? getFullImageUrl(booking.activityImages[0])
+          : getFullImageUrl(booking.activityImage);
 
-const BookingCard: React.FC<{
-  booking: Booking;
-  onCancelBooking: (bookingId: string) => void;
-  onViewActivity: (activityId: string) => void;
-}> = ({ booking, onCancelBooking, onViewActivity }) => (
-  <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
-    <div className="flex items-start justify-between">
-      <div className="flex items-start space-x-4">
-        {booking.activityImage && (
-          <img
-            src={booking.activityImage}
-            alt={booking.activityName}
-            className="w-20 h-20 object-cover rounded-lg"
-            onError={(e) => {
-              e.currentTarget.src = 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=200&fit=crop';
-            }}
-          />
-        )}
-        <div className="flex-1">
-          <h3 className="font-semibold text-gray-900">{booking.activityName}</h3>
-          <div className="mt-2 space-y-1 text-sm">
-            <InfoRow icon="📅" text={`Booking Date: ${new Date(booking.bookingDate).toLocaleDateString()}`} />
-            <InfoRow icon="📅" text={`Activity Date: ${new Date(booking.selectedDate).toLocaleDateString()}`} />
-            <InfoRow icon="👥" text={`People: ${booking.numberOfPeople}`} />
+        return (
+          <div key={booking.id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-4 flex-1">
+          
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={mainImage}
+                    alt={booking.activityName}
+                    className="w-20 h-20 object-cover rounded-lg"
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=200&fit=crop';
+                    }}
+                  />
+                  <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                    {booking.numberOfPeople}
+                  </div>
+                </div>
+                
+                <div className="flex-1">
+                  <h3 
+                    className="font-semibold text-gray-900 hover:text-blue-600 cursor-pointer mb-2"
+                    onClick={() => onViewActivity(booking.activityId)}
+                  >
+                    {booking.activityName}
+                  </h3>
+                  <div className="space-y-1 text-sm text-gray-600">
+                    <div className="flex items-center">
+                      <span className="mr-2 w-5">📅</span>
+                      <span>Booking Date: {new Date(booking.bookingDate).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="mr-2 w-5">📅</span>
+                      <span>Activity Date: {new Date(booking.selectedDate).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="mr-2 w-5">👥</span>
+                      <span>People: {booking.numberOfPeople}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-right min-w-[180px] ml-4">
+                <div className="text-xl font-bold text-green-600 mb-2">
+                  ${booking.totalAmount.toFixed(2)}
+                </div>
+                
+    
+                <div className="space-y-2 mb-3">
+                  <div className="inline-block">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      booking.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
+                      booking.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                      booking.status === 'Completed' ? 'bg-blue-100 text-blue-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {booking.status}
+                    </span>
+                  </div>
+                  <div className="inline-block">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      booking.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
+                      booking.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {booking.paymentStatus}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="space-x-2">
+                  {booking.status === 'Pending' && (
+                    <button
+                      onClick={() => onCancelBooking(booking.id)}
+                      className="px-3 py-1.5 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
+                    >
+                      Cancel Booking
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onViewActivity(booking.activityId)}
+                    className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+                  >
+                    View Details
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-
-      <div className="text-right min-w-[180px]">
-        <div className="text-xl font-bold text-green-600">${booking.totalAmount.toFixed(2)}</div>
-        <StatusBadge status={booking.status} type="status" />
-        <StatusBadge status={booking.paymentStatus} type="payment" />
-        
-        <div className="mt-3 space-x-2">
-          {booking.status === 'Pending' && (
-            <button
-              onClick={() => onCancelBooking(booking.id)}
-              className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition-colors"
-            >
-              Cancel Booking
-            </button>
-          )}
-          {(booking.status === 'Confirmed' || booking.status === 'Completed') && (
-            <button
-              onClick={() => onViewActivity(booking.activityId)}
-              className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
-            >
-              View Activity
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const InfoRow: React.FC<{ icon: string; text: string }> = ({ icon, text }) => (
-  <div className="flex items-center text-gray-600">
-    <span className="mr-2 w-5">{icon}</span>
-    <span>{text}</span>
-  </div>
-);
-
-const StatusBadge: React.FC<{ status: string; type: 'status' | 'payment' }> = ({ status, type }) => {
-  const getColors = (status: string) => {
-    if (type === 'status') {
-      switch (status) {
-        case 'Confirmed': return 'bg-green-100 text-green-800';
-        case 'Pending': return 'bg-yellow-100 text-yellow-800';
-        case 'Completed': return 'bg-blue-100 text-blue-800';
-        default: return 'bg-red-100 text-red-800';
-      }
-    } else {
-      switch (status) {
-        case 'Paid': return 'bg-green-100 text-green-800';
-        case 'Pending': return 'bg-yellow-100 text-yellow-800';
-        default: return 'bg-red-100 text-red-800';
-      }
-    }
-  };
-
-  return (
-    <div className="mt-2">
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getColors(status)}`}>
-        {status}
-      </span>
+        );
+      })}
     </div>
   );
 };

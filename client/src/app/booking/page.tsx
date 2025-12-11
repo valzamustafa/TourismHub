@@ -31,39 +31,79 @@ export default function BookingPage() {
   });
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchActivity = async () => {
-      try {
-        const storedActivity = localStorage.getItem('selectedActivity');
-        const userData = localStorage.getItem('user');
-        
-        if (!storedActivity || !userData) {
-          router.push('/tourist/activities');
-          return;
-        }
-
-        const activityData = JSON.parse(storedActivity);
-        const user = JSON.parse(userData);
-
-        setActivity(activityData);
-        setBookingData(prev => ({
-          ...prev,
-          activityId: activityData.id,
-          userId: user.id,
-          totalPrice: activityData.price * prev.numberOfPeople
-        }));
-
-      } catch (error) {
-        console.error('Error fetching activity:', error);
+useEffect(() => {
+  const fetchActivity = async () => {
+    try {
+      const storedActivity = localStorage.getItem('selectedActivity');
+      const userData = localStorage.getItem('user');
+      
+      if (!storedActivity || !userData) {
         router.push('/tourist/activities');
-      } finally {
-        setLoading(false);
+        return;
       }
-    };
 
-    fetchActivity();
-  }, [router]);
+      const activityData = JSON.parse(storedActivity);
+      const user = JSON.parse(userData);
 
+      if (!activityData.images || activityData.images.length === 0 || 
+          activityData.images[0]?.includes('unsplash')) {
+        try {
+          const token = localStorage.getItem('token');
+          const imagesResponse = await fetch(
+            `http://localhost:5224/api/activityimages/activity/${activityData.id}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          if (imagesResponse.ok) {
+            const imagesData = await imagesResponse.json();
+            if (imagesData.data && imagesData.data.length > 0) {
+          
+              const getFullImageUrl = (imagePath: string): string => {
+                if (!imagePath || imagePath === 'string') {
+                  return '/images/default-activity.jpg';
+                }
+                if (imagePath.startsWith('http')) {
+                  return imagePath;
+                }
+                if (imagePath.startsWith('/uploads/')) {
+                  return `http://localhost:5224${imagePath}`;
+                }
+                return `http://localhost:5224${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`;
+              };
+              
+              activityData.images = imagesData.data.map((img: any) => 
+                getFullImageUrl(img.imageUrl)
+              );
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching activity images:', error);
+        }
+      }
+
+      setActivity(activityData);
+      setBookingData(prev => ({
+        ...prev,
+        activityId: activityData.id,
+        userId: user.id,
+        totalPrice: activityData.price * prev.numberOfPeople
+      }));
+
+    } catch (error) {
+      console.error('Error fetching activity:', error);
+      router.push('/tourist/activities');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchActivity();
+}, [router]);
 
   const handleNumberOfPeopleChange = (value: number) => {
     if (value < 1) return;

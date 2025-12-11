@@ -38,8 +38,8 @@ try
 
     Console.WriteLine("🔧 Configuring Stripe...");
   
-    var stripeSecretKey = "sk_test_51SZxVMJ9c3VbsRGND4GT79O3WGUrApQq6a3t6lWeiTWy6ijk1pw6OVBI6Nxnxt2cYElQQWIKrB7oE9xtRN68GTJe00nmdkNTrO";
-    var stripePublishableKey = "pk_test_51SZxVMJ9c3VbsRGNSmqABSV5ycCBFZv9h8QK41bUqmOBNphmkzyMWrjzpx6p0IxUt6YmahY7MTSF9JbOtPHGV3pY00AXS8A7pO";
+    var stripeSecretKey = "sk_test_51SZvQfKCIdvvVhXAC7WJ9oAAzc25dz7rP53Iv8ORg4PjXm2xqn6lYmUqf5YheKy6azZNUONTJIndjCLka3gWwoid00dJgFQO4h";
+    var stripePublishableKey = "pk_test_51SZvQfKCIdvvVhXAhi8H9VOBq1v5GG73BHBqBeKcx8DAM2NQgAzzWZzSCdrXeHkz7N9Q6nBOAW8q0bcaFsWOhfXV00ARu4owUK";
     
 
     stripeSecretKey = stripeSecretKey?.Trim()
