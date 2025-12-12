@@ -43,7 +43,8 @@ namespace TourismHub.Application.Services.BackgroundServices
                         {
                           
                             if (activity.Status == ActivityStatus.Cancelled || 
-                                activity.Status == ActivityStatus.Expired)
+                                activity.Status == ActivityStatus.Expired ||
+                                activity.Status == ActivityStatus.Delayed) 
                             {
                                 continue;
                             }
@@ -88,4 +89,3 @@ namespace TourismHub.Application.Services.BackgroundServices
         }
     }
 }
-

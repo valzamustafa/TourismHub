@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminDashboard from '@/components/AdminDashboard';
+import AdminDashboard from '@/components/admin/AdminDashboard';
 
 interface User {
   id: string;
