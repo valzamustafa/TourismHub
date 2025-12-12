@@ -12,8 +12,8 @@ using TourismHub.Infrastructure.Persistence;
 namespace TourismHub.Infrastructure.Migrations
 {
     [DbContext(typeof(TourismHubDbContext))]
-    [Migration("20251210222552_InitialCreatePostgreSQLL")]
-    partial class InitialCreatePostgreSQLL
+    [Migration("20251212070036_Miigrationssss")]
+    partial class Miigrationssss
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -91,6 +91,9 @@ namespace TourismHub.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DelayedDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
@@ -134,6 +137,12 @@ namespace TourismHub.Infrastructure.Migrations
                     b.Property<string>("Requirements")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<DateTime?>("RescheduledEndDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("RescheduledStartDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("timestamp with time zone");

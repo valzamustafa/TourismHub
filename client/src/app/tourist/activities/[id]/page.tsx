@@ -1,10 +1,10 @@
-// app/tourist/activities/[id]/page.tsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ContactButton from '@/components/ContactButton';
 import ReviewSection from '@/components/ReviewSection';
+
 interface Activity {
   id: string;
   name: string;
@@ -26,6 +26,9 @@ interface Activity {
   quickFacts?: string[];
   startDate?: string;
   endDate?: string;
+  delayedDate?: string;          
+  rescheduledStartDate?: string;  
+  rescheduledEndDate?: string;    
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
@@ -120,6 +123,7 @@ export default function ActivityDetailPage() {
         images = imagesData.data?.map((img: any) => getFullImageUrl(img.imageUrl)) || [];
       }
 
+     
       const enhancedActivity: Activity = {
         ...activityData,
         providerId: providerId,
@@ -130,7 +134,10 @@ export default function ActivityDetailPage() {
         requirements: Array.isArray(activityData.requirements) ? activityData.requirements : [],
         quickFacts: Array.isArray(activityData.quickFacts) ? activityData.quickFacts : [],
         startDate: activityData.startDate || new Date().toISOString(),
-        endDate: activityData.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        endDate: activityData.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        delayedDate: activityData.delayedDate || null, 
+        rescheduledStartDate: activityData.rescheduledStartDate || null, 
+        rescheduledEndDate: activityData.rescheduledEndDate || null 
       };
 
       setActivity(enhancedActivity);
@@ -143,17 +150,16 @@ export default function ActivityDetailPage() {
     }
   };
 
-const handleBookNow = () => {
-  if (activity) {
-
-    const activityToSave = {
-      ...activity,
-      images: activity.images || [] 
-    };
-    localStorage.setItem('selectedActivity', JSON.stringify(activityToSave));
-    router.push('/booking');
-  }
-};
+  const handleBookNow = () => {
+    if (activity) {
+      const activityToSave = {
+        ...activity,
+        images: activity.images || [] 
+      };
+      localStorage.setItem('selectedActivity', JSON.stringify(activityToSave));
+      router.push('/booking');
+    }
+  };
 
   if (loading) {
     return (
@@ -205,6 +211,93 @@ const handleBookNow = () => {
     }
   };
 
+  
+  const renderDelayedInfo = () => {
+    if (activity.status !== 'Delayed') return null;
+
+    return (
+      <div className="mb-8 bg-gradient-to-r from-purple-50 via-purple-100 to-purple-50 rounded-2xl p-6 border-2 border-purple-200 shadow-lg">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-purple-700 rounded-full flex items-center justify-center">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-purple-800">Activity Rescheduled</h3>
+            <p className="text-purple-600">This activity has been delayed and rescheduled</p>
+          </div>
+        </div>
+        
+        <div className="space-y-4 ml-16">
+          {activity.delayedDate && (
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm text-purple-700 font-medium">Delayed Date</p>
+                <p className="text-purple-800">
+                  {new Date(activity.delayedDate).toLocaleDateString()} at {formatTime(activity.delayedDate)}
+                </p>
+              </div>
+            </div>
+          )}
+          
+          {(activity.rescheduledStartDate || activity.rescheduledEndDate) && (
+            <div className="pt-4 border-t border-purple-200">
+              <h4 className="font-bold text-purple-800 mb-3">New Schedule:</h4>
+              
+              {activity.rescheduledStartDate && (
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm text-purple-700 font-medium">New Start Date</p>
+                    <p className="text-purple-800 font-semibold">
+                      {new Date(activity.rescheduledStartDate).toLocaleDateString()} at {formatTime(activity.rescheduledStartDate)}
+                    </p>
+                    {activity.startDate && (
+                      <p className="text-sm text-gray-500 line-through">
+                        Originally: {new Date(activity.startDate).toLocaleDateString()} at {formatTime(activity.startDate)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {activity.rescheduledEndDate && (
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm text-purple-700 font-medium">New End Date</p>
+                    <p className="text-purple-800 font-semibold">
+                      {new Date(activity.rescheduledEndDate).toLocaleDateString()} at {formatTime(activity.rescheduledEndDate)}
+                    </p>
+                    {activity.endDate && (
+                      <p className="text-sm text-gray-500 line-through">
+                        Originally: {new Date(activity.endDate).toLocaleDateString()} at {formatTime(activity.endDate)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
       <header className="bg-white/90 backdrop-blur-sm border-b border-green-200 sticky top-0 z-40">
@@ -236,6 +329,9 @@ const handleBookNow = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      
+        {renderDelayedInfo()}
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-green-200">
@@ -246,12 +342,15 @@ const handleBookNow = () => {
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-4 left-4 flex space-x-2">
-                  {activity.status && (
-                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                      activity.status === 'Active' 
-                        ? 'bg-green-700 text-white' 
-                        : 'bg-yellow-600 text-white'
-                    }`}>
+              
+                  {activity.status === 'Delayed' && (
+                    <span className="px-3 py-1 bg-gradient-to-r from-purple-600 to-purple-800 text-white rounded-full text-sm font-bold flex items-center gap-1">
+                      <span>⏰</span>
+                      Delayed
+                    </span>
+                  )}
+                  {activity.status && activity.status !== 'Delayed' && (
+                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${activity.status === 'Active' ? 'bg-green-700 text-white' : 'bg-yellow-600 text-white'}`}>
                       {activity.status}
                     </span>
                   )}
@@ -270,11 +369,7 @@ const handleBookNow = () => {
                       <button
                         key={index}
                         onClick={() => setSelectedImage(index)}
-                        className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
-                          selectedImage === index 
-                            ? 'border-green-700 scale-105' 
-                            : 'border-transparent hover:border-green-500'
-                        }`}
+                        className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${selectedImage === index ? 'border-green-700 scale-105' : 'border-transparent hover:border-green-500'}`}
                       >
                         <img
                           src={getFullImageUrl(image)}
@@ -295,11 +390,7 @@ const handleBookNow = () => {
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`py-4 px-1 font-medium text-sm border-b-2 transition-colors ${
-                        activeTab === tab
-                          ? 'border-green-700 text-green-800'
-                          : 'border-transparent text-gray-500 hover:text-green-700'
-                      }`}
+                      className={`py-4 px-1 font-medium text-sm border-b-2 transition-colors ${activeTab === tab ? 'border-green-700 text-green-800' : 'border-transparent text-gray-500 hover:text-green-700'}`}
                     >
                       {tab.charAt(0).toUpperCase() + tab.slice(1)}
                     </button>
@@ -361,13 +452,15 @@ const handleBookNow = () => {
                     </div>
                   </div>
                 )}
-              {activeTab === 'reviews' && (
-                <ReviewSection 
-                  activityId={activity.id}
-                  userId={user?.id}
-                  userRole={user?.role}
-                />
-              )}
+                
+                {activeTab === 'reviews' && (
+                  <ReviewSection 
+                    activityId={activity.id}
+                    userId={user?.id}
+                    userRole={user?.role}
+                  />
+                )}
+                
                 {activeTab === 'requirements' && (
                   <div className="space-y-4">
                     <h2 className="text-2xl font-bold text-green-800">Requirements</h2>
@@ -411,7 +504,6 @@ const handleBookNow = () => {
                     </div>
                   </div>
                 )}
-
               </div>
             </div>
 
@@ -429,24 +521,37 @@ const handleBookNow = () => {
                     <span className="text-sm text-green-700 ml-2">4.8 (124 reviews)</span>
                   </div>
                 </div>
-              {user && activity.providerId && activity.providerId !== 'DEBUG_NO_PROVIDER_ID' && activity.providerName !== 'Unknown Provider' && (
-              <ContactButton
-                currentUserId={user.id}
-                otherUserId={activity.providerId}
-                currentUserName={user.fullName}
-                otherUserName={activity.providerName}
-                activityId={activity.id}
-                activityName={activity.name}
-                variant="button"
-                size="md"
-              />
-            )}
-                          </div>
+                {user && activity.providerId && activity.providerId !== 'DEBUG_NO_PROVIDER_ID' && activity.providerName !== 'Unknown Provider' && (
+                  <ContactButton
+                    currentUserId={user.id}
+                    otherUserId={activity.providerId}
+                    currentUserName={user.fullName}
+                    otherUserName={activity.providerName}
+                    activityId={activity.id}
+                    activityName={activity.name}
+                    variant="button"
+                    size="md"
+                  />
+                )}
+              </div>
             </div>
           </div>
 
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-24 border border-green-200">
+       
+              {activity.status === 'Delayed' && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-purple-100 to-purple-50 rounded-xl border border-purple-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-purple-600">⚠️</span>
+                    <span className="font-semibold text-purple-800">Important Notice</span>
+                  </div>
+                  <p className="text-sm text-purple-700">
+                    This activity has been delayed. Please check the new dates above.
+                  </p>
+                </div>
+              )}
+              
               <div className="text-center mb-6">
                 <div className="text-3xl font-bold text-green-700">${activity.price}</div>
                 <div className="text-green-600">per person</div>
@@ -455,9 +560,7 @@ const handleBookNow = () => {
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
                   <span className="text-green-700">Available Slots:</span>
-                  <span className={`font-semibold ${
-                    isSoldOut ? 'text-red-700' : isLowAvailability ? 'text-yellow-700' : 'text-green-700'
-                  }`}>
+                  <span className={`font-semibold ${isSoldOut ? 'text-red-700' : isLowAvailability ? 'text-yellow-700' : 'text-green-700'}`}>
                     {isSoldOut ? 'Sold Out' : `${activity.availableSlots} available`}
                   </span>
                 </div>
@@ -469,18 +572,24 @@ const handleBookNow = () => {
                   <span className="text-green-700">Duration:</span>
                   <span className="font-semibold text-green-800">{activity.duration || '4 hours'}</span>
                 </div>
+            
                 <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
                   <span className="text-green-700">Start Date:</span>
                   <span className="font-semibold text-green-800">
-                    {formatDate(activity.startDate)}
+                    {activity.status === 'Delayed' && activity.rescheduledStartDate 
+                      ? formatDate(activity.rescheduledStartDate)
+                      : formatDate(activity.startDate)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
                   <span className="text-green-700">End Date:</span>
                   <span className="font-semibold text-green-800">
-                    {formatDate(activity.endDate)}
+                    {activity.status === 'Delayed' && activity.rescheduledEndDate 
+                      ? formatDate(activity.rescheduledEndDate)
+                      : formatDate(activity.endDate)}
                   </span>
                 </div>
+                
                 <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
                   <span className="text-green-700">Confirmation:</span>
                   <span className="font-semibold text-green-700">Instant</span>
@@ -496,11 +605,20 @@ const handleBookNow = () => {
                     <span className="font-semibold text-green-800">Start Date</span>
                   </div>
                   <div className="text-lg font-bold text-green-900">
-                    {formatDate(activity.startDate)}
+                    {activity.status === 'Delayed' && activity.rescheduledStartDate 
+                      ? formatDate(activity.rescheduledStartDate)
+                      : formatDate(activity.startDate)}
                   </div>
                   <div className="text-sm text-green-700">
-                    {formatTime(activity.startDate)}
+                    {activity.status === 'Delayed' && activity.rescheduledStartDate 
+                      ? formatTime(activity.rescheduledStartDate)
+                      : formatTime(activity.startDate)}
                   </div>
+                  {activity.status === 'Delayed' && activity.rescheduledStartDate && activity.startDate && (
+                    <div className="text-xs text-gray-500 line-through mt-1">
+                      Originally: {formatDate(activity.startDate)} {formatTime(activity.startDate)}
+                    </div>
+                  )}
                 </div>
                 <div className="p-4 bg-red-50 rounded-xl border border-red-200">
                   <div className="flex items-center mb-2">
@@ -510,29 +628,40 @@ const handleBookNow = () => {
                     <span className="font-semibold text-red-800">End Date</span>
                   </div>
                   <div className="text-lg font-bold text-red-900">
-                    {formatDate(activity.endDate)}
+                    {activity.status === 'Delayed' && activity.rescheduledEndDate 
+                      ? formatDate(activity.rescheduledEndDate)
+                      : formatDate(activity.endDate)}
                   </div>
                   <div className="text-sm text-red-700">
-                    {formatTime(activity.endDate)}
+                    {activity.status === 'Delayed' && activity.rescheduledEndDate 
+                      ? formatTime(activity.rescheduledEndDate)
+                      : formatTime(activity.endDate)}
                   </div>
+                  {activity.status === 'Delayed' && activity.rescheduledEndDate && activity.endDate && (
+                    <div className="text-xs text-gray-500 line-through mt-1">
+                      Originally: {formatDate(activity.endDate)} {formatTime(activity.endDate)}
+                    </div>
+                  )}
                 </div>
               </div>
 
               <button
                 onClick={handleBookNow}
-                disabled={isSoldOut}
-                className={`w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 ${
-                  isSoldOut
-                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                    : 'bg-green-700 text-white hover:bg-green-800 hover:shadow-lg'
-                }`}
+                disabled={isSoldOut || activity.status === 'Delayed'}
+                className={`w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 ${isSoldOut || activity.status === 'Delayed' ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-700 text-white hover:bg-green-800 hover:shadow-lg'}`}
               >
-                {isSoldOut ? 'Sold Out' : 'Book Now'}
+                {activity.status === 'Delayed' ? 'Currently Unavailable' : isSoldOut ? 'Sold Out' : 'Book Now'}
               </button>
 
-              <div className="mt-4 text-center text-sm text-green-600">
-                Free cancellation up to 24 hours before
-              </div>
+              {activity.status === 'Delayed' ? (
+                <div className="mt-4 text-center text-sm text-purple-600">
+                  ⚠️ This activity has been delayed. New dates are shown above.
+                </div>
+              ) : (
+                <div className="mt-4 text-center text-sm text-green-600">
+                  Free cancellation up to 24 hours before
+                </div>
+              )}
 
               <div className="mt-6 pt-6 border-t border-green-200">
                 <h3 className="font-semibold text-green-800 mb-3">Quick Facts:</h3>

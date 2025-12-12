@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
-
+using System.Text.Json;
 namespace TourismHub.API.Controllers
 {
     [ApiController]
@@ -42,56 +42,65 @@ namespace TourismHub.API.Controllers
             _userService = userService;
         }
         
-        [HttpGet]
-        public async Task<IActionResult> GetAllActivities()
+      [HttpGet]
+public async Task<IActionResult> GetAllActivities()
+{
+    try
+    {
+        _logger.LogInformation("=== CONTROLLER: Getting all activities ===");
+        
+        var activities = await _activityService.GetAllActivitiesAsync();
+        
+        var result = activities.Select(a => new
         {
-            try
-            {
-                _logger.LogInformation("=== CONTROLLER: Getting all activities ===");
-                
-                var activities = await _activityService.GetAllActivitiesAsync();
-                
-                _logger.LogInformation($"=== CONTROLLER: Successfully retrieved {activities.Count} activities ===");
-                
-                var result = activities.Select(a => new
-                {
-                    a.Id,
-                    a.Name,
-                    a.Description,
-                    a.Price,
-                    a.AvailableSlots,
-                    a.Location,
-                    a.CategoryId,
-                    Category = a.Category?.Name ?? "Unknown",
-                    ProviderId = a.ProviderId ?? Guid.Empty,  
-                    ProviderName = a.Provider?.FullName ?? "Unknown Provider",
-                    Duration = a.Duration,
-                    Included = a.Included?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                    Requirements = a.Requirements?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                    QuickFacts = a.QuickFacts?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                    StartDate = a.StartDate,
-                    EndDate = a.EndDate,
-                    IsActive = a.IsActive,
-                    IsExpired = a.IsExpired,
-                    IsUpcoming = a.IsUpcoming,
-                    Status = a.Status.ToString(),
-                    Images = a.Images?.Select(img => img.ImageUrl).ToList() ?? new List<string>(),
-                    a.CreatedAt
-                }).ToList();
-                
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "=== CONTROLLER ERROR: Failed to get activities ===");
-                
-                return StatusCode(500, new { 
-                    message = "Internal server error",
-                    error = "Check server logs for details"
-                });
-            }
+            a.Id,
+            a.Name,
+            a.Description,
+            a.Price,
+            a.AvailableSlots,
+            a.Location,
+            a.CategoryId,
+            Category = a.Category?.Name ?? "Unknown",
+            ProviderId = a.ProviderId ?? Guid.Empty,
+            ProviderName = a.Provider?.FullName ?? "Unknown Provider",
+            Duration = a.Duration,
+            Included = a.Included?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+            Requirements = a.Requirements?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+            QuickFacts = a.QuickFacts?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+            StartDate = a.StartDate,
+            EndDate = a.EndDate,
+            DelayedDate = a.DelayedDate,
+            RescheduledStartDate = a.RescheduledStartDate, 
+            RescheduledEndDate = a.RescheduledEndDate,
+            IsActive = a.IsActive,
+            IsExpired = a.IsExpired,
+            IsUpcoming = a.IsUpcoming,
+            Status = a.Status.ToString(),
+            Images = a.Images?.Select(img => img.ImageUrl).ToList() ?? new List<string>(),
+            a.CreatedAt
+        }).ToList();
+        
+       
+        var delayedActivities = result.Where(a => a.Status == "Delayed").ToList();
+        _logger.LogInformation($"Found {delayedActivities.Count} delayed activities in GetAllActivities");
+        foreach (var delayed in delayedActivities)
+        {
+            _logger.LogInformation($"Delayed Activity: {delayed.Name}, DelayedDate: {delayed.DelayedDate}, RescheduledStartDate: {delayed.RescheduledStartDate}, RescheduledEndDate: {delayed.RescheduledEndDate}");
         }
         
+        _logger.LogInformation($"=== CONTROLLER: Successfully retrieved {activities.Count} activities ===");
+        
+        return Ok(result);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "=== CONTROLLER ERROR: Failed to get activities ===");
+        return StatusCode(500, new { 
+            message = "Internal server error",
+            error = ex.Message
+        });
+    }
+}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetActivityById(Guid id)
         {
@@ -430,44 +439,55 @@ namespace TourismHub.API.Controllers
             }
         }
 
-        [HttpGet("provider/{providerId}")]
-        public async Task<IActionResult> GetActivitiesByProvider(Guid providerId)
+      [HttpGet("provider/{providerId}")]
+public async Task<IActionResult> GetActivitiesByProvider(Guid providerId)
+{
+    try
+    {
+        var activities = await _activityService.GetActivitiesByProviderAsync(providerId);
+        
+        var result = activities.Select(a => new
         {
-            try
-            {
-                var activities = await _activityService.GetActivitiesByProviderAsync(providerId);
-                
-                var result = activities.Select(a => new
-                {
-                    a.Id,
-                    a.Name,
-                    a.Description,
-                    a.Price,
-                    a.AvailableSlots,
-                    a.Location,
-                    a.CategoryId,
-                    Category = a.Category?.Name ?? "Unknown",
-                    Duration = a.Duration,
-                    Included = a.Included?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                    Requirements = a.Requirements?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                    QuickFacts = a.QuickFacts?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-                    StartDate = a.StartDate,
-                    EndDate = a.EndDate,
-                    IsActive = a.IsActive,
-                    IsExpired = a.IsExpired,
-                    IsUpcoming = a.IsUpcoming,
-                    Status = a.Status.ToString(),
-                    Images = a.Images?.Select(img => img.ImageUrl).ToList() ?? new List<string>()
-                }).ToList();
-                
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in GetActivitiesByProvider");
-                return StatusCode(500, new { message = "An error occurred while retrieving activities" });
-            }
+            a.Id,
+            a.Name,
+            a.Description,
+            a.Price,
+            a.AvailableSlots,
+            a.Location,
+            a.CategoryId,
+            Category = a.Category?.Name ?? "Unknown",
+            Duration = a.Duration,
+            Included = a.Included?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+            Requirements = a.Requirements?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+            QuickFacts = a.QuickFacts?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
+            StartDate = a.StartDate,
+            EndDate = a.EndDate,
+          
+            DelayedDate = a.DelayedDate,
+            RescheduledStartDate = a.RescheduledStartDate,
+            RescheduledEndDate = a.RescheduledEndDate,
+            IsActive = a.IsActive,
+            IsExpired = a.IsExpired,
+            IsUpcoming = a.IsUpcoming,
+            Status = a.Status.ToString(),
+            Images = a.Images?.Select(img => img.ImageUrl).ToList() ?? new List<string>()
+        }).ToList();
+        
+        var delayedActivities = result.Where(a => a.Status == "Delayed").ToList();
+        _logger.LogInformation($"Found {delayedActivities.Count} delayed activities for provider {providerId}");
+        foreach (var delayed in delayedActivities)
+        {
+            _logger.LogInformation($"Provider Delayed Activity: {delayed.Name}, DelayedDate: {delayed.DelayedDate}, RescheduledStartDate: {delayed.RescheduledStartDate}, RescheduledEndDate: {delayed.RescheduledEndDate}");
         }
+        
+        return Ok(result);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error in GetActivitiesByProvider");
+        return StatusCode(500, new { message = "An error occurred while retrieving activities" });
+    }
+}
 
         [HttpGet("active")]
         public async Task<IActionResult> GetActiveActivities()
@@ -538,78 +558,75 @@ namespace TourismHub.API.Controllers
                 return StatusCode(500, new { message = "An error occurred while retrieving expired activities" });
             }
         }
+[HttpPatch("{id}/status")]
+public async Task<IActionResult> UpdateActivityStatus(Guid id, [FromBody] ActivityStatusUpdateDto statusDto)
+{
+    try
+    {
+        _logger.LogInformation($"=== CONTROLLER: Updating status for activity {id} ===");
+        _logger.LogInformation($"Received DTO - Status: {statusDto.Status}");
+        
+        var existingActivity = await _activityService.GetActivityByIdAsync(id);
+        if (existingActivity == null)
+            return NotFound(new { message = "Activity not found" });
 
-        [HttpPatch("{id}/status")]
-        public async Task<IActionResult> UpdateActivityStatus(Guid id, [FromBody] ActivityStatusUpdateDto statusDto)
+        _logger.LogInformation($"Before update - Status: {existingActivity.Status}");
+        _logger.LogInformation($"Before update - DelayedDate: {existingActivity.DelayedDate}");
+        
+       
+        existingActivity.Status = statusDto.Status;
+        
+        if (statusDto.Status == ActivityStatus.Delayed)
         {
-            try
-            {
-                _logger.LogInformation($"=== CONTROLLER: Updating status for activity {id} ===");
-                
-                if (statusDto == null)
-                {
-                    _logger.LogError("Status DTO is null");
-                    return BadRequest(new { message = "Status data is required" });
-                }
-                
-                _logger.LogInformation($"Received Status: {statusDto.Status}");
-                
-                var existingActivity = await _activityService.GetActivityByIdAsync(id);
-                if (existingActivity == null)
-                    return NotFound(new { message = "Activity not found" });
-
-                _logger.LogInformation($"Old status: {existingActivity.Status}, New status: {statusDto.Status}");
-                
-                existingActivity.Status = statusDto.Status;
-                existingActivity.UpdatedAt = DateTime.UtcNow;
-
-                var updatedActivity = await _activityService.UpdateActivityAsync(existingActivity);
-                
+            existingActivity.DelayedDate = statusDto.DelayedDate ?? DateTime.UtcNow;
             
-                if (existingActivity.ProviderId.HasValue)
-                {
-                    await _notificationService.SendRealTimeNotification(
-                        _hubContext,
-                        existingActivity.ProviderId.Value,
-                        "Activity Status Updated",
-                        $"Your activity '{existingActivity.Name}' status has been updated to {statusDto.Status}.",
-                        NotificationType.Activity,
-                        existingActivity.Id
-                    );
-                }
-
-                var admins = await _userService.GetUsersByRoleAsync(UserRole.Admin);
-                foreach (var admin in admins)
-                {
-                    await _notificationService.SendRealTimeNotification(
-                        _hubContext,
-                        admin.Id,
-                        "Activity Status Changed",
-                        $"Activity '{existingActivity.Name}' status changed to {statusDto.Status}.",
-                        NotificationType.Activity,
-                        existingActivity.Id
-                    );
-                }
-                
-                var result = new
-                {
-                    updatedActivity.Id,
-                    updatedActivity.Name,
-                    Status = updatedActivity.Status.ToString(),
-                    Message = "Status updated successfully"
-                };
-                
-                return Ok(result);
-            }
-            catch (Exception ex)
+            if (statusDto.RescheduledStartDate.HasValue)
             {
-                _logger.LogError(ex, "Error in UpdateActivityStatus");
-                return StatusCode(500, new { 
-                    message = "An error occurred while updating activity status", 
-                    details = ex.Message 
-                });
+                existingActivity.RescheduledStartDate = statusDto.RescheduledStartDate.Value.ToUniversalTime();
+                _logger.LogInformation($"Setting RescheduledStartDate: {existingActivity.RescheduledStartDate}");
+            }
+            
+            if (statusDto.RescheduledEndDate.HasValue)
+            {
+                existingActivity.RescheduledEndDate = statusDto.RescheduledEndDate.Value.ToUniversalTime();
+                _logger.LogInformation($"Setting RescheduledEndDate: {existingActivity.RescheduledEndDate}");
             }
         }
+        
+        existingActivity.UpdatedAt = DateTime.UtcNow;
+
+        var updatedActivity = await _activityService.UpdateActivityAsync(existingActivity);
+        
+        _logger.LogInformation($"After update - Status: {updatedActivity.Status}");
+        _logger.LogInformation($"After update - DelayedDate: {updatedActivity.DelayedDate}");
+        _logger.LogInformation($"After update - RescheduledStartDate: {updatedActivity.RescheduledStartDate}");
+        _logger.LogInformation($"After update - RescheduledEndDate: {updatedActivity.RescheduledEndDate}");
+        
+        var result = new
+        {
+            updatedActivity.Id,
+            updatedActivity.Name,
+            Status = updatedActivity.Status.ToString(),
+            DelayedDate = updatedActivity.DelayedDate,
+            RescheduledStartDate = updatedActivity.RescheduledStartDate,
+            RescheduledEndDate = updatedActivity.RescheduledEndDate,
+            OriginalStartDate = updatedActivity.StartDate,
+            OriginalEndDate = updatedActivity.EndDate,
+            Message = "Status updated successfully with rescheduled dates"
+        };
+        
+        return Ok(result);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, $"Error in UpdateActivityStatus for activity {id}");
+        return StatusCode(500, new { 
+            message = "An error occurred while updating activity status", 
+            details = ex.Message,
+            innerException = ex.InnerException?.Message
+        });
+    }
+}
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteActivity(Guid id)

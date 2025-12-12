@@ -10,9 +10,11 @@ import AddActivityModal from "@/components/provider/AddActivityModal";
 import EditActivityModal from "@/components/provider/EditActivityModal";
 import ChangePasswordModal from "@/components/provider/ChangePasswordModal";
 import ChatList from "@/components/provider/ChatList";
-
 import NotificationBell from "@/components/NotificationBell";
-import { MessageSquare, Activity, Calendar, TrendingUp, Compass, Star, LogOut, Users, DollarSign, Mountain, MapPin, Home, Settings, Bell, User } from "lucide-react";
+import { 
+  MessageSquare, Activity, Calendar, TrendingUp, Star, LogOut, 
+  Users, Mountain, Settings, Compass, Home 
+} from "lucide-react";
 
 interface Category {
   id: string;
@@ -44,6 +46,9 @@ interface ActivityType {
   isActive?: boolean;
   isExpired?: boolean;
   isUpcoming?: boolean;
+  delayedDate?: string;
+  rescheduledStartDate?: string;
+  rescheduledEndDate?: string;
 }
 
 interface Booking {
@@ -92,6 +97,7 @@ const ProviderDashboard = () => {
     activeActivities: 0,
     upcomingActivities: 0,
     expiredActivities: 0,
+    delayedActivities: 0,
     totalReviews: 0,
     averageRating: 0
   });
@@ -126,16 +132,16 @@ const ProviderDashboard = () => {
     endDate: ''
   });
 
-
   const menuItems = [
     { text: 'Dashboard', icon: '📊', section: 'dashboard' },
     { text: 'My Activities', icon: '🏔️', section: 'activities' },
-   
     { text: 'Bookings', icon: '📅', section: 'bookings' },
     { text: 'Reviews', icon: '⭐', section: 'reviews' },
     { text: 'Chats', icon: '💬', section: 'chats' },
     { text: 'Analytics', icon: '📈', section: 'analytics' },
   ];
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
 
   const getToken = (): string => {
     const token = localStorage.getItem('token');
@@ -145,7 +151,6 @@ const ProviderDashboard = () => {
     }
     return token;
   };
-
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -180,7 +185,7 @@ const ProviderDashboard = () => {
 
   const fetchCategories = async (token: string) => {
     try {
-      const response = await fetch('http://localhost:5224/api/categories', {
+      const response = await fetch(`${API_BASE_URL}/categories`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -198,7 +203,7 @@ const ProviderDashboard = () => {
 
   const fetchProviderData = async (userData: any, token: string) => {
     try {
-      const activitiesResponse = await fetch(`http://localhost:5224/api/activities/provider/${userData.id}`, {
+      const activitiesResponse = await fetch(`${API_BASE_URL}/activities/provider/${userData.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -207,6 +212,8 @@ const ProviderDashboard = () => {
       
       if (activitiesResponse.ok) {
         const activitiesData = await activitiesResponse.json();
+        
+        console.log('=== FETCHED ACTIVITIES FOR PROVIDER ===');
         
         const now = new Date();
         const processedActivities = activitiesData.map((activity: any) => {
@@ -217,11 +224,18 @@ const ProviderDashboard = () => {
           const isUpcoming = startDate > now;
           const isActive = !isExpired && !isUpcoming;
           
+          const delayedDate = activity.delayedDate || activity.DelayedDate || null;
+          const rescheduledStartDate = activity.rescheduledStartDate || activity.RescheduledStartDate || null;
+          const rescheduledEndDate = activity.rescheduledEndDate || activity.RescheduledEndDate || null;
+          
           return {
             ...activity,
             startDate: activity.startDate || activity.createdAt,
             endDate: activity.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             status: activity.status || 'Pending',
+            delayedDate: delayedDate,
+            rescheduledStartDate: rescheduledStartDate,
+            rescheduledEndDate: rescheduledEndDate,
             included: Array.isArray(activity.included) ? activity.included : [],
             requirements: Array.isArray(activity.requirements) ? activity.requirements : [],
             quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts : [],
@@ -229,6 +243,16 @@ const ProviderDashboard = () => {
             isUpcoming,
             isActive
           };
+        });
+
+        const delayedActivities = processedActivities.filter((a: ActivityType) => a.status === 'Delayed');
+        console.log(`Found ${delayedActivities.length} delayed activities for provider`);
+        delayedActivities.forEach((activity: ActivityType) => {
+          console.log(`Delayed Activity: ${activity.name}`, {
+            delayedDate: activity.delayedDate,
+            rescheduledStartDate: activity.rescheduledStartDate,
+            rescheduledEndDate: activity.rescheduledEndDate
+          });
         });
         
         setActivities(processedActivities);
@@ -241,9 +265,11 @@ const ProviderDashboard = () => {
         const popularLocation = Object.keys(locationCounts).reduce((a, b) => 
           locationCounts[a] > locationCounts[b] ? a : "No locations", "No locations"
         );
+        
         const activeActivities = processedActivities.filter((a: ActivityType) => a.isActive).length;
         const upcomingActivities = processedActivities.filter((a: ActivityType) => a.isUpcoming).length;
         const expiredActivities = processedActivities.filter((a: ActivityType) => a.isExpired).length;
+        const delayedActivitiesCount = processedActivities.filter((a: ActivityType) => a.status === 'Delayed').length;
 
         setStats(prev => ({ 
           ...prev, 
@@ -251,12 +277,14 @@ const ProviderDashboard = () => {
           popularLocation,
           activeActivities,
           upcomingActivities,
-          expiredActivities
+          expiredActivities,
+          delayedActivities: delayedActivitiesCount
         }));
+        
         await fetchReviewsForActivities(processedActivities, token);
       }
 
-      const bookingsResponse = await fetch(`http://localhost:5224/api/bookings/provider/${userData.id}`, {
+      const bookingsResponse = await fetch(`${API_BASE_URL}/bookings/provider/${userData.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -297,7 +325,7 @@ const ProviderDashboard = () => {
       
       const reviewsPromises = activities.map(async (activity) => {
         try {
-          const response = await fetch(`http://localhost:5224/api/reviews/activity/${activity.id}`, {
+          const response = await fetch(`${API_BASE_URL}/reviews/activity/${activity.id}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -358,7 +386,7 @@ const ProviderDashboard = () => {
 
   const fetchUnreadCount = async (token: string) => {
     try {
-      const response = await fetch('http://localhost:5224/api/chats/unread-count', {
+      const response = await fetch(`${API_BASE_URL}/chats/unread-count`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -373,104 +401,113 @@ const ProviderDashboard = () => {
     }
   };
 
-  const handleUpdateStatus = async (activityId: string, status: string) => {
-    try {
-      const token = getToken();
+ const handleUpdateStatusWithDates = async (
+  activityId: string, 
+  status: string, 
+  rescheduledDates?: {startDate?: string, endDate?: string}
+) => {
+  try {
+    console.log('=== Starting status update with dates ===');
+    console.log('Activity ID:', activityId);
+    console.log('New Status:', status);
+    console.log('Rescheduled Dates:', rescheduledDates);
+    
+    const token = getToken();
+    
+    const requestBody: any = {
+      Status: status  
+    };
+    
+    if (status === 'Delayed' && rescheduledDates) {
+      requestBody.DelayedDate = new Date().toISOString();
       
-      const statusMap: Record<string, number> = {
-        'Pending': 0,
-        'Active': 1, 
-        'Inactive': 2,
-        'Completed': 4,
-        'Cancelled': 6
-      };
-      
-      const statusValue = statusMap[status];
-      
-      if (statusValue === undefined) {
-        alert(`Invalid status: ${status}`);
-        return;
+      if (rescheduledDates.startDate) {
+        requestBody.RescheduledStartDate = rescheduledDates.startDate;
       }
       
-      const payload = {
-        Status: statusValue
-      };
-      
-      const response = await fetch(`http://localhost:5224/api/activities/${activityId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-      
-      if (response.ok) {
-        setActivities(prevActivities => 
-          prevActivities.map(activity => {
-            if (activity.id === activityId) {
-              const now = new Date();
-              const startDate = new Date(activity.startDate);
-              const endDate = new Date(activity.endDate);
-              
-              const isExpired = endDate < now;
-              const isUpcoming = startDate > now;
-              const isActive = !isExpired && !isUpcoming && status === 'Active';
-              
-              return { 
-                ...activity, 
-                status: status,
-                isActive,
-                isExpired,
-                isUpcoming 
-              };
-            }
-            return activity;
-          })
-        );
-        
-        const updatedActivities = activities.map(activity => {
-          if (activity.id === activityId) {
-            const now = new Date();
-            const startDate = new Date(activity.startDate);
-            const endDate = new Date(activity.endDate);
-            
-            const isExpired = endDate < now;
-            const isUpcoming = startDate > now;
-            const isActive = !isExpired && !isUpcoming && status === 'Active';
-            
-            return { 
-              ...activity, 
-              status: status,
-              isActive,
-              isExpired,
-              isUpcoming 
-            };
-          }
-          return activity;
-        });
-        
-        const activeActivities = updatedActivities.filter(a => a.isActive).length;
-        const upcomingActivities = updatedActivities.filter(a => a.isUpcoming).length;
-        const expiredActivities = updatedActivities.filter(a => a.isExpired).length;
-        
-        setStats(prev => ({
-          ...prev,
-          activeActivities,
-          upcomingActivities,
-          expiredActivities
-        }));
-        
-        alert('Status updated successfully!');
-      } else {
-        const errorText = await response.text();
-        alert(`Failed: ${errorText}`);
+      if (rescheduledDates.endDate) {
+        requestBody.RescheduledEndDate = rescheduledDates.endDate;
       }
-      
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error updating status');
     }
+    
+    console.log('Sending to API:', requestBody);
+    
+    const response = await fetch(`${API_BASE_URL}/activities/${activityId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error:', errorText);
+      throw new Error(`Failed to update activity status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    console.log('📊 API Response:', result);
+    
+    console.log('🔍 Checking API response status:');
+    console.log('Requested status:', status);
+    console.log('API returned status:', result.status);
+    console.log('API returned Status (capital):', result.Status);
+    
+    if (status === 'Delayed' && result.status !== 'Delayed') {
+      console.error('❌ API returned wrong status! Expected: Delayed, Got:', result.status);
+      alert('Warning: API returned wrong status. Check server logs.');
+    }
+    
+    setActivities(prev => prev.map(activity => {
+      if (activity.id === activityId) {
+        const now = new Date();
+        const startDate = new Date(activity.startDate);
+        const endDate = new Date(activity.endDate);
+        
+        const isExpired = endDate < now;
+        const isUpcoming = startDate > now;
+        const isActive = !isExpired && !isUpcoming && status === 'Active';
+        
+       
+        const finalStatus = result.status || result.Status || status;
+        
+        const updatedActivity: ActivityType = { 
+          ...activity, 
+          status: finalStatus,
+          isActive,
+          isExpired,
+          isUpcoming,
+          delayedDate: result.delayedDate || result.DelayedDate || new Date().toISOString(),
+          rescheduledStartDate: result.rescheduledStartDate || result.RescheduledStartDate || rescheduledDates?.startDate || '',
+          rescheduledEndDate: result.rescheduledEndDate || result.RescheduledEndDate || rescheduledDates?.endDate || ''
+        };
+        
+        console.log('✅ Updated activity in state:', updatedActivity);
+        return updatedActivity;
+      }
+      return activity;
+    }));
+    
+   
+    setTimeout(() => {
+      if (user) {
+        console.log('🔄 Refreshing provider data...');
+        fetchProviderData(user, token);
+      }
+    }, 1000);
+    
+    alert(`Activity status updated to ${status} with new dates!`);
+    
+  } catch (error) {
+    console.error('Error updating status:', error);
+    alert(`Error updating status: ${error instanceof Error ? error.message : 'Please check console'}`);
+  }
+};
+
+  const handleUpdateStatus = async (activityId: string, status: string, rescheduledDates?: {startDate?: string, endDate?: string}) => {
+    return handleUpdateStatusWithDates(activityId, status, rescheduledDates);
   };
 
   const handleAddActivity = async (e: React.FormEvent, images: File[]) => {
@@ -499,7 +536,7 @@ const ProviderDashboard = () => {
         formData.append('images', image);
       });
 
-      const activityResponse = await fetch('http://localhost:5224/api/activities', {
+      const activityResponse = await fetch(`${API_BASE_URL}/activities`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -561,7 +598,7 @@ const ProviderDashboard = () => {
     try {
       const token = getToken(); 
       
-      const response = await fetch(`http://localhost:5224/api/activities/${editingActivity.id}`, {
+      const response = await fetch(`${API_BASE_URL}/activities/${editingActivity.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -590,7 +627,7 @@ const ProviderDashboard = () => {
             formData.append('images', image);
           });
 
-          await fetch(`http://localhost:5224/api/activityimages/upload/${editingActivity.id}`, {
+          await fetch(`${API_BASE_URL}/activityimages/upload/${editingActivity.id}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -618,7 +655,7 @@ const ProviderDashboard = () => {
     
     try {
       const token = getToken(); 
-      const response = await fetch(`http://localhost:5224/api/activities/${activityId}`, {
+      const response = await fetch(`${API_BASE_URL}/activities/${activityId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -687,7 +724,6 @@ const ProviderDashboard = () => {
 
   const renderMainContent = () => {
     switch (activeSection) {
-      
       case 'activities':
         return (
           <div>
@@ -703,31 +739,10 @@ const ProviderDashboard = () => {
               </div>
             ) : (
               <ActivitiesTable 
-                activities={activities.map(activity => ({
-                  id: activity.id,
-                  name: activity.name,
-                  description: activity.description,
-                  price: activity.price,
-                  availableSlots: activity.availableSlots,
-                  location: activity.location,
-                  category: activity.category,
-                  categoryId: activity.categoryId,
-                  duration: activity.duration,
-                  included: activity.included,
-                  requirements: activity.requirements,
-                  quickFacts: activity.quickFacts,
-                  status: activity.status,
-                  createdAt: activity.createdAt,
-                  images: activity.images,
-                  startDate: activity.startDate,
-                  endDate: activity.endDate,
-                  isActive: activity.isActive,
-                  isExpired: activity.isExpired,
-                  isUpcoming: activity.isUpcoming
-                }))} 
+                activities={activities} 
                 onDeleteActivity={handleDeleteActivity}
                 onEditActivity={handleEditActivity}
-                onStatusChange={handleUpdateStatus} 
+                onStatusChange={handleUpdateStatusWithDates} 
               />
             )}
           </div>
@@ -774,7 +789,6 @@ const ProviderDashboard = () => {
               </div>
             </div>
             
-            {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
                 <div className="flex items-center justify-between">
@@ -815,17 +829,16 @@ const ProviderDashboard = () => {
               <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-400">Avg. Rating</p>
-                    <h3 className="text-2xl font-bold text-white mt-1">{stats.averageRating || 0}</h3>
+                    <p className="text-sm text-gray-400">Delayed Activities</p>
+                    <h3 className="text-2xl font-bold text-white mt-1">{stats.delayedActivities}</h3>
                   </div>
                   <div className="p-3 bg-purple-500/20 rounded-lg">
-                    <Star className="w-6 h-6 text-purple-400" />
+                    <Compass className="w-6 h-6 text-purple-400" />
                   </div>
                 </div>
               </div>
             </div>
             
-            {/* Activity Status Distribution */}
             <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
               <h3 className="text-lg font-semibold text-white mb-4">Activity Status Distribution</h3>
               <div className="space-y-4">
@@ -867,31 +880,18 @@ const ProviderDashboard = () => {
                     />
                   </div>
                 </div>
-              </div>
-            </div>
-            
-            {/* Booking Stats */}
-            <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-              <h3 className="text-lg font-semibold text-white mb-4">Booking Statistics</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Total Bookings</span>
-                  <span className="font-semibold text-white">{stats.totalBookings}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Avg. Booking Value</span>
-                  <span className="font-semibold text-white">
-                    ${stats.totalBookings > 0 ? (stats.totalRevenue / stats.totalBookings).toFixed(2) : '0.00'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-300">Conversion Rate</span>
-                  <span className="font-semibold text-white">
-                    {stats.totalActivities > 0 
-                      ? `${((stats.totalBookings / stats.totalActivities) * 100).toFixed(1)}%` 
-                      : '0%'
-                    }
-                  </span>
+                
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-gray-300">Delayed Activities</span>
+                    <span className="text-purple-400 font-semibold">{stats.delayedActivities}</span>
+                  </div>
+                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-purple-500 rounded-full"
+                      style={{ width: `${(stats.delayedActivities / (stats.totalActivities || 1)) * 100}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -925,10 +925,8 @@ const ProviderDashboard = () => {
               </div>
             </div>
 
-       
             <StatsCards stats={stats} />
 
-      
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
               <div className="lg:col-span-2 space-y-6">
                 <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
@@ -963,6 +961,9 @@ const ProviderDashboard = () => {
                         } else if (activity.isUpcoming) {
                           statusColor = 'bg-amber-500';
                           statusText = 'Upcoming';
+                        } else if (activity.status === 'Delayed') {
+                          statusColor = 'bg-purple-500';
+                          statusText = 'Delayed';
                         }
                         
                         return (
@@ -970,6 +971,11 @@ const ProviderDashboard = () => {
                             <div>
                               <h3 className="font-semibold text-white">{activity.name}</h3>
                               <p className="text-sm text-gray-400">{activity.location}</p>
+                              {activity.status === 'Delayed' && activity.delayedDate && (
+                                <p className="text-xs text-purple-400 mt-1">
+                                  Delayed on: {new Date(activity.delayedDate).toLocaleDateString()}
+                                </p>
+                              )}
                             </div>
                             <div className="flex items-center space-x-4">
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor} text-white`}>
@@ -984,7 +990,6 @@ const ProviderDashboard = () => {
                   )}
                 </div>
 
-        
                 <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold text-white flex items-center">
@@ -1026,7 +1031,6 @@ const ProviderDashboard = () => {
                 </div>
               </div>
 
-       
               <div className="space-y-6">
                 <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
                   <h2 className="text-xl font-bold text-white mb-4 flex items-center">
@@ -1047,13 +1051,12 @@ const ProviderDashboard = () => {
                       <span className="font-semibold text-white">{stats.totalReviews}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-300">Adventurers Today</span>
-                      <span className="font-semibold text-emerald-400">{stats.activeAdventurers}</span>
+                      <span className="text-gray-300">Delayed Activities</span>
+                      <span className="font-semibold text-purple-400">{stats.delayedActivities}</span>
                     </div>
                   </div>
                 </div>
 
-     
                 <div className="bg-gray-800/50 rounded-xl border border-gray-700">
                   <div className="p-4 border-b border-gray-700">
                     <h2 className="text-xl font-bold text-white flex items-center">
@@ -1074,7 +1077,6 @@ const ProviderDashboard = () => {
                   </div>
                 </div>
 
-          
                 <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
                   <h2 className="text-xl font-bold text-white mb-4 flex items-center">
                     <Settings className="w-5 h-5 mr-2 text-amber-400" />
@@ -1104,7 +1106,6 @@ const ProviderDashboard = () => {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#121212' }}>
-
       <div style={{ 
         position: 'fixed', 
         left: 0, 
@@ -1175,7 +1176,6 @@ const ProviderDashboard = () => {
           </div>
         ))}
 
-  
         <div style={{ 
           marginTop: 'auto', 
           paddingTop: '24px',
@@ -1214,7 +1214,6 @@ const ProviderDashboard = () => {
         </div>
       </div>
 
- 
       <div style={{ 
         position: 'fixed', 
         top: 0, 
@@ -1252,10 +1251,8 @@ const ProviderDashboard = () => {
             Add Activity
           </button>
 
-
           <NotificationBell />
 
-   
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ 
               width: '36px', 
@@ -1292,7 +1289,6 @@ const ProviderDashboard = () => {
         </div>
       </div>
 
- 
       <div style={{ 
         flexGrow: 1, 
         padding: '24px', 
@@ -1307,7 +1303,6 @@ const ProviderDashboard = () => {
         </div>
       </div>
 
-      {/* Modals */}
       <AddActivityModal
         isOpen={showAddActivity}
         onClose={() => setShowAddActivity(false)}

@@ -1,6 +1,6 @@
 namespace TourismHub.Domain.Enums
 {
-    public enum ActivityStatus
+  public enum ActivityStatus
     {
         Pending = 0,    
         Active = 1,    
@@ -8,6 +8,7 @@ namespace TourismHub.Domain.Enums
         Rejected = 3,  
         Completed = 4,
         Expired = 5,
-        Cancelled = 6  
+        Cancelled = 6,
+        Delayed = 7   
     }
 }
