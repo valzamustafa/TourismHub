@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"; 
 import { Facebook, Instagram, Youtube, Twitter } from 'lucide-react';
+import { handleExpiredSession, setupSessionChecker } from '@/components/admin/utils/tokenRefresh';
 
 const LoginForm = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -16,6 +17,12 @@ const LoginForm = () => {
   const [message, setMessage] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+
+  
+  useEffect(() => {
+    const cleanup = setupSessionChecker();
+    return cleanup;
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
@@ -97,6 +104,8 @@ const LoginForm = () => {
     setMessage('');
 
     try {
+     
+      handleExpiredSession();
     
       if (!isLogin) {
         if (formData.password !== formData.confirmPassword) {
@@ -153,37 +162,52 @@ const LoginForm = () => {
         responseData = { message: 'Invalid response from server' };
       }
 
-if (response.ok) {
-  setMessage(`✅ ${isLogin ? 'Login' : 'Registration'} successful! Redirecting...`);
+      if (response.ok) {
+        setMessage(`✅ ${isLogin ? 'Login' : 'Registration'} successful! Redirecting...`);
 
-  if (responseData.accessToken) {
-    localStorage.setItem('token', responseData.accessToken);
-    localStorage.setItem('refreshToken', responseData.refreshToken);
-    localStorage.setItem('user', JSON.stringify({
-      id: responseData.userId,
-      name: responseData.fullName,
-      email: responseData.email,
-      role: responseData.role,
-      profileImage: responseData.profileImage
-    }));
-    
-    if (rememberMe && isLogin) {
-      localStorage.setItem('rememberedEmail', formData.email);
-    } else {
-      localStorage.removeItem('rememberedEmail');
-    }
+        if (responseData.accessToken) {
    
-    setTimeout(() => {
-      if (responseData.role === 'Admin') {
-        window.location.href = '/';
-      } else if (responseData.role === 'Provider') {
-        window.location.href ='/';
+          localStorage.setItem('token', responseData.accessToken);
+          localStorage.setItem('refreshToken', responseData.refreshToken);
+          localStorage.setItem('user', JSON.stringify({
+            id: responseData.userId,
+            name: responseData.fullName,
+            email: responseData.email,
+            role: responseData.role,
+            profileImage: responseData.profileImage
+          }));
+          
+     
+          const accessTokenExpiry = new Date();
+          accessTokenExpiry.setMinutes(accessTokenExpiry.getMinutes() + 30);
+          localStorage.setItem('accessTokenExpiry', accessTokenExpiry.toISOString());
+
+          const refreshTokenExpiry = new Date();
+          refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 1);
+          localStorage.setItem('refreshTokenExpiry', refreshTokenExpiry.toISOString());
+          
+          console.log('Token expiries saved:', {
+            accessTokenExpiry: accessTokenExpiry.toISOString(),
+            refreshTokenExpiry: refreshTokenExpiry.toISOString()
+          });
+          
+          if (rememberMe && isLogin) {
+            localStorage.setItem('rememberedEmail', formData.email);
+          } else {
+            localStorage.removeItem('rememberedEmail');
+          }
+         
+          setTimeout(() => {
+            if (responseData.role === 'Admin') {
+              window.location.href = '/';
+            } else if (responseData.role === 'Provider') {
+              window.location.href ='/';
+            } else {
+              window.location.href = '/';
+            }
+          }, 1500);
+        }
       } else {
-        window.location.href = '/';
-      }
-    }, 1500);
-  }
-} else {
         setMessage(`❌ ${responseData.message || `Error: ${response.status}`}`);
       }
     } catch (error) {
@@ -195,7 +219,6 @@ if (response.ok) {
   };
 
   useEffect(() => {
-
     if (typeof window !== 'undefined') {
       const rememberedEmail = localStorage.getItem('rememberedEmail');
       if (rememberedEmail && isLogin) {
@@ -207,6 +230,7 @@ if (response.ok) {
       }
     }
   }, [isLogin]); 
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#c8d5c0] p-4 sm:p-8">
       <div className="w-full max-w-7xl relative rounded-2xl overflow-hidden shadow-2xl">
@@ -247,7 +271,7 @@ if (response.ok) {
                 <div>
                   <label className="block text-white/90 mb-2">
                     Email Address
-                  </label>
+                    </label>
                   <input
                     type="email"
                     name="email"
@@ -258,7 +282,6 @@ if (response.ok) {
                     required
                   />
                 </div>
-
 
                 <div>
                   <label className="block text-white/90 mb-2">
