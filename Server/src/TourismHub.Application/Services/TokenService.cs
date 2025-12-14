@@ -59,53 +59,62 @@ public class TokenService : ITokenService
         return Convert.ToBase64String(randomNumber);
     }
 
-    public async Task<AuthResponseDto> RefreshTokenAsync(string accessToken, string refreshToken, string ipAddress)
-    {
-        var storedRefreshToken = await _refreshTokenRepository.GetByTokenAsync(refreshToken);
-        if (storedRefreshToken == null || !storedRefreshToken.IsActive)
-            throw new SecurityTokenException("Invalid refresh token");
+   public async Task<AuthResponseDto> RefreshTokenAsync(string accessToken, string refreshToken, string ipAddress)
+{
+    var storedRefreshToken = await _refreshTokenRepository.GetByTokenAsync(refreshToken);
 
-  
-        storedRefreshToken.IsRevoked = true;
-        storedRefreshToken.Revoked = DateTime.UtcNow;
-        storedRefreshToken.RevokedByIp = ipAddress;
-        await _refreshTokenRepository.UpdateAsync(storedRefreshToken);
-
-     
-        var user = await _userRepository.GetByIdAsync(storedRefreshToken.UserId);
-        if (user == null)
-            throw new ArgumentException("User not found");
-
-        var newAccessToken = GenerateAccessToken(user);
-        var newRefreshToken = GenerateRefreshToken();
-
+    if (storedRefreshToken == null)
+        throw new SecurityTokenException("Invalid refresh token");
     
-        var newRefreshTokenEntity = new RefreshToken
-        {
-            Token = newRefreshToken,
-            Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
-            Created = DateTime.UtcNow,
-            CreatedByIp = ipAddress,
-            UserId = user.Id,
-            IsRevoked = false
-        };
-
-        await _refreshTokenRepository.CreateAsync(newRefreshTokenEntity);
-
-        return new AuthResponseDto
-        {
-            UserId = user.Id,
-            FullName = user.FullName,
-            Email = user.Email,
-            Role = user.Role.ToString(),
-            ProfileImage = user.ProfileImage,
-            AccessToken = newAccessToken,
-            RefreshToken = newRefreshToken,
-            AccessTokenExpiry = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
-            RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
-        };
+  
+    if (!storedRefreshToken.IsActive)
+    {
+        if (storedRefreshToken.IsExpired)
+            throw new SecurityTokenException("Your session has expired. Please login again.");
+        else
+            throw new SecurityTokenException("Refresh token is no longer active");
     }
 
+
+    storedRefreshToken.IsRevoked = true;
+    storedRefreshToken.Revoked = DateTime.UtcNow;
+    storedRefreshToken.RevokedByIp = ipAddress;
+    await _refreshTokenRepository.UpdateAsync(storedRefreshToken);
+
+
+    var user = await _userRepository.GetByIdAsync(storedRefreshToken.UserId);
+    if (user == null)
+        throw new ArgumentException("User not found");
+
+    var newAccessToken = GenerateAccessToken(user);
+    var newRefreshToken = GenerateRefreshToken();
+
+
+    var newRefreshTokenEntity = new RefreshToken
+    {
+        Token = newRefreshToken,
+        Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays), 
+        Created = DateTime.UtcNow,
+        CreatedByIp = ipAddress,
+        UserId = user.Id,
+        IsRevoked = false
+    };
+
+    await _refreshTokenRepository.CreateAsync(newRefreshTokenEntity);
+
+    return new AuthResponseDto
+    {
+        UserId = user.Id,
+        FullName = user.FullName,
+        Email = user.Email,
+        Role = user.Role.ToString(),
+        ProfileImage = user.ProfileImage,
+        AccessToken = newAccessToken,
+        RefreshToken = newRefreshToken,
+        AccessTokenExpiry = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes), 
+        RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays) 
+    };
+}
     public async Task RevokeTokenAsync(string refreshToken, string ipAddress)
     {
         var storedRefreshToken = await _refreshTokenRepository.GetByTokenAsync(refreshToken);

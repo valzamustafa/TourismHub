@@ -5,6 +5,7 @@ using TourismHub.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Options;
 
 namespace TourismHub.Application.Services;
 
@@ -17,6 +18,7 @@ public class AuthService : IAuthService
     private readonly TourismHub.Infrastructure.Services.IEmailService _emailService;
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
     private readonly ILogger<AuthService> _logger;
+    private readonly JwtSettings _jwtSettings; 
 
     public AuthService(
         IUserRepository userRepository,
@@ -25,7 +27,8 @@ public class AuthService : IAuthService
         IRefreshTokenRepository refreshTokenRepository,
         TourismHub.Infrastructure.Services.IEmailService emailService,
         IPasswordResetTokenRepository passwordResetTokenRepository,
-        ILogger<AuthService> logger)
+        ILogger<AuthService> logger,
+        IOptions<JwtSettings> jwtSettings) 
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
@@ -34,6 +37,7 @@ public class AuthService : IAuthService
         _emailService = emailService;
         _passwordResetTokenRepository = passwordResetTokenRepository;
         _logger = logger;
+        _jwtSettings = jwtSettings.Value; 
     }
 
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto loginRequest, string ipAddress)
@@ -62,7 +66,7 @@ public class AuthService : IAuthService
         var refreshTokenEntity = new RefreshToken
         {
             Token = refreshToken,
-            Expires = DateTime.UtcNow.AddDays(7),
+            Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
             Created = DateTime.UtcNow,
             CreatedByIp = ipAddress,
             UserId = user.Id,
@@ -82,8 +86,8 @@ public class AuthService : IAuthService
             ProfileImage = user.ProfileImage,
             AccessToken = accessToken,
             RefreshToken = refreshToken,
-            AccessTokenExpiry = DateTime.UtcNow.AddMinutes(15),
-            RefreshTokenExpiry = DateTime.UtcNow.AddDays(7)
+            AccessTokenExpiry = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
+            RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
         };
     }
 
@@ -98,7 +102,6 @@ public class AuthService : IAuthService
             throw new InvalidOperationException("Email is already registered");
         }
 
-   
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -120,7 +123,7 @@ public class AuthService : IAuthService
         var refreshTokenEntity = new RefreshToken
         {
             Token = refreshToken,
-            Expires = DateTime.UtcNow.AddDays(7),
+            Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
             Created = DateTime.UtcNow,
             CreatedByIp = ipAddress,
             UserId = user.Id,
@@ -140,19 +143,18 @@ public class AuthService : IAuthService
             ProfileImage = user.ProfileImage,
             AccessToken = accessToken,
             RefreshToken = refreshToken,
-            AccessTokenExpiry = DateTime.UtcNow.AddMinutes(15),
-            RefreshTokenExpiry = DateTime.UtcNow.AddDays(7)
+            AccessTokenExpiry = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
+            RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
         };
     }
     
-  public async Task ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto, string origin)
+    public async Task ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto, string origin)
     {
         _logger.LogInformation($"Forgot password request for email: {forgotPasswordDto.Email}");
 
         var user = await _userRepository.GetByEmailAsync(forgotPasswordDto.Email);
         if (user == null)
         {
-         
             _logger.LogWarning($"Forgot password request for non-existent email: {forgotPasswordDto.Email}");
             return;
         }
@@ -162,6 +164,7 @@ public class AuthService : IAuthService
             _logger.LogWarning($"Forgot password request for deactivated account: {forgotPasswordDto.Email}");
             return;
         }
+        
         var token = GenerateResetToken();
         
         var resetToken = new PasswordResetToken
@@ -195,15 +198,18 @@ public class AuthService : IAuthService
         {
             throw new InvalidOperationException("Passwords do not match");
         }
+        
         var resetToken = await _passwordResetTokenRepository.GetByTokenAsync(resetPasswordDto.Token);
         if (resetToken == null)
         {
             throw new InvalidOperationException("Invalid reset token");
         }
+        
         if (resetToken.Expires < DateTime.UtcNow)
         {
             throw new InvalidOperationException("Reset token has expired");
         }
+        
         if (resetToken.IsUsed)
         {
             throw new InvalidOperationException("Reset token has already been used");
