@@ -73,7 +73,24 @@ namespace TourismHub.Application.Services
             return await _bookingRepository.GetByStatusAsync(status);
         }
 
-
+        public async Task UpdateBookingAsync(Booking booking)
+        {
+            try
+            {
+                _logger.LogInformation($"Updating booking: {booking.Id}");
+                booking.UpdatedAt = DateTime.UtcNow;
+                
+                _bookingRepository.Update(booking);
+                await _bookingRepository.SaveChangesAsync();
+                
+                _logger.LogInformation($"Booking {booking.Id} updated successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating booking {booking.Id}");
+                throw;
+            }
+        }
         public async Task<bool> CancelBookingAsync(Guid bookingId)
         {
             try

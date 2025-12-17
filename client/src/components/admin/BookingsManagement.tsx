@@ -25,6 +25,7 @@ const BookingsManagement: React.FC<BookingsManagementProps> = ({
 }) => {
   const [providerBookings, setProviderBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   const getProviderName = (providerId: string) => {
     const provider = providers.find(p => p.id === providerId);
@@ -52,7 +53,7 @@ const BookingsManagement: React.FC<BookingsManagementProps> = ({
         console.error('Failed to fetch provider bookings');
         setProviderBookings([]);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error fetching provider bookings:', error);
       setProviderBookings([]);
     } finally {
@@ -70,41 +71,143 @@ const BookingsManagement: React.FC<BookingsManagementProps> = ({
 
   const displayBookings = selectedProvider === 'all' ? filteredBookings : providerBookings;
 
-  const handleUpdateBookingStatus = async (bookingId: string, status: string) => {
+const handleUpdateBookingStatus = async (bookingId: string, status: string) => {
+  setUpdatingStatus(bookingId);
+  
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please login to update booking status');
+      return;
+    }
+
+    console.log(`📤 Updating booking ${bookingId} to status: ${status}`);
+    
+    const statusToEnumValue: Record<string, number> = {
+      'Pending': 1,
+      'Confirmed': 2,
+      'Cancelled': 3,
+      'Completed': 4
+    };
+    
+    const enumValue = statusToEnumValue[status];
+    if (!enumValue) {
+      throw new Error(`Invalid status: ${status}`);
+    }
+    const requestBody = { 
+      status: enumValue 
+    };
+    
+    console.log('📦 Request body:', JSON.stringify(requestBody));
+
+    const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    console.log(`📥 Response: ${response.status} ${response.statusText}`);
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ Update successful:', result);
+      alert(result.message || 'Booking status updated successfully!');
+      
+      if (selectedProvider !== 'all') {
+        await fetchProviderBookings(selectedProvider);
+      } else {
+        window.dispatchEvent(new CustomEvent('refresh-bookings'));
+      }
+    } else {
+      let errorDetails = '';
+      try {
+        const errorData = await response.json();
+        console.error('❌ Error response:', errorData);
+        errorDetails = JSON.stringify(errorData);
+      } catch {
+        const errorText = await response.text();
+        console.error('❌ Error text:', errorText);
+        errorDetails = errorText || response.statusText;
+      }
+      
+      throw new Error(`Failed to update booking status (${response.status}): ${errorDetails}`);
+    }
+  } catch (error: unknown) {
+    console.error('❌ Error updating booking status:', error);
+    
+    if (error instanceof Error) {
+      alert(`Failed to update booking status: ${error.message}`);
+    } else {
+      alert('Failed to update booking status. Please try again.');
+    }
+  } finally {
+    setUpdatingStatus(null);
+  }
+};
+  const tryAlternativeStatusUpdate = async (bookingId: string, status: string, token: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}/status`, {
-        method: 'PATCH',
+      console.warn('PATCH endpoint not found, trying PUT...');
+      
+      const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ 
+          status: status 
+        })
       });
 
       if (response.ok) {
-        alert('Booking status updated successfully!');
-       
+        const result = await response.json();
+        alert(result.message || 'Booking status updated successfully!');
+        
         if (selectedProvider !== 'all') {
-          fetchProviderBookings(selectedProvider);
-        } else {
-          window.location.reload();
+          await fetchProviderBookings(selectedProvider);
         }
       } else {
-        throw new Error('Failed to update booking status');
+        throw new Error(`Alternative method failed: ${response.status}`);
       }
-    } catch (error) {
-      console.error('Error updating booking status:', error);
-      alert('Failed to update booking status. Please try again.');
+    } catch (altError: unknown) {
+      const errorMessage = altError instanceof Error ? altError.message : 'Unknown error';
+      throw new Error(`Both PATCH and PUT methods failed: ${errorMessage}`);
     }
   };
 
   return (
     <div style={{ padding: '24px', backgroundColor: '#1e1e1e', borderRadius: '12px' }}>
       <div style={{ marginBottom: '24px' }}>
-        <h2 style={{ color: '#ffffff', fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>
-          Bookings Management
-        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ color: '#ffffff', fontSize: '24px', fontWeight: 'bold' }}>
+            Bookings Management
+          </h2>
+          <button
+            onClick={() => {
+              if (selectedProvider !== 'all') {
+                fetchProviderBookings(selectedProvider);
+              } else {
+                window.dispatchEvent(new CustomEvent('refresh-bookings'));
+              }
+            }}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#2196F3',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            🔄 Refresh
+          </button>
+        </div>
         
         <div style={{ marginBottom: '24px' }}>
           <label style={{ color: '#b0b0b0', display: 'block', marginBottom: '8px' }}>
@@ -197,7 +300,6 @@ const BookingsManagement: React.FC<BookingsManagementProps> = ({
                   </thead>
                   <tbody>
                     {displayBookings.map((booking) => {
-                      // Gjej provider-in për këtë booking
                       const activity = activities.find(a => a.id === booking.activityId);
                       const activityProvider = activity ? 
                         providers.find(p => p.id === activity.providerId) : 
@@ -243,14 +345,16 @@ const BookingsManagement: React.FC<BookingsManagementProps> = ({
                             <select
                               value={booking.status}
                               onChange={(e) => handleUpdateBookingStatus(booking.id, e.target.value)}
+                              disabled={updatingStatus === booking.id}
                               style={{
                                 padding: '6px 12px',
                                 borderRadius: '4px',
-                                backgroundColor: '#2a2a2a',
-                                color: '#ffffff',
+                                backgroundColor: updatingStatus === booking.id ? '#333333' : '#2a2a2a',
+                                color: updatingStatus === booking.id ? '#888888' : '#ffffff',
                                 border: '1px solid #444444',
-                                cursor: 'pointer',
-                                fontSize: '12px'
+                                cursor: updatingStatus === booking.id ? 'wait' : 'pointer',
+                                fontSize: '12px',
+                                minWidth: '100px'
                               }}
                             >
                               <option value="Pending">Pending</option>
@@ -258,6 +362,15 @@ const BookingsManagement: React.FC<BookingsManagementProps> = ({
                               <option value="Cancelled">Cancelled</option>
                               <option value="Completed">Completed</option>
                             </select>
+                            {updatingStatus === booking.id && (
+                              <span style={{ 
+                                marginLeft: '8px', 
+                                fontSize: '12px', 
+                                color: '#FF9800' 
+                              }}>
+                                Updating...
+                              </span>
+                            )}
                           </td>
                         </tr>
                       );

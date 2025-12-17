@@ -49,6 +49,10 @@ interface ActivityType {
   delayedDate?: string;
   rescheduledStartDate?: string;
   rescheduledEndDate?: string;
+  
+  Images?: string[];
+  imageUrls?: string[];
+  ImageUrls?: string[];
 }
 
 interface Booking {
@@ -78,6 +82,7 @@ const ProviderDashboard = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('dashboard');
+   const [uploading, setUploading] = useState(false); 
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [showEditActivity, setShowEditActivity] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -153,6 +158,23 @@ const ProviderDashboard = () => {
   };
 
   useEffect(() => {
+    console.log('Activities state updated:', activities);
+    if (activities.length > 0) {
+      console.log('First activity images:', activities[0].images);
+      console.log('First activity Images:', activities[0].Images);
+    }
+  }, [activities]);
+
+  useEffect(() => {
+    if (showEditActivity && editingActivity) {
+      console.log('=== EDIT MODAL OPENED ===');
+      console.log('Editing activity:', editingActivity);
+      console.log('Editing activity images:', editingActivity.images);
+      console.log('Edit activity data:', editActivityData);
+    }
+  }, [showEditActivity, editingActivity]);
+
+  useEffect(() => {
     const userData = localStorage.getItem('user');
     const token = localStorage.getItem('token');
 
@@ -214,6 +236,7 @@ const ProviderDashboard = () => {
         const activitiesData = await activitiesResponse.json();
         
         console.log('=== FETCHED ACTIVITIES FOR PROVIDER ===');
+        console.log('Raw activities data:', activitiesData);
         
         const now = new Date();
         const processedActivities = activitiesData.map((activity: any) => {
@@ -228,6 +251,38 @@ const ProviderDashboard = () => {
           const rescheduledStartDate = activity.rescheduledStartDate || activity.RescheduledStartDate || null;
           const rescheduledEndDate = activity.rescheduledEndDate || activity.RescheduledEndDate || null;
           
+          let images: string[] = [];
+          
+          console.log('Activity object:', activity);
+          console.log('Activity.images:', activity.images);
+          console.log('Activity.Images:', activity.Images);
+          console.log('Activity.imageUrls:', activity.imageUrls);
+          console.log('Activity.ImageUrls:', activity.ImageUrls);
+         
+          if (Array.isArray(activity.images)) {
+            images = activity.images;
+          } else if (Array.isArray(activity.Images)) {
+            images = activity.Images;
+          } else if (activity.images) {
+           
+            images = [activity.images];
+          } else if (activity.Images) {
+            images = [activity.Images];
+          } else if (activity.imageUrls) {
+            images = Array.isArray(activity.imageUrls) ? activity.imageUrls : [activity.imageUrls];
+          } else if (activity.ImageUrls) {
+            images = Array.isArray(activity.ImageUrls) ? activity.ImageUrls : [activity.ImageUrls];
+          }
+          
+          const fullImageUrls = images.map((img: string) => {
+            if (img && !img.startsWith('http') && !img.startsWith('data:')) {
+              return `${API_BASE_URL.replace('/api', '')}/${img.replace(/^\/+/, '')}`;
+            }
+            return img;
+          });
+          
+          console.log('Processed images for activity', activity.name, ':', fullImageUrls);
+          
           return {
             ...activity,
             startDate: activity.startDate || activity.createdAt,
@@ -236,13 +291,20 @@ const ProviderDashboard = () => {
             delayedDate: delayedDate,
             rescheduledStartDate: rescheduledStartDate,
             rescheduledEndDate: rescheduledEndDate,
-            included: Array.isArray(activity.included) ? activity.included : [],
-            requirements: Array.isArray(activity.requirements) ? activity.requirements : [],
-            quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts : [],
+            images: fullImageUrls, 
+            Images: fullImageUrls,
+            imageUrls: fullImageUrls,
+            ImageUrls: fullImageUrls,
+            included: Array.isArray(activity.included) ? activity.included : 
+                     (typeof activity.included === 'string' ? activity.included.split(',').map((i: string) => i.trim()).filter(Boolean) : []),
+            requirements: Array.isArray(activity.requirements) ? activity.requirements : 
+                         (typeof activity.requirements === 'string' ? activity.requirements.split(',').map((i: string) => i.trim()).filter(Boolean) : []),
+            quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts : 
+                       (typeof activity.quickFacts === 'string' ? activity.quickFacts.split(',').map((i: string) => i.trim()).filter(Boolean) : []),
             isExpired,
             isUpcoming,
             isActive
-          };
+          } as ActivityType;
         });
 
         const delayedActivities = processedActivities.filter((a: ActivityType) => a.status === 'Delayed');
@@ -401,110 +463,108 @@ const ProviderDashboard = () => {
     }
   };
 
- const handleUpdateStatusWithDates = async (
-  activityId: string, 
-  status: string, 
-  rescheduledDates?: {startDate?: string, endDate?: string}
-) => {
-  try {
-    console.log('=== Starting status update with dates ===');
-    console.log('Activity ID:', activityId);
-    console.log('New Status:', status);
-    console.log('Rescheduled Dates:', rescheduledDates);
-    
-    const token = getToken();
-    
-    const requestBody: any = {
-      Status: status  
-    };
-    
-    if (status === 'Delayed' && rescheduledDates) {
-      requestBody.DelayedDate = new Date().toISOString();
+  const handleUpdateStatusWithDates = async (
+    activityId: string, 
+    status: string, 
+    rescheduledDates?: {startDate?: string, endDate?: string}
+  ) => {
+    try {
+      console.log('=== Starting status update with dates ===');
+      console.log('Activity ID:', activityId);
+      console.log('New Status:', status);
+      console.log('Rescheduled Dates:', rescheduledDates);
       
-      if (rescheduledDates.startDate) {
-        requestBody.RescheduledStartDate = rescheduledDates.startDate;
+      const token = getToken();
+      
+      const requestBody: any = {
+        Status: status  
+      };
+      
+      if (status === 'Delayed' && rescheduledDates) {
+        requestBody.DelayedDate = new Date().toISOString();
+        
+        if (rescheduledDates.startDate) {
+          requestBody.RescheduledStartDate = rescheduledDates.startDate;
+        }
+        
+        if (rescheduledDates.endDate) {
+          requestBody.RescheduledEndDate = rescheduledDates.endDate;
+        }
       }
       
-      if (rescheduledDates.endDate) {
-        requestBody.RescheduledEndDate = rescheduledDates.endDate;
+      console.log('Sending to API:', requestBody);
+      
+      const response = await fetch(`${API_BASE_URL}/activities/${activityId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error:', errorText);
+        throw new Error(`Failed to update activity status: ${response.status}`);
       }
-    }
-    
-    console.log('Sending to API:', requestBody);
-    
-    const response = await fetch(`${API_BASE_URL}/activities/${activityId}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API Error:', errorText);
-      throw new Error(`Failed to update activity status: ${response.status}`);
-    }
-    
-    const result = await response.json();
-    console.log('📊 API Response:', result);
-    
-    console.log('🔍 Checking API response status:');
-    console.log('Requested status:', status);
-    console.log('API returned status:', result.status);
-    console.log('API returned Status (capital):', result.Status);
-    
-    if (status === 'Delayed' && result.status !== 'Delayed') {
-      console.error('❌ API returned wrong status! Expected: Delayed, Got:', result.status);
-      alert('Warning: API returned wrong status. Check server logs.');
-    }
-    
-    setActivities(prev => prev.map(activity => {
-      if (activity.id === activityId) {
-        const now = new Date();
-        const startDate = new Date(activity.startDate);
-        const endDate = new Date(activity.endDate);
-        
-        const isExpired = endDate < now;
-        const isUpcoming = startDate > now;
-        const isActive = !isExpired && !isUpcoming && status === 'Active';
-        
-       
-        const finalStatus = result.status || result.Status || status;
-        
-        const updatedActivity: ActivityType = { 
-          ...activity, 
-          status: finalStatus,
-          isActive,
-          isExpired,
-          isUpcoming,
-          delayedDate: result.delayedDate || result.DelayedDate || new Date().toISOString(),
-          rescheduledStartDate: result.rescheduledStartDate || result.RescheduledStartDate || rescheduledDates?.startDate || '',
-          rescheduledEndDate: result.rescheduledEndDate || result.RescheduledEndDate || rescheduledDates?.endDate || ''
-        };
-        
-        console.log('✅ Updated activity in state:', updatedActivity);
-        return updatedActivity;
+      
+      const result = await response.json();
+      console.log('📊 API Response:', result);
+      
+      console.log('🔍 Checking API response status:');
+      console.log('Requested status:', status);
+      console.log('API returned status:', result.status);
+      console.log('API returned Status (capital):', result.Status);
+      
+      if (status === 'Delayed' && result.status !== 'Delayed') {
+        console.error('❌ API returned wrong status! Expected: Delayed, Got:', result.status);
+        alert('Warning: API returned wrong status. Check server logs.');
       }
-      return activity;
-    }));
-    
-   
-    setTimeout(() => {
-      if (user) {
-        console.log('🔄 Refreshing provider data...');
-        fetchProviderData(user, token);
-      }
-    }, 1000);
-    
-    alert(`Activity status updated to ${status} with new dates!`);
-    
-  } catch (error) {
-    console.error('Error updating status:', error);
-    alert(`Error updating status: ${error instanceof Error ? error.message : 'Please check console'}`);
-  }
-};
+      
+      setActivities(prev => prev.map(activity => {
+        if (activity.id === activityId) {
+          const now = new Date();
+          const startDate = new Date(activity.startDate);
+          const endDate = new Date(activity.endDate);
+          
+          const isExpired = endDate < now;
+          const isUpcoming = startDate > now;
+          const isActive = !isExpired && !isUpcoming && status === 'Active';
+          
+          const finalStatus = result.status || result.Status || status;
+          
+          const updatedActivity: ActivityType = { 
+            ...activity, 
+            status: finalStatus,
+            isActive,
+            isExpired,
+            isUpcoming,
+            delayedDate: result.delayedDate || result.DelayedDate || new Date().toISOString(),
+            rescheduledStartDate: result.rescheduledStartDate || result.RescheduledStartDate || rescheduledDates?.startDate || '',
+            rescheduledEndDate: result.rescheduledEndDate || result.RescheduledEndDate || rescheduledDates?.endDate || ''
+          };
+          
+          console.log('✅ Updated activity in state:', updatedActivity);
+          return updatedActivity;
+        }
+        return activity;
+      }));
+      
+      setTimeout(() => {
+        if (user) {
+          console.log('🔄 Refreshing provider data...');
+          fetchProviderData(user, token);
+        }
+      }, 1000);
+      
+      alert(`Activity status updated to ${status} with new dates!`);
+      
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert(`Error updating status: ${error instanceof Error ? error.message : 'Please check console'}`);
+    }
+  };
 
   const handleUpdateStatus = async (activityId: string, status: string, rescheduledDates?: {startDate?: string, endDate?: string}) => {
     return handleUpdateStatusWithDates(activityId, status, rescheduledDates);
@@ -573,7 +633,31 @@ const ProviderDashboard = () => {
   };
 
   const handleEditActivity = (activity: ActivityType) => {
-    setEditingActivity(activity);
+    console.log('=== Editing activity ===');
+    console.log('Full activity object:', activity);
+    console.log('Activity images property:', activity.images);
+    console.log('Activity Images property:', activity.Images);
+    console.log('Activity imageUrls property:', activity.imageUrls);
+    console.log('Activity ImageUrls property:', activity.ImageUrls);
+    
+    const imageUrls = Array.isArray(activity.images) 
+      ? activity.images 
+      : (Array.isArray(activity.Images) 
+          ? activity.Images 
+          : (Array.isArray(activity.imageUrls) 
+              ? activity.imageUrls 
+              : (Array.isArray(activity.ImageUrls) 
+                  ? activity.ImageUrls 
+                  : [])));
+    
+    console.log('Processed image URLs:', imageUrls);
+    
+    setEditingActivity({
+      ...activity,
+      images: imageUrls,
+      Images: imageUrls
+    });
+    
     setEditActivityData({
       name: activity.name,
       description: activity.description,
@@ -582,21 +666,51 @@ const ProviderDashboard = () => {
       location: activity.location,
       categoryId: activity.categoryId,
       duration: activity.duration || '',
-      included: Array.isArray(activity.included) ? activity.included.join(', ') : '',
-      requirements: Array.isArray(activity.requirements) ? activity.requirements.join(', ') : '',
-      quickFacts: Array.isArray(activity.quickFacts) ? activity.quickFacts.join(', ') : '',
+      included: Array.isArray(activity.included) 
+        ? activity.included.join(', ') 
+        : (typeof activity.included === 'string' ? activity.included : ''),
+      requirements: Array.isArray(activity.requirements) 
+        ? activity.requirements.join(', ') 
+        : (typeof activity.requirements === 'string' ? activity.requirements : ''),
+      quickFacts: Array.isArray(activity.quickFacts) 
+        ? activity.quickFacts.join(', ') 
+        : (typeof activity.quickFacts === 'string' ? activity.quickFacts : ''),
       startDate: activity.startDate ? new Date(activity.startDate).toISOString().slice(0, 16) : '',
       endDate: activity.endDate ? new Date(activity.endDate).toISOString().slice(0, 16) : ''
     });
+    
     setShowEditActivity(true);
   };
 
-  const handleUpdateActivity = async (e: React.FormEvent, images: File[] = []) => {
+  const handleUpdateActivity = async (e: React.FormEvent, images: File[] = [], removedImageUrls: string[] = []) => {
     e.preventDefault();
     if (!editingActivity || !user) return;
 
+    console.log('=== START UPDATE ACTIVITY ===');
+    console.log('Editing activity ID:', editingActivity.id);
+    console.log('Edit activity data:', editActivityData);
+
     try {
       const token = getToken(); 
+      
+      console.log(`Updating activity at: ${API_BASE_URL}/activities/${editingActivity.id}`);
+      
+      const updatePayload = {
+        name: editActivityData.name,
+        description: editActivityData.description,
+        price: Number(editActivityData.price),
+        availableSlots: Number(editActivityData.availableSlots),
+        location: editActivityData.location,
+        categoryId: editActivityData.categoryId,
+        duration: editActivityData.duration,
+        included: editActivityData.included || '',
+        requirements: editActivityData.requirements || '',
+        quickFacts: editActivityData.quickFacts || '',
+        startDate: new Date(editActivityData.startDate).toISOString(),
+        endDate: new Date(editActivityData.endDate).toISOString()
+      };
+      
+      console.log('Update payload:', updatePayload);
       
       const response = await fetch(`${API_BASE_URL}/activities/${editingActivity.id}`, {
         method: 'PUT',
@@ -604,50 +718,135 @@ const ProviderDashboard = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          name: editActivityData.name,
-          description: editActivityData.description,
-          price: Number(editActivityData.price),
-          availableSlots: Number(editActivityData.availableSlots),
-          location: editActivityData.location,
-          categoryId: editActivityData.categoryId,
-          duration: editActivityData.duration,
-          included: editActivityData.included,
-          requirements: editActivityData.requirements,
-          quickFacts: editActivityData.quickFacts,
-          startDate: new Date(editActivityData.startDate),
-          endDate: new Date(editActivityData.endDate)
-        })
+        body: JSON.stringify(updatePayload)
       });
 
-      if (response.ok) {
-        if (images.length > 0) {
+      console.log('Update response status:', response.status);
+      
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+      
+      if (!response.ok) {
+        console.error('Update failed. Status:', response.status, 'Response:', responseText);
+        
+        try {
+          const errorJson = JSON.parse(responseText);
+          alert(`Failed to update activity: ${errorJson.message || 'Unknown error'}`);
+        } catch {
+          alert(`Failed to update activity: ${response.status} - ${responseText}`);
+        }
+        
+        setUploading(false);
+        return;
+      }
+
+      let updatedActivity;
+      try {
+        updatedActivity = JSON.parse(responseText);
+        console.log('Activity updated successfully:', updatedActivity);
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        updatedActivity = { id: editingActivity.id };
+      }
+
+      if (removedImageUrls.length > 0 && updatedActivity.id) {
+        console.log('Processing image removal for URLs:', removedImageUrls);
+        
+        try {
+          const imagesResponse = await fetch(`${API_BASE_URL}/activityimages/activity/${updatedActivity.id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (imagesResponse.ok) {
+            const allImagesData = await imagesResponse.json();
+            console.log('All images fetched:', allImagesData);
+            
+            if (allImagesData.success && allImagesData.data) {
+              const imagesToDelete = allImagesData.data.filter((img: any) => 
+                removedImageUrls.includes(img.imageUrl)
+              );
+              
+              console.log('Filtered images to delete:', imagesToDelete);
+              
+              for (const image of imagesToDelete) {
+                console.log(`Deleting image ${image.id}...`);
+                
+                try {
+                  const deleteResponse = await fetch(`${API_BASE_URL}/activityimages/${image.id}`, {
+                    method: 'DELETE',
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    }
+                  });
+                  
+                  if (deleteResponse.ok) {
+                    console.log(`Image ${image.id} deleted successfully`);
+                  } else {
+                    console.error(`Failed to delete image ${image.id}`);
+                  }
+                } catch (deleteError) {
+                  console.error(`Error deleting image ${image.id}:`, deleteError);
+                }
+              }
+            }
+          } else {
+            console.error('Failed to fetch images for activity');
+          }
+        } catch (imageError) {
+          console.error('Error processing image removal:', imageError);
+        }
+      }
+
+    
+      if (images.length > 0 && updatedActivity.id) {
+        console.log('Uploading new images:', images.length);
+        
+        try {
           const formData = new FormData();
-          images.forEach(image => {
+          images.forEach((image, index) => {
             formData.append('images', image);
           });
 
-          await fetch(`${API_BASE_URL}/activityimages/upload/${editingActivity.id}`, {
+          const uploadResponse = await fetch(`${API_BASE_URL}/activityimages/upload-multiple/${updatedActivity.id}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`
             },
             body: formData
           });
+          
+          console.log('Image upload response status:', uploadResponse.status);
+          
+          if (uploadResponse.ok) {
+            const uploadResult = await uploadResponse.json();
+            console.log('Images uploaded successfully:', uploadResult);
+          } else {
+            const uploadError = await uploadResponse.text();
+            console.error('Image upload failed:', uploadError);
+          }
+        } catch (uploadError) {
+          console.error('Error uploading images:', uploadError);
         }
-
-        setShowEditActivity(false);
-        setEditingActivity(null);
-        fetchProviderData(user, token); 
-        alert('Activity updated successfully!');
-      } else {
-        const errorData = await response.json();
-        alert('Failed to update activity: ' + (errorData.message || 'Unknown error'));
       }
+
+      setShowEditActivity(false);
+      setEditingActivity(null);
+      setUploading(false);
+      
+      setTimeout(() => {
+        fetchProviderData(user, token);
+        alert('Activity updated successfully!');
+      }, 1000);
+      
     } catch (error) {
       console.error('Error updating activity:', error);
-      alert('Error updating activity. Please try again.');
+      setUploading(false);
+      alert(`Error updating activity: ${error instanceof Error ? error.message : 'Please check console'}`);
     }
+    
+    console.log('=== END UPDATE ACTIVITY ===');
   };
 
   const handleDeleteActivity = async (activityId: string) => {

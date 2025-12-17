@@ -32,9 +32,7 @@ const RecentUsersTable: React.FC<RecentUsersTableProps> = ({ users }) => {
             <th style={{ textAlign: 'left', padding: '12px', color: '#b0b0b0', fontWeight: 'normal', fontSize: '14px' }}>
               Role
             </th>
-            <th style={{ textAlign: 'left', padding: '12px', color: '#b0b0b0', fontWeight: 'normal', fontSize: '14px' }}>
-              Status
-            </th>
+           
           </tr>
         </thead>
         <tbody>
@@ -62,18 +60,7 @@ const RecentUsersTable: React.FC<RecentUsersTableProps> = ({ users }) => {
                   {user.role}
                 </span>
               </td>
-              <td style={{ padding: '12px' }}>
-                <span style={{
-                  padding: '4px 8px',
-                  borderRadius: '12px',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  backgroundColor: user.isActive ? '#4CAF5030' : '#f4433630',
-                  color: user.isActive ? '#4CAF50' : '#f44336'
-                }}>
-                  {user.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </td>
+             
             </tr>
           ))}
         </tbody>

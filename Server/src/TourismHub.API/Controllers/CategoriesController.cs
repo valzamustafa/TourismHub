@@ -133,21 +133,37 @@ public class CategoriesController : ControllerBase
         }
     }
 
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteCategory(Guid id)
+  [HttpDelete("{id}")]
+public async Task<IActionResult> DeleteCategory(Guid id)
+{
+    try
     {
-        try
+        var existingCategory = await _categoryService.GetCategoryByIdAsync(id);
+        if (existingCategory == null)
+            return NotFound(new { message = "Category not found" });
+        if (existingCategory.Activities != null && existingCategory.Activities.Any())
         {
-            var existingCategory = await _categoryService.GetCategoryByIdAsync(id);
-            if (existingCategory == null)
-                return NotFound(new { message = "Category not found" });
+            return BadRequest(new { 
+                message = "Cannot delete category that has associated activities. Please reassign or delete the activities first." 
+            });
+        }
 
-            await _categoryService.DeleteCategoryAsync(id);
-            return Ok(new { message = "Category deleted successfully" });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "An error occurred while deleting the category", error = ex.Message });
-        }
+        await _categoryService.DeleteCategoryAsync(id);
+        return Ok(new { message = "Category deleted successfully" });
     }
+    catch (DbUpdateException dbEx)
+    {
+        return StatusCode(500, new { 
+            message = "Database error occurred", 
+            error = dbEx.InnerException?.Message ?? dbEx.Message 
+        });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { 
+            message = "An error occurred while deleting the category", 
+            error = ex.Message 
+        });
+    }
+}
 }

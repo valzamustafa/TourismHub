@@ -939,16 +939,7 @@ function Home({ onNavigate }: HomeProps) {
                 About Us
               </button>
               
-              <button 
-                onClick={() => {
-                  setTimeout(() => {
-                    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
-                  }, 100);
-                }}
-                className={`transition-colors font-medium ${isDarkMode ? 'text-gray-300 hover:text-blue-400' : 'text-gray-700 hover:text-blue-600'}`}
-              >
-                Contact
-              </button>
+             
             </div>
 
             <div className="flex items-center space-x-4">
@@ -996,7 +987,7 @@ function Home({ onNavigate }: HomeProps) {
                     Login
                   </button>
                   <button
-                    onClick={() => onNavigate('register')}
+                    onClick={() => onNavigate('login')}
                     className={`px-6 py-2 rounded-full transition-all duration-300 shadow-lg font-semibold ${
                       isDarkMode 
                         ? 'bg-gradient-to-r from-blue-700 to-cyan-600 hover:from-blue-600 hover:to-cyan-500' 
