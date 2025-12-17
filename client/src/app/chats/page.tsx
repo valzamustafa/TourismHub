@@ -4,14 +4,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ChatList from '@/components/provider/ChatList';
-import ChatWindow from '@/components/chat/ChatWindow'; // Import ChatWindow
+import ChatWindow from '@/components/chat/ChatWindow'; 
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
 
 export default function ChatsPage() {
   const [user, setUser] = useState<any>(null);
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const [activeChatInfo, setActiveChatInfo] = useState<any>(null); // Shto këtë
+  const [activeChatInfo, setActiveChatInfo] = useState<any>(null); 
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -29,12 +29,10 @@ export default function ChatsPage() {
     setLoading(false);
   }, [router]);
 
-  // Funksioni për të zgjedhur një chat
   const handleChatSelect = async (chatId: string) => {
     console.log('🟢 Chat selected in parent:', chatId);
     setActiveChat(chatId);
     
-    // Merr informacionin e chat-it
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
@@ -75,7 +73,7 @@ export default function ChatsPage() {
             <button
               onClick={() => {
                 if (user?.role === 'Provider') {
-                  router.push('/provider/dashboard');
+                  router.push('/provider');
                 } else {
                   router.push('/tourist/activities');
                 }
@@ -97,7 +95,7 @@ export default function ChatsPage() {
               {user && (
                 <ChatList 
                   providerId={user.id} 
-                  onChatSelect={handleChatSelect} // Pass the callback
+                  onChatSelect={handleChatSelect}
                 />
               )}
             </div>
@@ -127,7 +125,7 @@ export default function ChatsPage() {
                     </button>
                   </div>
                   
-                  {/* Chat Messages - Use ChatWindow component */}
+                  {/* Chat Messages  */}
                   <div className="flex-1">
                     <ChatWindow 
                       chatId={activeChat}

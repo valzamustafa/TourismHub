@@ -9,6 +9,8 @@ export interface User {
   isActive: boolean;
 }
 
+// src/components/admin/utils/types.ts
+
 export interface Activity {
   id: string;
   name: string;
@@ -18,20 +20,26 @@ export interface Activity {
   location: string;
   category: string;
   categoryId: string;
-  providerName: string;
-  providerId: string;
   duration: string;
+  included: string[];
+  requirements: string[];
+  quickFacts: string[];
   status: string;
-  images: ActivityImage[];
   createdAt: string;
+  images: string[];
   startDate: string;
   endDate: string;
-   delayedDate?: string;          
-  rescheduledStartDate?: string;  
-  rescheduledEndDate?: string;    
   isActive?: boolean;
   isExpired?: boolean;
   isUpcoming?: boolean;
+  delayedDate?: string;
+  rescheduledStartDate?: string;
+  rescheduledEndDate?: string;
+  Images?: string[];
+  imageUrls?: string[];
+  ImageUrls?: string[];
+  providerId?: string;  
+  providerName?: string; 
 }
 
 export interface ActivityImage {
@@ -59,7 +67,6 @@ export interface Booking {
   totalAmount: number;
   status: string;
   paymentStatus: string;
-  // Shto këto nëse mungojnë
   providerId?: string;
   providerName?: string;
 }

@@ -160,15 +160,15 @@ const AdminDashboard: React.FC = () => {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 3);
     
-    recentActivitiesAdded.forEach((activity) => {
-      activitiesList.push({
-        id: idCounter++,
-        user: activity.providerName,
-        action: 'created',
-        target: activity.name,
-        time: formatTimeAgo(new Date(activity.createdAt))
-      });
-    });
+ recentActivitiesAdded.forEach((activity) => {
+  activitiesList.push({
+    id: idCounter++,
+    user: activity.providerName || 'Unknown Provider', // Add fallback
+    action: 'created',
+    target: activity.name,
+    time: formatTimeAgo(new Date(activity.createdAt))
+  });
+});
 
     if (reviewsData.length > 0) {
       const recentReviews = reviewsData
@@ -225,7 +225,18 @@ const AdminDashboard: React.FC = () => {
     
     fetchData();
   }, []);
+useEffect(() => {
+  const handleRefreshBookings = () => {
+    console.log('Refreshing bookings data...');
+    fetchData(); 
+  };
 
+  window.addEventListener('refresh-bookings', handleRefreshBookings);
+
+  return () => {
+    window.removeEventListener('refresh-bookings', handleRefreshBookings);
+  };
+}, []);
   const fetchData = async () => {
     try {
       setLoading(true);

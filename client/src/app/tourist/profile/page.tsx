@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ContactButton from '@/components/ContactButton';
 import NotificationBell from '@/components/NotificationBell';
+import { ChangePasswordForm } from '@/components/profile/ChangePassword';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5224/api';
 
@@ -71,6 +72,8 @@ interface Chat {
   unreadCount: number;
 }
 
+
+
 export default function TouristProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -96,6 +99,7 @@ export default function TouristProfilePage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const router = useRouter();
   const [isDarkMode, setIsDarkMode] = useState(false);
+  
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
@@ -106,6 +110,7 @@ export default function TouristProfilePage() {
       document.documentElement.classList.remove('dark');
     }
   };
+  
   useEffect(() => {
     const savedDarkMode = localStorage.getItem('darkMode');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -130,158 +135,157 @@ export default function TouristProfilePage() {
   useEffect(() => {
     fetchProfileData();
   }, []);
-const getFullImageUrl = (imagePath: string | undefined): string => {
-  if (!imagePath || imagePath === 'string' || imagePath === 'null') {
-    return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500';
-  }
 
-  if (imagePath.startsWith('http')) {
-    return imagePath;
-  }
-  
-  const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:5224';
-  
-  if (imagePath.startsWith('/uploads/')) {
-    const fullUrl = `${BACKEND_BASE_URL}${imagePath}`;
-    return fullUrl;
-  }
-  
-  if (imagePath.includes('.')) {
-    const fullUrl = `${BACKEND_BASE_URL}/uploads/activity-images/${imagePath}`;
-    return fullUrl;
-  }
-  
-  return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500';
-};
-const fetchProfileData = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
-    if (!token || !userData) {
-      router.push('/');
-      return;
+  const getFullImageUrl = (imagePath: string | undefined): string => {
+    if (!imagePath || imagePath === 'string' || imagePath === 'null') {
+      return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500';
     }
 
-    const parsedUser = JSON.parse(userData);
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    
+    const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:5224';
+    
+    if (imagePath.startsWith('/uploads/')) {
+      const fullUrl = `${BACKEND_BASE_URL}${imagePath}`;
+      return fullUrl;
+    }
+    
+    if (imagePath.includes('.')) {
+      const fullUrl = `${BACKEND_BASE_URL}/uploads/activity-images/${imagePath}`;
+      return fullUrl;
+    }
+    
+    return 'https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=500';
+  };
 
-    const userResponse = await fetch(`${API_BASE_URL}/users/${parsedUser.id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+  const fetchProfileData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const userData = localStorage.getItem('user');
+      
+      if (!token || !userData) {
+        router.push('/');
+        return;
       }
-    });
 
-    if (userResponse.ok) {
-      const userDataFromApi = await userResponse.json();
-      setUser(userDataFromApi);
-      setFormData({
-        fullName: userDataFromApi.fullName || userDataFromApi.name || '',
-        email: userDataFromApi.email || '',
-        phone: userDataFromApi.phone || '',
-        address: userDataFromApi.address || '',
-        bio: userDataFromApi.bio || ''
+      const parsedUser = JSON.parse(userData);
+
+      const userResponse = await fetch(`${API_BASE_URL}/users/${parsedUser.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      localStorage.setItem('user', JSON.stringify(userDataFromApi));
-    }
+      if (userResponse.ok) {
+        const userDataFromApi = await userResponse.json();
+        setUser(userDataFromApi);
+        setFormData({
+          fullName: userDataFromApi.fullName || userDataFromApi.name || '',
+          email: userDataFromApi.email || '',
+          phone: userDataFromApi.phone || '',
+          address: userDataFromApi.address || '',
+          bio: userDataFromApi.bio || ''
+        });
 
-    const bookingsResponse = await fetch(`${API_BASE_URL}/bookings/user/${parsedUser.id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        localStorage.setItem('user', JSON.stringify(userDataFromApi));
       }
-    });
 
-    if (bookingsResponse.ok) {
-      const bookingsData = await bookingsResponse.json();
-      
-    
-      const bookingsWithImages = await Promise.all(
-        bookingsData.map(async (booking: any) => {
-          try {
+      const bookingsResponse = await fetch(`${API_BASE_URL}/bookings/user/${parsedUser.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-            const imagesResponse = await fetch(
-              `${API_BASE_URL}/activityimages/activity/${booking.activityId}`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
+      if (bookingsResponse.ok) {
+        const bookingsData = await bookingsResponse.json();
+        
+        const bookingsWithImages = await Promise.all(
+          bookingsData.map(async (booking: any) => {
+            try {
+              const imagesResponse = await fetch(
+                `${API_BASE_URL}/activityimages/activity/${booking.activityId}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              );
+
+              let activityImages: string[] = [];
+              let activityImage: string | undefined = undefined;
+              
+              if (imagesResponse.ok) {
+                const imagesData = await imagesResponse.json();
+                if (imagesData.data && imagesData.data.length > 0) {
+                  activityImages = imagesData.data.map((img: any) => {
+                    const imageUrl = img.imageUrl;
+                    return getFullImageUrl(imageUrl);
+                  });
+                  
+                  activityImage = activityImages[0];
                 }
               }
-            );
 
-            let activityImages: string[] = [];
-            let activityImage: string | undefined = undefined;
-            
-            if (imagesResponse.ok) {
-              const imagesData = await imagesResponse.json();
-              if (imagesData.data && imagesData.data.length > 0) {
-           
-                activityImages = imagesData.data.map((img: any) => {
-                  const imageUrl = img.imageUrl;
-                  return getFullImageUrl(imageUrl);
-                });
-                
-   
-                activityImage = activityImages[0];
-              }
+              return {
+                ...booking,
+                activityImages: activityImages,
+                activityImage: activityImage,
+                activityName: booking.activityName || 'Unknown Activity'
+              };
+            } catch (error) {
+              console.error(`Error fetching activity images for booking ${booking.id}:`, error);
+              return {
+                ...booking,
+                activityImages: [],
+                activityImage: undefined,
+                activityName: booking.activityName || 'Unknown Activity'
+              };
             }
-
-            return {
-              ...booking,
-              activityImages: activityImages,
-              activityImage: activityImage,
-              activityName: booking.activityName || 'Unknown Activity'
-            };
-          } catch (error) {
-            console.error(`Error fetching activity images for booking ${booking.id}:`, error);
-            return {
-              ...booking,
-              activityImages: [],
-              activityImage: undefined,
-              activityName: booking.activityName || 'Unknown Activity'
-            };
-          }
-        })
-      );
-      
-      setBookings(bookingsWithImages);
-      calculateStats(bookingsWithImages);
-    }
-
-    const savedResponse = await fetch(`${API_BASE_URL}/savedactivities/user/${parsedUser.id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+          })
+        );
+        
+        setBookings(bookingsWithImages);
+        calculateStats(bookingsWithImages);
       }
-    });
 
-    if (savedResponse.ok) {
-      const savedData = await savedResponse.json();
-      const savedItems: SavedItem[] = savedData.map((item: any) => ({
-        id: item.id,
-        activityId: item.activityId,
-        activityName: item.activityName,
-        activityImage: item.activityImage,
-        price: item.activityPrice,
-        location: item.activityLocation,
-        category: item.activityCategory,
-        savedAt: item.savedAt,
-        providerId: item.providerId, 
-        providerName: item.providerName 
-      }));
-      setSavedItems(savedItems);
+      const savedResponse = await fetch(`${API_BASE_URL}/savedactivities/user/${parsedUser.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (savedResponse.ok) {
+        const savedData = await savedResponse.json();
+        const savedItems: SavedItem[] = savedData.map((item: any) => ({
+          id: item.id,
+          activityId: item.activityId,
+          activityName: item.activityName,
+          activityImage: item.activityImage,
+          price: item.activityPrice,
+          location: item.activityLocation,
+          category: item.activityCategory,
+          savedAt: item.savedAt,
+          providerId: item.providerId, 
+          providerName: item.providerName 
+        }));
+        setSavedItems(savedItems);
+      }
+
+      await fetchChats();
+
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    await fetchChats();
-
-  } catch (error) {
-    console.error('Error fetching profile data:', error);
-  } finally {
-    setLoading(false);
-  }
-};
   const fetchChats = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -1883,64 +1887,10 @@ const fetchProfileData = async () => {
                       <h3 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
                         isDarkMode ? 'text-white' : 'text-gray-900'
                       }`}>Change Password</h3>
-                      <form className="space-y-4">
-                        <div>
-                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
-                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                          }`}>
-                            Current Password
-                          </label>
-                          <input
-                            type="password"
-                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-300 ${
-                              isDarkMode 
-                                ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500' 
-                                : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500'
-                            }`}
-                          />
-                        </div>
-                        <div>
-                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
-                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                          }`}>
-                            New Password
-                          </label>
-                          <input
-                            type="password"
-                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-300 ${
-                              isDarkMode 
-                                ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500' 
-                                : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500'
-                            }`}
-                          />
-                        </div>
-                        <div>
-                          <label className={`block text-sm font-medium mb-1 transition-colors duration-300 ${
-                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                          }`}>
-                            Confirm New Password
-                          </label>
-                          <input
-                            type="password"
-                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-300 ${
-                              isDarkMode 
-                                ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500' 
-                                : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500'
-                            }`}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          className={`px-4 py-2 rounded-lg hover:opacity-90 transition-opacity ${
-                            isDarkMode 
-                              ? 'bg-blue-600 hover:bg-blue-700' 
-                              : 'bg-blue-500 hover:bg-blue-600'
-                          } text-white`}
-                        >
-                          Update Password
-                        </button>
-                      </form>
+                      {user && <ChangePasswordForm userId={user.id} />}
                     </div>
+
+                    
 
                     <div className={`border rounded-lg p-6 transition-colors duration-300 ${
                       isDarkMode 

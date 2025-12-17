@@ -5,6 +5,7 @@ using TourismHub.Application.Services;
 using TourismHub.Domain.Entities;
 using TourismHub.Application.DTOs.Booking; 
 using TourismHub.Domain.Enums;
+using TourismHub.Application.Dtos.Booking;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -125,7 +126,44 @@ public class BookingsController : ControllerBase
             return StatusCode(500, new { message = "An error occurred while retrieving bookings", error = ex.Message });
         }
     }
+[HttpPatch("{bookingId}/status")]
 
+public async Task<IActionResult> UpdateBookingStatus(Guid bookingId, [FromBody] BookingStatusUpdateDto statusDto)
+{
+    try
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var booking = await _bookingService.GetBookingByIdAsync(bookingId);
+        if (booking == null)
+            return NotFound(new { message = "Booking not found" });
+        booking.Status = statusDto.Status;
+        booking.UpdatedAt = DateTime.UtcNow;
+
+        await _bookingService.UpdateBookingAsync(booking);
+        await _notificationService.SendRealTimeNotification(
+            _hubContext,
+            booking.UserId,
+            "Booking Status Updated",
+            $"Your booking status has been updated to {statusDto.Status}.",
+            NotificationType.Booking,
+            bookingId
+        );
+
+        return Ok(new { 
+            message = "Booking status updated successfully", 
+            status = statusDto.Status.ToString() 
+        });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { 
+            message = "An error occurred while updating booking status", 
+            error = ex.Message 
+        });
+    }
+}
     [HttpPost]
     public async Task<IActionResult> CreateBooking([FromBody] BookingCreateDto createDto)
     {

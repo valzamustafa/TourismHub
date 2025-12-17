@@ -13,17 +13,45 @@ const CategoriesManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please login to access admin panel');
+      window.location.href = '/';
+      return;
+    }
     fetchCategories();
   }, []);
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/categories`);
-      if (!response.ok) throw new Error('Failed to fetch categories');
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/categories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch categories: ${response.status} ${errorText}`);
+      }
+      
       const data = await response.json();
       setCategories(data);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error fetching categories:', error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/';
+        } else {
+          alert(`Error fetching categories: ${error.message}`);
+        }
+      } else {
+        alert('An unknown error occurred while fetching categories');
+      }
     } finally {
       setLoading(false);
     }
@@ -32,6 +60,11 @@ const CategoriesManagement: React.FC = () => {
   const handleAddCategory = async (categoryData: any) => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login to add categories');
+        return;
+      }
+
       const response = await fetch(`${API_BASE_URL}/categories`, {
         method: 'POST',
         headers: { 
@@ -46,11 +79,17 @@ const CategoriesManagement: React.FC = () => {
         setShowAddModal(false);
         alert('Category created successfully!');
       } else {
-        throw new Error('Failed to create category');
+        const errorText = await response.text();
+        throw new Error(`Failed to create category: ${response.status} ${errorText}`);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error adding category:', error);
-      alert('Failed to create category. Please try again.');
+      
+      if (error instanceof Error) {
+        alert(`Failed to create category: ${error.message}`);
+      } else {
+        alert('Failed to create category. Please try again.');
+      }
     }
   };
 
@@ -59,6 +98,11 @@ const CategoriesManagement: React.FC = () => {
     
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login to update categories');
+        return;
+      }
+
       const response = await fetch(`${API_BASE_URL}/categories/${editingCategory.id}`, {
         method: 'PUT',
         headers: { 
@@ -73,33 +117,60 @@ const CategoriesManagement: React.FC = () => {
         setEditingCategory(null);
         alert('Category updated successfully!');
       } else {
-        throw new Error('Failed to update category');
+        const errorText = await response.text();
+        throw new Error(`Failed to update category: ${response.status} ${errorText}`);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error updating category:', error);
-      alert('Failed to update category. Please try again.');
+      
+      if (error instanceof Error) {
+        alert(`Failed to update category: ${error.message}`);
+      } else {
+        alert('Failed to update category. Please try again.');
+      }
     }
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    if (confirm('Are you sure you want to delete this category?')) {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
-          fetchCategories();
-          alert('Category deleted successfully!');
-        } else {
-          throw new Error('Failed to delete category');
+    if (!confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login to delete categories');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      } catch (error) {
-        console.error('Error deleting category:', error);
+      });
+      
+      if (response.ok) {
+        fetchCategories();
+        alert('Category deleted successfully!');
+      } else {
+        let errorMessage = `Failed to delete category: ${response.status} ${response.statusText}`;
+        
+        try {
+          const errorData = await response.json();
+          errorMessage = `Failed to delete category: ${errorData.message || errorData.error || response.statusText}`;
+        } catch {
+          errorMessage = `Failed to delete category: ${response.status} ${response.statusText}`;
+        }
+        
+        throw new Error(errorMessage);
+      }
+    } catch (error: unknown) {
+      console.error('Error deleting category:', error);
+      
+      if (error instanceof Error) {
+        alert(`Failed to delete category: ${error.message}`);
+      } else {
         alert('Failed to delete category. Please try again.');
       }
     }
@@ -157,6 +228,9 @@ const CategoriesManagement: React.FC = () => {
                 objectFit: 'cover',
                 borderRadius: '8px',
                 marginBottom: '12px'
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/300x200/2a2a2a/ffffff?text=No+Image';
               }}
             />
             <h3 style={{ color: '#ffffff', fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
@@ -238,6 +312,5 @@ const CategoriesManagement: React.FC = () => {
     </div>
   );
 };
-
 
 export default CategoriesManagement;

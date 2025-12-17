@@ -14,7 +14,7 @@ interface Category {
 interface EditActivityModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (e: React.FormEvent, images: File[]) => void;
+  onSubmit: (e: React.FormEvent, images: File[], removedImageUrls: string[]) => void; // Shto removedImageUrls
   activityData: {
     name: string;
     description: string;
@@ -45,44 +45,44 @@ const EditActivityModal = ({
 }: EditActivityModalProps) => {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imagesToRemove, setImagesToRemove] = useState<string[]>([]); 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const files = Array.from(event.target.files || []);
+  
+  if (files.length > 0) {
+    const validFiles = files.filter(file => {
+      if (!file.type.startsWith('image/')) {
+        alert(`File ${file.name} is not an image`);
+        return false;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`Image ${file.name} is too large (max 5MB)`);
+        return false;
+      }
+      return true;
+    });
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    
-    if (files.length > 0) {
-      const validFiles = files.filter(file => {
-        if (!file.type.startsWith('image/')) {
-          alert(`File ${file.name} is not an image`);
-          return false;
-        }
-        if (file.size > 5 * 1024 * 1024) {
-          alert(`Image ${file.name} is too large (max 5MB)`);
-          return false;
-        }
-        return true;
-      });
+    setSelectedImages(prev => [...prev, ...validFiles]);
 
-      setSelectedImages(prev => [...prev, ...validFiles]);
-
-      validFiles.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setImagePreviews(prev => [...prev, e.target?.result as string]);
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-  };
-
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreviews(prev => [...prev, e.target?.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+};
   const handleRemoveImage = (index: number) => {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleRemoveExistingImage = (index: number) => {
-    console.log('Remove existing image at index:', index);
+  const handleRemoveExistingImage = (imageUrl: string) => {
+    setImagesToRemove(prev => [...prev, imageUrl]);
+    console.log('Marked image for removal:', imageUrl);
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
@@ -121,9 +121,10 @@ const EditActivityModal = ({
     }
     
     setUploading(true);
-    onSubmit(e, selectedImages);
+    onSubmit(e, selectedImages, imagesToRemove);
     setTimeout(() => setUploading(false), 2000);
   };
+
 
   const calculateDuration = () => {
     if (!activityData.startDate || !activityData.endDate) return '';
@@ -173,32 +174,44 @@ const EditActivityModal = ({
 
           {/* Existing Images */}
           {existingImages.length > 0 && (
-            <div className="mb-6">
-              <label className="block text-gray-300 font-semibold mb-3">
-                Existing Images
-              </label>
-              <div className="grid grid-cols-3 gap-4">
-                {existingImages.map((imageUrl, index) => (
-                  <div key={index} className="relative">
-                    <img 
-                      src={imageUrl} 
-                      alt={`Existing ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-xl border border-gray-600"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveExistingImage(index)}
-                      className="absolute top-2 right-2 p-1 bg-red-600/80 hover:bg-red-700 rounded-full text-white transition-all duration-300"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+    <div className="mb-6">
+      <label className="block text-gray-300 font-semibold mb-3">
+        Existing Images
+      </label>
+      <div className="grid grid-cols-3 gap-4">
+        {existingImages.map((imageUrl, index) => (
+          <div key={index} className="relative">
+            <img 
+              src={imageUrl} 
+              alt={`Existing ${index + 1}`}
+              className={`w-full h-32 object-cover rounded-xl border ${
+                imagesToRemove.includes(imageUrl) 
+                  ? 'border-red-500 opacity-50' 
+                  : 'border-gray-600'
+              }`}
+            />
+            <button
+              type="button"
+              onClick={() => handleRemoveExistingImage(imageUrl)}
+              className="absolute top-2 right-2 p-1 bg-red-600/80 hover:bg-red-700 rounded-full text-white transition-all duration-300"
+            >
+              <X className="w-3 h-3" />
+            </button>
+            {imagesToRemove.includes(imageUrl) && (
+              <div className="absolute inset-0 bg-red-500/30 rounded-xl flex items-center justify-center">
+                <span className="text-white text-xs font-bold bg-red-600 px-2 py-1 rounded">Marked for removal</span>
               </div>
-            </div>
-          )}
-          
-
+            )}
+          </div>
+        ))}
+      </div>
+      {imagesToRemove.length > 0 && (
+        <p className="text-red-400 text-sm mt-2">
+          {imagesToRemove.length} image(s) marked for removal
+        </p>
+      )}
+    </div>
+  )}
           {/* New Images Upload */}
           <div className="mb-6">
             <input

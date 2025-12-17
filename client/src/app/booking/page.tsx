@@ -1,6 +1,7 @@
+// src/app/booking/page.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import StripeProvider from '@/app/providers/StripeProvider';
 import { CheckoutForm } from '@/app/booking/CheckoutForm';
@@ -30,9 +31,9 @@ export default function BookingPage() {
     }
   });
   const router = useRouter();
+  const [renderKey, setRenderKey] = useState(Date.now());
 
-useEffect(() => {
-  const fetchActivity = async () => {
+  const fetchActivity = useCallback(async () => {
     try {
       const storedActivity = localStorage.getItem('selectedActivity');
       const userData = localStorage.getItem('user');
@@ -62,7 +63,6 @@ useEffect(() => {
           if (imagesResponse.ok) {
             const imagesData = await imagesResponse.json();
             if (imagesData.data && imagesData.data.length > 0) {
-          
               const getFullImageUrl = (imagePath: string): string => {
                 if (!imagePath || imagePath === 'string') {
                   return '/images/default-activity.jpg';
@@ -100,10 +100,15 @@ useEffect(() => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
-  fetchActivity();
-}, [router]);
+  useEffect(() => {
+    fetchActivity();
+    
+    return () => {
+      setClientSecret('');
+    };
+  }, [fetchActivity]);
 
   const handleNumberOfPeopleChange = (value: number) => {
     if (value < 1) return;
@@ -152,7 +157,6 @@ useEffect(() => {
 
   const handleNext = async () => {
     if (currentStep === 0) {
-    
       if (!bookingData.personalInfo.fullName || !bookingData.personalInfo.email) {
         alert('Please fill in all required fields');
         return;
@@ -184,14 +188,14 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
       throw new Error('User not found. Please login again.');
     }
 
+    const bookingDate = new Date(bookingData.selectedDate);
+    bookingDate.setHours(12, 0, 0, 0); 
+
     console.log('Creating booking with data:', {
       activityId: bookingData.activityId,
       userId: user.id,
-      bookingDate: bookingData.selectedDate,
-      numberOfPeople: bookingData.numberOfPeople,
-      totalPrice: bookingData.totalPrice,
-      status: 0, 
-      paymentStatus: 0 
+      bookingDate: bookingDate.toISOString(),
+      numberOfPeople: bookingData.numberOfPeople
     });
 
     const bookingResponse = await fetch('http://localhost:5224/api/bookings', {
@@ -203,22 +207,30 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
       body: JSON.stringify({
         activityId: bookingData.activityId,
         userId: user.id, 
-        bookingDate: bookingData.selectedDate + 'T12:00:00Z', 
-        numberOfPeople: bookingData.numberOfPeople,
-        totalPrice: bookingData.totalPrice, 
-        status: 0,
-        paymentStatus: 0 
+        bookingDate: bookingDate.toISOString(), 
+        numberOfPeople: bookingData.numberOfPeople
       })
     });
 
     if (!bookingResponse.ok) {
-      const errorText = await bookingResponse.text();
+      let errorText = '';
+      try {
+        const errorData = await bookingResponse.json();
+        errorText = JSON.stringify(errorData);
+      } catch {
+        errorText = await bookingResponse.text();
+      }
       console.error('Booking error response:', errorText);
       throw new Error(`Failed to create booking: ${errorText}`);
     }
 
     const booking = await bookingResponse.json();
     console.log('Booking created:', booking);
+
+    const bookingId = booking.id || booking.bookingId;
+    if (!bookingId) {
+      throw new Error('No booking ID returned from server');
+    }
 
     const paymentResponse = await fetch('http://localhost:5224/api/payments/confirm', {
       method: 'POST',
@@ -227,7 +239,7 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        bookingId: booking.id || booking.bookingId,
+        bookingId: bookingId,
         paymentIntentId: paymentIntentId,
         amount: bookingData.totalPrice
       })
@@ -237,7 +249,7 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
       const errorText = await paymentResponse.text();
       console.error('Payment error response:', errorText);
       
-      await fetch(`http://localhost:5224/api/bookings/${booking.id}`, {
+      await fetch(`http://localhost:5224/api/bookings/${bookingId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -251,7 +263,6 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
     console.log('Payment confirmed:', paymentResult);
 
     setCurrentStep(2);
-
     localStorage.removeItem('selectedActivity');
     
   } catch (error: any) {
@@ -289,7 +300,7 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
   }
 
   return (
-    <div className="min-h-screen bg-[#c8d5c0] py-8">
+    <div key={renderKey} className="min-h-screen bg-[#c8d5c0] py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-8">
@@ -304,8 +315,8 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
               {currentStep === 0 && (
-                <>
-              
+                <div key="step-personal-info">
+                  {/* People Selector */}
                   <div className="mb-8">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Number of People</h3>
                     <PeopleSelector
@@ -315,29 +326,32 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
                     />
                   </div>
 
-
+                  {/* Personal Info Form */}
                   <PersonalInfoForm
                     data={bookingData.personalInfo}
                     onChange={handlePersonalInfoChange}
                   />
-                </>
+                </div>
               )}
 
               {currentStep === 1 && clientSecret && (
-                <StripeProvider clientSecret={clientSecret}>
-                  <CheckoutForm
-                    clientSecret={clientSecret}
-                    amount={bookingData.totalPrice}
-                    onSuccess={handlePaymentSuccess}
-                    onError={(error: any) => {
-                      alert(`Payment failed: ${error.message || 'Please try again'}`);
-                    }}
-                  />
-                </StripeProvider>
+                <div key={`payment-step-${clientSecret.substring(0, 10)}`}>
+                  <StripeProvider clientSecret={clientSecret}>
+                    <CheckoutForm
+                      clientSecret={clientSecret}
+                      amount={bookingData.totalPrice}
+                      onSuccess={handlePaymentSuccess}
+                      onError={(error: any) => {
+                        console.error('Payment error:', error);
+                        alert(`Payment failed: ${error.message || 'Please try again'}`);
+                      }}
+                    />
+                  </StripeProvider>
+                </div>
               )}
 
               {currentStep === 2 && (
-                <div className="text-center py-8">
+                <div key="step-confirmation" className="text-center py-8">
                   <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -364,7 +378,7 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
                 </div>
               )}
 
-          
+              {/* Navigation Buttons */}
               {currentStep < 2 && (
                 <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
                   <button
@@ -401,12 +415,7 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
                   >
                     View My Bookings
                   </button>
-                  <button
-                    onClick={() => router.push('/tourist/activities')}
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    Book Another Activity
-                  </button>
+         
                 </div>
               )}
             </div>
@@ -415,15 +424,15 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
           {/* Sidebar - Booking Summary */}
           <div className="lg:col-span-1">
             <div className="sticky top-8">
-            <BookingSummary 
-              activity={activity} 
-              bookingData={{
-                numberOfPeople: bookingData.numberOfPeople,
-                selectedDate: bookingData.selectedDate,
-                totalPrice: bookingData.totalPrice,
-                personalInfo: bookingData.personalInfo
-              }} 
-            />
+              <BookingSummary 
+                activity={activity} 
+                bookingData={{
+                  numberOfPeople: bookingData.numberOfPeople,
+                  selectedDate: bookingData.selectedDate,
+                  totalPrice: bookingData.totalPrice,
+                  personalInfo: bookingData.personalInfo
+                }} 
+              />
                         
               {/* Additional Info Card */}
               <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mt-6">
