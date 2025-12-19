@@ -18,7 +18,7 @@ namespace TourismHub.Application
             services.AddScoped<PaymentService>();
             services.AddScoped<ReviewService>();
             services.AddScoped<ActivityImageService>();
-            services.AddScoped<AdminLogService>();
+           
 
             return services;
         }

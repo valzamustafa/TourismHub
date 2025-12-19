@@ -30,60 +30,20 @@ using Microsoft.AspNetCore.Http;
 using TourismHub.Application.DTOs.Auth;
 using TourismHub.Application.Interfaces;
 using TourismHub.API.Hubs;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 try
 {
     var builder = WebApplication.CreateBuilder(args);
-    Console.WriteLine("🚀 Starting TourismHub API with Stripe and Notifications...");
+    Console.WriteLine("🚀 Starting TourismHub API with Automated Stripe Key Management...");
 
     Console.WriteLine("🔧 Configuring Stripe...");
   
     var stripeSecretKey = "sk_test_51SZvQfKCIdvvVhXAfXOzze45MwjiI5ZWAao3j04BmYC5VhGTvspk1ZmhBS8rnJXqWilsSMss3uowU0MD0wumZMrg00uKDJTI6G";
     var stripePublishableKey = "pk_test_51SZvQfKCIdvvVhXAhi8H9VOBq1v5GG73BHBqBeKcx8DAM2NQgAzzWZzSCdrXeHkz7N9Q6nBOAW8q0bcaFsWOhfXV00ARu4owUK";
     
-
-    stripeSecretKey = stripeSecretKey?.Trim()
-        .Replace(" ", "")
-        .Replace("\t", "")
-        .Replace("\n", "")
-        .Replace("\r", "") ?? "";
-
-    if (string.IsNullOrEmpty(stripeSecretKey))
-    {
-        Console.WriteLine("❌ ERROR: Stripe secret key is empty!");
-    }
-    else if (!stripeSecretKey.StartsWith("sk_test_"))
-    {
-        Console.WriteLine($"❌ ERROR: Invalid Stripe key. Should start with 'sk_test_'. Found: {stripeSecretKey.Substring(0, Math.Min(10, stripeSecretKey.Length))}...");
-    }
-    else
-    {
-       
-        StripeConfiguration.ApiKey = stripeSecretKey;
-        
-        builder.Services.Configure<StripeSettings>(options =>
-        {
-            options.SecretKey = stripeSecretKey;
-            options.PublishableKey = stripePublishableKey;
-            options.WebhookSecret = "";
-        });
-        
-        Console.WriteLine("✅ Stripe configured with YOUR NEW STANDARD KEY!");
-        Console.WriteLine($"🔑 Secret Key Type: Standard Key");
-        Console.WriteLine($"🔑 Secret Key Length: {stripeSecretKey.Length}");
-        Console.WriteLine($"🔑 Secret Key (first 30 chars): {stripeSecretKey.Substring(0, Math.Min(30, stripeSecretKey.Length))}...");
-        
-        if (!string.IsNullOrEmpty(stripePublishableKey) && stripePublishableKey.StartsWith("pk_test_"))
-        {
-            Console.WriteLine($"🔑 Publishable Key: {stripePublishableKey.Substring(0, Math.Min(30, stripePublishableKey.Length))}...");
-        }
-        else
-        {
-            Console.WriteLine("⚠️  WARNING: Publishable key not configured or invalid!");
-            Console.WriteLine("Go to Stripe Dashboard -> API keys -> Copy 'Publishable key' from Standard keys table");
-        }
-    }
-
+    // Configure logging
     builder.Logging.ClearProviders();
     builder.Logging.AddConsole();
     builder.Logging.AddDebug();
@@ -91,9 +51,38 @@ try
 
     builder.WebHost.UseUrls("http://localhost:5224");
 
+    builder.Services.AddMemoryCache();
+    builder.Services.AddHttpClient();
+
+    var stripeConfig = builder.Configuration.GetSection("Stripe");
+    var stripeSecretKey = stripeConfig["SecretKey"] ?? "";
+    var stripePublishableKey = stripeConfig["PublishableKey"] ?? "";
+    
+    
+    stripeSecretKey = stripeSecretKey?.Trim()
+        .Replace(" ", "")
+        .Replace("\t", "")
+        .Replace("\n", "")
+        .Replace("\r", "") ?? "";
+
+    // Configure Stripe settings
+    builder.Services.Configure<StripeSettings>(options =>
+    {
+        options.SecretKey = stripeSecretKey;
+        options.PublishableKey = stripePublishableKey;
+        options.WebhookSecret = stripeConfig["WebhookSecret"] ?? "";
+    });
+
+    // Initialize Stripe with the initial key
+    if (!string.IsNullOrEmpty(stripeSecretKey) && stripeSecretKey.StartsWith("sk_"))
+    {
+        StripeConfiguration.ApiKey = stripeSecretKey;
+        Console.WriteLine($"✅ Initial Stripe key configured: {stripeSecretKey.Substring(0, Math.Min(20, stripeSecretKey.Length))}...");
+    }
 
     Console.WriteLine("📦 Configuring Repositories...");
     
+    // Add repositories
     builder.Services.AddScoped<IActivityRepository, ActivityRepository>();
     builder.Services.AddScoped<IActivityImageRepository, ActivityImageRepository>();
     builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
@@ -101,45 +90,47 @@ try
     builder.Services.AddScoped<IUserRepository, UserRepository>();
     builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
     builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
-    builder.Services.AddScoped<TourismHub.Domain.Interfaces.INotificationRepository, 
-                              TourismHub.Infrastructure.Repositories.NotificationRepository>();
-      builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
+    builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+    builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
+    builder.Services.AddScoped<IStripeKeyRepository, StripeKeyRepository>();
 
     Console.WriteLine("⏰ Adding Background Services...");
     builder.Services.AddHostedService<ActivityStatusUpdaterService>();
+    builder.Services.AddHostedService<StripeKeyRotationService>();
 
 
-    Console.WriteLine("🔧 Adding Application Services...");
-    
-    builder.Services.AddScoped<ActivityImageService>();
-    builder.Services.AddScoped<ImageUploadService>();
-    builder.Services.AddScoped<CategoryService>();
-    builder.Services.AddScoped<ActivityService>();
-    builder.Services.AddScoped<IChatService, ChatService>();
-    builder.Services.AddScoped<TourismHub.Application.Services.ReviewService>();
+Console.WriteLine("🔧 Adding Application Services...");
 
-    builder.Services.AddScoped<INotificationService, NotificationService>();
-    builder.Services.AddScoped<NotificationHelper>();
-    
-    builder.Services.AddScoped<TourismHub.Application.Interfaces.Services.IPasswordHasher, 
-                              TourismHub.Application.Services.PasswordHasher>();
-    
-    builder.Services.AddScoped<TourismHub.Application.Interfaces.Services.ITokenService, 
-                              TourismHub.Application.Services.TokenService>();
+builder.Services.AddScoped<ActivityImageService>();
+builder.Services.AddScoped<ImageUploadService>();
+builder.Services.AddScoped<CategoryService>();
+builder.Services.AddScoped<ActivityService>();
+builder.Services.AddScoped<IChatService, ChatService>();
 
-    builder.Services.AddScoped<TourismHub.Infrastructure.Services.IEmailService, 
-                          TourismHub.Infrastructure.Services.EmailService>();
-   
-    builder.Services.AddScoped<TourismHub.Application.Interfaces.Services.IAuthService, 
-                              TourismHub.Application.Services.AuthService>();
-    
-    builder.Services.AddScoped<UserService>();
-    builder.Services.AddScoped<ISavedActivityService, SavedActivityService>();
-    builder.Services.AddScoped<PaymentService>();
-    builder.Services.AddScoped<BookingService>();
-    builder.Services.AddScoped<StripeWebhookService>();
-    
+builder.Services.AddScoped<TourismHub.Application.Services.ReviewService>();
 
+
+builder.Services.AddScoped<KeyManagementService>();
+builder.Services.AddScoped<TourismHub.Application.Services.IPaymentService, TourismHub.Application.Services.PaymentService>();
+
+
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<NotificationHelper>();
+builder.Services.AddScoped<IPasswordHasher, TourismHub.Application.Services.PasswordHasher>();
+
+
+builder.Services.AddScoped<ITokenService, TourismHub.Application.Services.TokenService>();
+
+
+builder.Services.AddScoped<TourismHub.Infrastructure.Services.IEmailService, TourismHub.Infrastructure.Services.EmailService>();
+
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<ISavedActivityService, SavedActivityService>();
+builder.Services.AddScoped<BookingService>();
+builder.Services.AddScoped<StripeWebhookService>();
+
+    // Configure controllers
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
         {
@@ -149,9 +140,10 @@ try
     
     builder.Services.AddEndpointsApiExplorer();
 
+    // Configure request limits
     builder.Services.Configure<KestrelServerOptions>(options =>
     {
-        options.Limits.MaxRequestBodySize = 50 * 1024 * 1024; // 50MB
+        options.Limits.MaxRequestBodySize = 50 * 1024 * 1024;
     });
 
     builder.Services.Configure<FormOptions>(options =>
@@ -163,24 +155,24 @@ try
         options.MultipartHeadersLengthLimit = int.MaxValue;
     });
 
-
+    // Configure SignalR
     Console.WriteLine("🔔 Adding SignalR for Real-time Notifications...");
     builder.Services.AddSignalR(options =>
     {
         options.EnableDetailedErrors = true;
-        options.MaximumReceiveMessageSize = 102400; // 100KB
+        options.MaximumReceiveMessageSize = 102400;
         options.KeepAliveInterval = TimeSpan.FromSeconds(15);
         options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
     });
 
-  
+    // Configure Swagger
     builder.Services.AddSwaggerGen(c =>
     {
         c.SwaggerDoc("v1", new OpenApiInfo 
         { 
             Title = "TourismHub API", 
             Version = "v1",
-            Description = "TourismHub API Documentation with Stripe Payments and Real-time Notifications"
+            Description = "TourismHub API Documentation with Automated Stripe Key Management"
         });
         
         c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -208,7 +200,7 @@ try
         });
     });
 
-
+    // Configure CORS
     Console.WriteLine("🌐 Configuring CORS...");
     builder.Services.AddCors(options =>
     {
@@ -233,8 +225,8 @@ try
         });
     });
 
-
-    Console.WriteLine("🔐 Configuring JWT Authentication for WebSockets...");
+    // Configure JWT Authentication
+    Console.WriteLine("🔐 Configuring JWT Authentication...");
     
     var jwtSettings = builder.Configuration.GetSection("JwtSettings");
     builder.Services.Configure<JwtSettings>(jwtSettings);
@@ -264,7 +256,6 @@ try
             RoleClaimType = "role"
         };
         
-     
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
@@ -293,21 +284,20 @@ try
         };
     });
 
-
     builder.Services.AddHttpContextAccessor();
 
-
+ 
     Console.WriteLine("🔧 Adding Infrastructure...");
     builder.Services.AddInfrastructure(builder.Configuration);
 
     Console.WriteLine("📦 Adding Application Services...");
     builder.Services.AddApplication();
 
-
+   
     var app = builder.Build();
     Console.WriteLine("🔄 Configuring Middleware...");
 
-
+    // Configure middleware pipeline
     app.Use(async (context, next) =>
     {
         if (context.Request.Method == "OPTIONS")
@@ -329,7 +319,7 @@ try
 
     app.UseStaticFiles();
 
-
+    // Configure Swagger UI
     app.UseSwagger();
     app.UseSwaggerUI(c => 
     {
@@ -345,7 +335,7 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
 
-
+   
     Console.WriteLine("🗄️ Applying database migrations...");
     using (var scope = app.Services.CreateScope())
     {
@@ -355,8 +345,37 @@ try
             await context.Database.MigrateAsync();
             Console.WriteLine("✅ Database migrations applied successfully!");
 
+           
             var adminSeedService = new AdminSeedService(context);
             await adminSeedService.SeedAdminAsync();
+
+            var stripeKeyRepo = scope.ServiceProvider.GetRequiredService<IStripeKeyRepository>();
+            var existingKeys = await stripeKeyRepo.GetAllKeysAsync();
+            if (!existingKeys.Any())
+            {
+                var stripeSettings = scope.ServiceProvider.GetRequiredService<IOptions<StripeSettings>>().Value;
+                
+                if (!string.IsNullOrEmpty(stripeSettings.SecretKey))
+                {
+                    var initialKey = new StripeApiKey
+                    {
+                        Id = Guid.NewGuid(),
+                        SecretKey = stripeSettings.SecretKey,
+                        PublishableKey = stripeSettings.PublishableKey,
+                        KeyId = $"initial_{DateTime.UtcNow:yyyyMMddHHmmss}",
+                        Environment = stripeSettings.SecretKey.Contains("_live_") ? "live" : "test",
+                        CreatedAt = DateTime.UtcNow,
+                        ExpiresAt = DateTime.UtcNow.AddDays(90),
+                        IsActive = true,
+                        Description = "Initial configuration key",
+                        CreatedBy = "System",
+                        UsageCount = 0
+                    };
+                    
+                    await stripeKeyRepo.AddKeyAsync(initialKey);
+                    Console.WriteLine($"✅ Initial Stripe key seeded: {initialKey.KeyId}");
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -365,7 +384,7 @@ try
         }
     }
 
-
+   
     var webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
     if (!Directory.Exists(webRootPath))
     {
@@ -380,9 +399,7 @@ try
         Console.WriteLine($"✅ Created uploads directory: {uploadsPath}");
     }
 
-  
-    
-    // Test CORS
+    // Test endpoints
     app.MapGet("/api/cors-test", (HttpContext context) =>
     {
         return Results.Json(new
@@ -396,236 +413,56 @@ try
         });
     }).AllowAnonymous();
 
-    // Test Headers
-    app.MapGet("/api/test-headers", (HttpContext context) =>
-    {
-        return Results.Json(new
-        {
-            success = true,
-            message = "Headers test successful",
-            receivedHeaders = context.Request.Headers
-                .Where(h => h.Key.StartsWith("Cache") || h.Key.StartsWith("Pragma") || h.Key == "Expires")
-                .ToDictionary(h => h.Key, h => h.Value.ToString()),
-            timestamp = DateTime.UtcNow
-        });
-    }).AllowAnonymous();
-
-
-    app.MapGet("/api/test-websocket", async () =>
-    {
-        return Results.Json(new
-        {
-            success = true,
-            message = "WebSocket endpoint available",
-            url = "ws://localhost:5224/notificationHub",
-            requiresToken = true,
-            timestamp = DateTime.UtcNow,
-            testCommand = "Connect with: new WebSocket(`ws://localhost:5224/notificationHub?access_token=YOUR_JWT_TOKEN`)"
-        });
-    }).AllowAnonymous();
-
-    app.MapPost("/api/test-notification", async (HttpContext context) =>
+   
+    app.MapGet("/api/stripe-key-status", async (HttpContext context) =>
     {
         try
         {
-            var notificationService = context.RequestServices.GetRequiredService<INotificationService>();
-            var hubContext = context.RequestServices.GetRequiredService<IHubContext<NotificationHub>>();
+            var keyService = context.RequestServices.GetRequiredService<KeyManagementService>();
+            var keys = await keyService.GetOrCreateValidKeysAsync();
             
-     
-            var userId = context.User.FindFirst("nameid")?.Value;
-            if (string.IsNullOrEmpty(userId))
-            {
-                userId = "fafb6bc2-16db-4e66-a1f6-de4ca9c5f829"; 
-            }
-
-            Console.WriteLine($"🔔 Sending test notification to user: {userId}");
-            
-     
-            var notification = await notificationService.CreateNotificationAsync(
-                Guid.Parse(userId),
-                "Test Notification",
-                "This is a test notification from the API",
-                TourismHub.Domain.Enums.NotificationType.System,
-                null
-            );
-
-   
-            await hubContext.Clients.User(userId)
-                .SendAsync("ReceiveNotification", new
-                {
-                    notification.Id,
-                    notification.Title,
-                    notification.Message,
-                    Type = notification.Type.ToString(),
-                    TypeValue = (int)notification.Type,
-                    notification.RelatedId,
-                    notification.IsRead,
-                    notification.CreatedAt,
-                    TimeAgo = "Just now"
-                });
-
             return Results.Json(new
             {
                 success = true,
-                message = "Test notification sent!",
-                notificationId = notification.Id,
-                userId = userId,
+                keyStatus = new
+                {
+                    keyId = keys.KeyId,
+                    environment = keys.Environment,
+                    expiresAt = keys.ExpiresAt,
+                    daysRemaining = (keys.ExpiresAt - DateTime.UtcNow).Days,
+                    isValid = keyService.IsKeyValid(keys.SecretKey),
+                    isExpiringSoon = keyService.IsKeyExpiringSoon(keys),
+                    description = keys.Description,
+                    publishableKey = keys.PublishableKey
+                },
+                currentApiKey = StripeConfiguration.ApiKey?.Substring(0, Math.Min(20, StripeConfiguration.ApiKey?.Length ?? 0)) + "...",
                 timestamp = DateTime.UtcNow
             });
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error sending test notification: {ex.Message}");
             return Results.Json(new
             {
                 success = false,
                 error = ex.Message,
-                stackTrace = ex.StackTrace
+                timestamp = DateTime.UtcNow
             });
         }
     }).AllowAnonymous();
 
-
-    app.MapPost("/api/test-payment", async (HttpContext context) =>
+   
+    app.MapGet("/test-managed-stripe", async () =>
     {
         try
         {
-            Console.WriteLine("🧪 Testing Stripe with your NEW standard key...");
-            
-            if (string.IsNullOrEmpty(StripeConfiguration.ApiKey))
-            {
-                await context.Response.WriteAsJsonAsync(new { 
-                    success = false,
-                    error = "Stripe not configured" 
-                });
-                return;
-            }
-
-            var options = new PaymentIntentCreateOptions
-            {
-                Amount = 1000, // $10.00
-                Currency = "usd",
-                PaymentMethodTypes = new List<string> { "card" },
-                Description = "Test payment with your new key"
-            };
-
-            var service = new PaymentIntentService();
-            var paymentIntent = await service.CreateAsync(options);
-
-            Console.WriteLine($"✅ SUCCESS! Payment intent created: {paymentIntent.Id}");
-            
-            await context.Response.WriteAsJsonAsync(new
-            {
-                success = true,
-                clientSecret = paymentIntent.ClientSecret,
-                message = "Payment intent created successfully!",
-                paymentIntentId = paymentIntent.Id,
-                testCard = "Use: 4242 4242 4242 4242",
-                keyType = "Standard Key (sk_test_) - FULL ACCESS"
-            });
-        }
-        catch (StripeException ex)
-        {
-            Console.WriteLine($"❌ Stripe error: {ex.Message}");
-            await context.Response.WriteAsJsonAsync(new 
-            { 
-                success = false,
-                error = "Stripe Error",
-                message = ex.Message,
-                stripeError = ex.StripeError?.Message,
-                currentKey = StripeConfiguration.ApiKey?.Substring(0, Math.Min(30, StripeConfiguration.ApiKey?.Length ?? 0)) + "...",
-                help = "Check if your new key is activated in Stripe Dashboard"
-            });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"❌ General error: {ex.Message}");
-            await context.Response.WriteAsJsonAsync(new { 
-                success = false,
-                error = ex.Message 
-            });
-        }
-    }).AllowAnonymous();
-
-  
-    app.MapGet("/test-stripe-now", async () =>
-    {
-        try
-        {
-            Console.WriteLine("⚡ Quick test with NEW standard key...");
+            Console.WriteLine("⚡ Testing Stripe with managed key system...");
             
             var options = new PaymentIntentCreateOptions
             {
                 Amount = 100, // $1.00
                 Currency = "usd",
                 PaymentMethodTypes = new List<string> { "card" },
-                Description = "Quick test with new standard key"
-            };
-
-            var service = new PaymentIntentService();
-            var intent = await service.CreateAsync(options);
-
-            return Results.Json(new
-            {
-                success = true,
-                message = "🎉 YOUR NEW STANDARD KEY WORKS PERFECTLY!",
-                paymentIntentId = intent.Id,
-                clientSecret = intent.ClientSecret,
-                testCard = "4242 4242 4242 4242",
-                expiryDate = "Any future date (e.g., 12/34)",
-                cvcCode = "Any 3 digits (e.g., 123)",
-                zipCode = "Any 5 digits",
-                keyType = "Standard Key (sk_test_) - FULL ACCESS",
-                nextStep = "Copy clientSecret to frontend and test payment"
-            });
-        }
-        catch (StripeException ex)
-        {
-            return Results.Json(new
-            {
-                success = false,
-                error = "Stripe Error",
-                message = ex.Message,
-                details = ex.StripeError?.Message,
-                currentKey = StripeConfiguration.ApiKey?.Substring(0, Math.Min(30, StripeConfiguration.ApiKey?.Length ?? 0)) + "...",
-                help = "Your new standard key should work. If not, wait a few minutes for Stripe to activate it."
-            });
-        }
-        catch (Exception ex)
-        {
-            return Results.Json(new
-            {
-                success = false,
-                error = "General Error",
-                message = ex.Message
-            });
-        }
-    }).AllowAnonymous();
-
-
-    app.MapGet("/test-my-new-key", async () =>
-    {
-        try
-        {
-            Console.WriteLine("🔑 Testing YOUR NEW standard key...");
-            
-            var keyInfo = new
-            {
-                key = StripeConfiguration.ApiKey?.Substring(0, Math.Min(20, StripeConfiguration.ApiKey?.Length ?? 0)) + "...",
-                length = StripeConfiguration.ApiKey?.Length ?? 0,
-                isStandard = StripeConfiguration.ApiKey?.StartsWith("sk_") ?? false,
-                isTest = StripeConfiguration.ApiKey?.StartsWith("sk_test_") ?? false,
-                permissions = "FULL ACCESS (Standard Key)"
-            };
-            
-            Console.WriteLine($"Key Info: {System.Text.Json.JsonSerializer.Serialize(keyInfo)}");
-          
-            var options = new PaymentIntentCreateOptions
-            {
-                Amount = 50, // $0.50
-                Currency = "usd",
-                PaymentMethodTypes = new List<string> { "card" },
-                Description = "Test with your new standard key"
+                Description = "Test with managed key system"
             };
 
             var service = new PaymentIntentService();
@@ -636,7 +473,7 @@ try
             return Results.Json(new
             {
                 success = true,
-                message = "✅ YOUR NEW STANDARD KEY WORKS PERFECTLY!",
+                message = "✅ MANAGED KEY SYSTEM WORKS PERFECTLY!",
                 paymentIntentId = intent.Id,
                 clientSecret = intent.ClientSecret,
                 balance = new {
@@ -644,8 +481,8 @@ try
                     environment = balance.Livemode ? "LIVE" : "TEST",
                     available = balance.Available?.FirstOrDefault()?.Amount
                 },
-                keyType = "Standard Key (sk_test_)",
-                permissions = "FULL API ACCESS",
+                keyManagement = "Automatic key rotation enabled",
+                nextStep = "The system will automatically handle key expiration",
                 timestamp = DateTime.UtcNow
             });
         }
@@ -657,9 +494,8 @@ try
                 error = "Stripe Error",
                 message = ex.Message,
                 stripeError = ex.StripeError?.Message,
-                keyType = "Standard Key",
-                help = "Wait 1-2 minutes for new key to activate, or create another key",
-                fix = "Go to Stripe Dashboard -> API keys -> Create another secret key"
+                help = "The key management system will automatically rotate keys when they expire",
+                keyRotationStatus = "Background service running"
             });
         }
         catch (Exception ex)
@@ -673,157 +509,71 @@ try
         }
     }).AllowAnonymous();
 
-
-    app.MapGet("/api/test-stripe", () =>
-    {
-        return new
-        {
-            configured = !string.IsNullOrEmpty(StripeConfiguration.ApiKey),
-            keyLength = StripeConfiguration.ApiKey?.Length ?? 0,
-            keyPrefix = StripeConfiguration.ApiKey?.Substring(0, Math.Min(20, StripeConfiguration.ApiKey?.Length ?? 0)) + "...",
-            environment = StripeConfiguration.ApiKey?.StartsWith("sk_test_") == true ? "TEST (Standard)" : "UNKNOWN",
-            keyType = StripeConfiguration.ApiKey?.StartsWith("sk_") == true ? "Standard Key" : "Unknown",
-            timestamp = DateTime.UtcNow
-        };
-    }).AllowAnonymous();
-
-
-    app.MapPost("/api/payments/simple-test", async () =>
-    {
-        try
-        {
-            Console.WriteLine("🧪 Creating simple payment intent with new key...");
-            
-            var options = new PaymentIntentCreateOptions
-            {
-                Amount = 1999, 
-                Currency = "usd",
-                PaymentMethodTypes = new List<string> { "card" },
-                Description = "Simple test payment with new key"
-            };
-
-            var service = new PaymentIntentService();
-            var intent = await service.CreateAsync(options);
-
-            return Results.Json(new
-            {
-                success = true,
-                clientSecret = intent.ClientSecret,
-                paymentIntentId = intent.Id,
-                amount = intent.Amount,
-                currency = intent.Currency,
-                message = "Use this clientSecret with Stripe.js",
-                keyStatus = "NEW STANDARD KEY WORKING"
-            });
-        }
-        catch (StripeException ex)
-        {
-            return Results.Json(new
-            {
-                success = false,
-                error = "Stripe Error",
-                message = ex.Message,
-                stripeError = ex.StripeError?.Message,
-                help = "Your new key may need time to activate. Wait 2 minutes and try again."
-            });
-        }
-    }).AllowAnonymous();
-
-
-    app.MapPost("/api/test-email", async (HttpContext context) =>
-    {
-        try
-        {
-            var emailService = context.RequestServices.GetRequiredService<TourismHub.Infrastructure.Services.IEmailService>();
-            
-            await emailService.SendPasswordResetEmailAsync(
-                "test@example.com", 
-                "Test User", 
-                "test-token-123", 
-                "http://localhost:3000");
-
-            await context.Response.WriteAsJsonAsync(new
-            {
-                success = true,
-                message = "Test email sent (check server logs)"
-            });
-        }
-        catch (Exception ex)
-        {
-            await context.Response.WriteAsJsonAsync(new 
-            { 
-                success = false,
-                error = ex.Message,
-                stackTrace = ex.StackTrace
-            });
-        }
-    }).AllowAnonymous();
-
-
-    app.Use(async (context, next) =>
-    {
-        try
-        {
-            await next();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Unhandled exception: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            context.Response.StatusCode = 500;
-            await context.Response.WriteAsJsonAsync(new { 
-                success = false,
-                error = "Internal Server Error" 
-            });
-        }
-    });
-
- 
+    // Map controllers and hubs
     app.MapControllers();
-    
-
     app.MapHub<NotificationHub>("/notificationHub");
     
-    app.MapGet("/", () => "TourismHub API is running with PostgreSQL, Stripe, and Real-time Notifications!");
+    app.MapGet("/", () => "TourismHub API is running with Automated Stripe Key Management!");
     
-    app.MapGet("/api/health", () => new { 
-        status = "Healthy", 
-        database = "PostgreSQL",
-        stripe = "Configured with NEW STANDARD KEY",
-        websocket = "SignalR Notifications Enabled",
-        email = "Configured for Gmail",
-        timestamp = DateTime.UtcNow,
-        testUrls = new {
-            testNotification = "http://localhost:5224/api/test-notification",
-            testWebSocket = "http://localhost:5224/api/test-websocket",
-            testNewKey = "http://localhost:5224/test-my-new-key",
-            quickTest = "http://localhost:5224/test-stripe-now",
-            simpleTest = "http://localhost:5224/api/payments/simple-test",
-            testEmail = "http://localhost:5224/api/test-email",
-            corsTest = "http://localhost:5224/api/cors-test",
-            headersTest = "http://localhost:5224/api/test-headers"
+    app.MapGet("/api/health", async (HttpContext context) =>
+    {
+        try
+        {
+            var keyService = context.RequestServices.GetService<KeyManagementService>();
+            var stripeHealth = keyService != null ? 
+                await keyService.GetOrCreateValidKeysAsync() : null;
+            
+            return Results.Json(new { 
+                status = "Healthy", 
+                database = "PostgreSQL",
+                stripe = stripeHealth != null ? "Managed Key System Active" : "Not Configured",
+                websocket = "SignalR Notifications Enabled",
+                email = "Configured for Gmail",
+                timestamp = DateTime.UtcNow,
+                stripeKeyInfo = stripeHealth != null ? new
+                {
+                    keyId = stripeHealth.KeyId,
+                    environment = stripeHealth.Environment,
+                    expiresInDays = (stripeHealth.ExpiresAt - DateTime.UtcNow).Days,
+                    description = stripeHealth.Description
+                } : null,
+                services = new {
+                    keyRotation = "Background service running",
+                    automaticManagement = "Enabled",
+                    cache = "MemoryCache active"
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new
+            {
+                status = "Degraded",
+                error = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
         }
     });
 
    
-    Console.WriteLine("\n" + new string('=', 60));
-    Console.WriteLine("🎉 TourismHub API STARTED SUCCESSFULLY!");
-    Console.WriteLine(new string('=', 60));
+    Console.WriteLine("\n" + new string('=', 70));
+    Console.WriteLine("🎉 TourismHub API STARTED WITH AUTOMATED STRIPE KEY MANAGEMENT!");
+    Console.WriteLine(new string('=', 70));
     Console.WriteLine("🌐 URL: http://localhost:5224");
     Console.WriteLine("📚 Swagger: http://localhost:5224/swagger");
     Console.WriteLine("🔔 WebSocket: ws://localhost:5224/notificationHub");
-    Console.WriteLine("💰 Stripe: Configured with NEW STANDARD KEY");
+    Console.WriteLine("💰 Stripe: Automated Key Management System Active");
+    Console.WriteLine("🔄 Key Rotation: Every 6 hours (checks for expiration)");
     Console.WriteLine("📧 Email: Configured for Gmail");
-    Console.WriteLine("\n🔗 Test URLs:");
-    Console.WriteLine("  • Test Notifications: http://localhost:5224/api/test-notification");
-    Console.WriteLine("  • Test WebSocket: http://localhost:5224/api/test-websocket");
-    Console.WriteLine("  • Test CORS: http://localhost:5224/api/cors-test");
-    Console.WriteLine("  • Test Your New Key: http://localhost:5224/test-my-new-key");
-    Console.WriteLine("  • Test Email: http://localhost:5224/api/test-email");
+    Console.WriteLine("\n🔗 Management Endpoints:");
+    Console.WriteLine("  • Key Status: http://localhost:5224/api/stripe-key-status");
+    Console.WriteLine("  • Test Managed System: http://localhost:5224/test-managed-stripe");
+    Console.WriteLine("  • Admin Key Management: http://localhost:5224/api/admin/stripe-keys/current");
+    Console.WriteLine("  • Health Check: http://localhost:5224/api/health");
     Console.WriteLine("\n💳 Test Card: 4242 4242 4242 4242");
-    Console.WriteLine("🔐 Token Claim: 'nameid' must contain user ID for WebSocket auth");
+    Console.WriteLine("⚠️  System will automatically handle key expiration!");
     Console.WriteLine("🛑 Press Ctrl+C to stop the application");
-    Console.WriteLine(new string('=', 60) + "\n");
+    Console.WriteLine(new string('=', 70) + "\n");
 
     app.Run();
 }

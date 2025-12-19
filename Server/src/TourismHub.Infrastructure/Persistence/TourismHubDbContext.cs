@@ -20,7 +20,6 @@ namespace TourismHub.Infrastructure.Persistence
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<SavedActivity> SavedActivities => Set<SavedActivity>(); 
         public DbSet<Notification> Notifications => Set<Notification>(); 
-        public DbSet<AdminLog> AdminLogs => Set<AdminLog>();
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<Chat> Chats { get; set; }
@@ -38,7 +37,6 @@ public DbSet<About> About { get; set; }
             modelBuilder.ApplyConfiguration(new PaymentConfiguration());
             modelBuilder.ApplyConfiguration(new ReviewConfiguration());
             modelBuilder.ApplyConfiguration(new ActivityImageConfiguration());
-            modelBuilder.ApplyConfiguration(new AdminLogConfiguration());
             modelBuilder.ApplyConfiguration(new CategoryConfiguration());
             modelBuilder.ApplyConfiguration(new SavedActivityConfiguration()); 
             modelBuilder.ApplyConfiguration(new ChatConfiguration()); 
