@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace TourismHub.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class Miigrationssss : Migration
+    public partial class InitialCreatePostgreSQLL : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -51,6 +51,32 @@ namespace TourismHub.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Categories", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StripeApiKeys",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    SecretKey = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    PublishableKey = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    KeyId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Environment = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    Description = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    CreatedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    LastUsed = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    UsageCount = table.Column<int>(type: "integer", nullable: false),
+                    IsRevoked = table.Column<bool>(type: "boolean", nullable: false),
+                    RevokedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    RevokedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    RevokedReason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StripeApiKeys", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -116,28 +142,6 @@ namespace TourismHub.Infrastructure.Migrations
                     table.ForeignKey(
                         name: "FK_Activities_Users_ProviderId",
                         column: x => x.ProviderId,
-                        principalTable: "Users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "AdminLogs",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    AdminId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Action = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    TargetType = table.Column<string>(type: "text", nullable: false),
-                    TargetId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AdminLogs", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_AdminLogs_Users_AdminId",
-                        column: x => x.AdminId,
                         principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -420,11 +424,6 @@ namespace TourismHub.Infrastructure.Migrations
                 column: "ActivityId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AdminLogs_AdminId",
-                table: "AdminLogs",
-                column: "AdminId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Bookings_ActivityId",
                 table: "Bookings",
                 column: "ActivityId");
@@ -559,6 +558,22 @@ namespace TourismHub.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StripeApiKeys_Environment_IsActive",
+                table: "StripeApiKeys",
+                columns: new[] { "Environment", "IsActive" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StripeApiKeys_ExpiresAt",
+                table: "StripeApiKeys",
+                column: "ExpiresAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StripeApiKeys_KeyId",
+                table: "StripeApiKeys",
+                column: "KeyId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Users_Email",
                 table: "Users",
                 column: "Email",
@@ -573,9 +588,6 @@ namespace TourismHub.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "ActivityImages");
-
-            migrationBuilder.DropTable(
-                name: "AdminLogs");
 
             migrationBuilder.DropTable(
                 name: "ChatMessages");
@@ -597,6 +609,9 @@ namespace TourismHub.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "SavedActivities");
+
+            migrationBuilder.DropTable(
+                name: "StripeApiKeys");
 
             migrationBuilder.DropTable(
                 name: "Chats");

@@ -183,37 +183,6 @@ namespace TourismHub.Infrastructure.Migrations
                     b.ToTable("ActivityImages");
                 });
 
-            modelBuilder.Entity("TourismHub.Domain.Entities.AdminLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<Guid>("AdminId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("TargetId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("TargetType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AdminId");
-
-                    b.ToTable("AdminLogs");
-                });
-
             modelBuilder.Entity("TourismHub.Domain.Entities.Booking", b =>
                 {
                     b.Property<Guid>("Id")
@@ -785,17 +754,6 @@ namespace TourismHub.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Activity");
-                });
-
-            modelBuilder.Entity("TourismHub.Domain.Entities.AdminLog", b =>
-                {
-                    b.HasOne("TourismHub.Domain.Entities.User", "Admin")
-                        .WithMany()
-                        .HasForeignKey("AdminId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Admin");
                 });
 
             modelBuilder.Entity("TourismHub.Domain.Entities.Booking", b =>
