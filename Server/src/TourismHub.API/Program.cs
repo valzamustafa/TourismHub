@@ -38,6 +38,11 @@ try
     var builder = WebApplication.CreateBuilder(args);
     Console.WriteLine("🚀 Starting TourismHub API with Automated Stripe Key Management...");
 
+    Console.WriteLine("🔧 Configuring Stripe...");
+  
+    var stripeSecretKey = "sk_test_51SZvQfKCIdvvVhXAfXOzze45MwjiI5ZWAao3j04BmYC5VhGTvspk1ZmhBS8rnJXqWilsSMss3uowU0MD0wumZMrg00uKDJTI6G";
+    var stripePublishableKey = "pk_test_51SZvQfKCIdvvVhXAhi8H9VOBq1v5GG73BHBqBeKcx8DAM2NQgAzzWZzSCdrXeHkz7N9Q6nBOAW8q0bcaFsWOhfXV00ARu4owUK";
+    
     // Configure logging
     builder.Logging.ClearProviders();
     builder.Logging.AddConsole();
@@ -582,4 +587,5 @@ catch (Exception ex)
         Console.WriteLine($"🔍 Inner stack trace: {ex.InnerException.StackTrace}");
     }
     Console.WriteLine("❌ Application terminated due to error");
+
 }
