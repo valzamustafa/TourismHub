@@ -46,6 +46,7 @@ export default function BookingPage() {
       const activityData = JSON.parse(storedActivity);
       const user = JSON.parse(userData);
 
+      // Fetch activity images if needed
       if (!activityData.images || activityData.images.length === 0 || 
           activityData.images[0]?.includes('unsplash')) {
         try {
@@ -105,6 +106,7 @@ export default function BookingPage() {
   useEffect(() => {
     fetchActivity();
     
+    // Cleanup function
     return () => {
       setClientSecret('');
     };
@@ -188,8 +190,9 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
       throw new Error('User not found. Please login again.');
     }
 
+    // Format the date properly
     const bookingDate = new Date(bookingData.selectedDate);
-    bookingDate.setHours(12, 0, 0, 0); 
+    bookingDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
 
     console.log('Creating booking with data:', {
       activityId: bookingData.activityId,
@@ -198,6 +201,7 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
       numberOfPeople: bookingData.numberOfPeople
     });
 
+    // First, create the booking
     const bookingResponse = await fetch('http://localhost:5224/api/bookings', {
       method: 'POST',
       headers: {
@@ -227,11 +231,13 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
     const booking = await bookingResponse.json();
     console.log('Booking created:', booking);
 
+    // Get the booking ID from response
     const bookingId = booking.id || booking.bookingId;
     if (!bookingId) {
       throw new Error('No booking ID returned from server');
     }
 
+    // Then confirm the payment
     const paymentResponse = await fetch('http://localhost:5224/api/payments/confirm', {
       method: 'POST',
       headers: {
@@ -249,6 +255,7 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
       const errorText = await paymentResponse.text();
       console.error('Payment error response:', errorText);
       
+      // Clean up booking if payment fails
       await fetch(`http://localhost:5224/api/bookings/${bookingId}`, {
         method: 'DELETE',
         headers: {
@@ -262,6 +269,7 @@ const handlePaymentSuccess = async (paymentIntentId: string) => {
     const paymentResult = await paymentResponse.json();
     console.log('Payment confirmed:', paymentResult);
 
+    // Success - update UI
     setCurrentStep(2);
     localStorage.removeItem('selectedActivity');
     
