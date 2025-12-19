@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TourismHub.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using TourismHub.Infrastructure.Persistence;
 namespace TourismHub.Infrastructure.Migrations
 {
     [DbContext(typeof(TourismHubDbContext))]
-    partial class TourismHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251218235614_MiiiiIigraationsssss")]
+    partial class MiiiiIigraationsssss
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

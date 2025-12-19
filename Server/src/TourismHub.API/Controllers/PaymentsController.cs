@@ -391,4 +391,4 @@ namespace TourismHub.API.Controllers
         public decimal Amount { get; set; } = 10.00m;
         public string Currency { get; set; } = "usd";
     }
-}
+} 
