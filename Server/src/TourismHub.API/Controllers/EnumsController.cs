@@ -56,13 +56,5 @@ public class EnumsController : ControllerBase
         return Ok(methods);
     }
 
-    [HttpGet("admin-target-types")]
-    public IActionResult GetAdminTargetTypes()
-    {
-        var types = Enum.GetValues(typeof(AdminTargetType))
-            .Cast<AdminTargetType>()
-            .Select(t => new { Id = (int)t, Name = t.ToString() });
-        
-        return Ok(types);
-    }
+  
 }

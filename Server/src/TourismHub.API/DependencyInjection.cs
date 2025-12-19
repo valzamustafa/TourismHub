@@ -38,7 +38,6 @@ namespace TourismHub.API
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IReviewRepository, ReviewRepository>();
             services.AddScoped<IActivityImageRepository, ActivityImageRepository>();
-            services.AddScoped<IAdminLogRepository, AdminLogRepository>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
             
@@ -52,7 +51,7 @@ namespace TourismHub.API
             services.AddScoped<PaymentService>();
             services.AddScoped<ReviewService>();
             services.AddScoped<ActivityImageService>();
-            services.AddScoped<AdminLogService>();
+   
             
   
             services.AddScoped<ITokenService, TokenService>();
